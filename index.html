@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FLL Virtual Robot Simulator</title>
+
+  <!-- PyScript -->
+  <link rel="stylesheet" href="https://pyscript.net/releases/2024.11.1/core.css">
+  <script type="module" src="https://pyscript.net/releases/2024.11.1/core.js"></script>
+
+  <!-- Blockly -->
+  <script src="https://unpkg.com/blockly@10.4.3/blockly.min.js"></script>
+  <script src="https://unpkg.com/blockly@10.4.3/javascript_compressed.js"></script>
+
+  <!-- CodeMirror -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/monokai.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.js"></script>
+
+  <!-- App styles -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- Loading overlay (while PyScript / MicroPython downloads) -->
+<div id="py-loading">
+  <div class="loading-logo">
+    <div class="logo-mark">🤖</div>
+    <span><span class="fll">FLL</span> Virtual Robot</span>
+  </div>
+  <div class="loading-bar-wrap">
+    <div class="loading-bar"></div>
+  </div>
+  <span class="loading-text">Loading MicroPython runtime…</span>
+</div>
+
+<!-- ── Header ──────────────────────────────────────────── -->
+<header>
+  <div class="app-logo">
+    <div class="logo-mark">🤖</div>
+    <h1><span class="fll">FLL</span><span class="sep">/</span><span class="sub">Virtual Robot Simulator</span></h1>
+  </div>
+
+  <div class="tab-group">
+    <button class="tab-btn active" id="tab-python">🐍 Python</button>
+    <button class="tab-btn"        id="tab-blocks">🧱 Blocks</button>
+  </div>
+
+  <div class="spacer"></div>
+
+  <div class="header-controls">
+    <div class="speed-control">
+      <span>Speed</span>
+      <input type="range" id="speed-slider" min="0.25" max="4" step="0.25" value="1">
+      <span id="speed-label">1x</span>
+    </div>
+    <button class="btn btn-reset" id="btn-reset">↺ Reset</button>
+    <button class="btn btn-stop"  id="btn-stop"  disabled>■ Stop</button>
+    <button class="btn btn-run"   id="btn-run"   disabled>▶ Run</button>
+  </div>
+</header>
+
+<!-- ── Main body ────────────────────────────────────────── -->
+<div class="app-body">
+
+  <!-- Left panel: editor -->
+  <div class="panel-left">
+    <div class="editor-wrap">
+      <div id="py-editor-wrap" style="height:100%">
+        <textarea id="py-editor"></textarea>
+      </div>
+      <div id="blockly-div"></div>
+    </div>
+  </div>
+
+  <!-- Resize handle -->
+  <div class="resize-handle" id="resize-handle"></div>
+
+  <!-- Right panel: canvas + console -->
+  <div class="panel-right">
+    <div class="canvas-wrap">
+      <canvas id="robot-canvas"></canvas>
+
+      <!-- Sensor overlay -->
+      <div id="sensor-panel">
+        <h3>Robot State</h3>
+        <div class="sensor-row">
+          <span class="sensor-label">X</span>
+          <span class="sensor-value" id="sp-x">—</span>
+        </div>
+        <div class="sensor-row">
+          <span class="sensor-label">Y</span>
+          <span class="sensor-value" id="sp-y">—</span>
+        </div>
+        <div class="sensor-row">
+          <span class="sensor-label">Heading</span>
+          <span class="sensor-value" id="sp-heading">—</span>
+        </div>
+        <div class="sensor-row">
+          <span class="sensor-label">Color</span>
+          <span class="sensor-value" id="sp-color">none</span>
+          <span class="sensor-color-swatch" id="color-swatch"></span>
+        </div>
+        <div class="sensor-row">
+          <span class="sensor-label">Distance</span>
+          <span class="sensor-value" id="sp-dist">—</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="console-wrap">
+      <div class="console-header">
+        <span class="dot"></span>
+        Console Output
+      </div>
+      <div id="console-output"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Status bar ────────────────────────────────────────── -->
+<div class="status-bar">
+  <div class="status-item">
+    <span class="status-dot ready" id="status-dot"></span>
+    <span id="status-label">Ready</span>
+  </div>
+  <div class="status-item">FLL Virtual Robot Simulator · Spike Prime v3 API</div>
+  <div class="spacer"></div>
+  <div class="status-item">Ctrl+Enter to Run</div>
+</div>
+
+<!-- ── JavaScript ────────────────────────────────────────── -->
+<script src="js/simulator.js"></script>
+<script src="js/blockly_config.js"></script>
+<script src="js/autocomplete.js"></script>
+<script src="js/main.js"></script>
+
+<!-- ── PyScript: Spike Prime API Bridge ─────────────────── -->
+<script type="mpy" src="py/spike_bridge.py"></script>
+
+</body>
+</html>
