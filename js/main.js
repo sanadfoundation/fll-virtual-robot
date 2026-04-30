@@ -263,31 +263,29 @@ function initResizeHandle() {
 
 // ── Default Python code ───────────────────────────────────────────────────────
 
-const DEFAULT_PYTHON_CODE = `# FLL Virtual Robot — Spike Prime v3 API
-# All standard Spike Prime v3 modules are pre-imported:
-#   motor_pair, motor, color_sensor, distance_sensor, force_sensor
-#   hub, color, Port, wait
+const DEFAULT_PYTHON_CODE = `# FLL Virtual Robot — accepts real Spike Prime v3 Python code
+from hub import port, light_matrix, sound
+import motor_pair, motor, runloop
 
-# 1. Declare the drive base (left motor on A, right motor on B)
-motor_pair.pair(motor_pair.PAIR_1, Port.A, Port.B)
+async def main():
+    # Pair the drive motors (left = A, right = B)
+    motor_pair.pair(motor_pair.PAIR_1, port.A, port.B)
 
-# 2. Move straight forward 30 cm at speed 500 (range: -1000..1000)
-motor_pair.move(motor_pair.PAIR_1, 0, 500, 30, 'cm')
+    # Move forward for 2 seconds
+    await motor_pair.move_for_time(motor_pair.PAIR_1, 2000, 0, velocity=500)
 
-# 3. Pause briefly
-wait(500)
+    # Turn right 90° (tank turn: 180° wheel rotation = 90° robot turn)
+    await motor_pair.move_tank(motor_pair.PAIR_1, 500, -500, 180, 'degrees')
 
-# 4. Turn right 90°  (move_tank: 180° wheel rotation = 90° robot turn)
-motor_pair.move_tank(motor_pair.PAIR_1, 500, -500, 180, 'degrees')
+    # Move forward for 1 second
+    await motor_pair.move_for_time(motor_pair.PAIR_1, 1000, 0, velocity=500)
 
-# 5. Move forward 20 cm
-motor_pair.move(motor_pair.PAIR_1, 0, 500, 20, 'cm')
+    # Celebrate
+    light_matrix.write('Done')
+    sound.beep(72, 0.4)
+    print('Mission complete!')
 
-# 6. Celebrate: display text and beep
-hub.light_matrix.write('Done')
-hub.speaker.beep(72, 0.4)
-
-print('Mission complete!')
+runloop.run(main())
 `;
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────

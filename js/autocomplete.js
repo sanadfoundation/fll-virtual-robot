@@ -22,21 +22,25 @@ const MICROPYTHON_BUILTINS = [
 
 const SPIKE_GLOBALS = [
   'motor_pair', 'motor', 'color_sensor', 'distance_sensor',
-  'force_sensor', 'hub', 'color', 'Port', 'wait',
+  'force_sensor', 'hub', 'color', 'Port', 'port', 'wait', 'runloop',
 ];
 
 // ── Member completions keyed by object path ──────────────────────────────────
 
 const SPIKE_MEMBERS = {
   'motor_pair': [
+    'move_for_time', 'move_for_degrees', 'move_for_rotations',
     'pair', 'unpair', 'move', 'move_tank', 'start', 'start_tank',
     'start_at_power', 'stop', 'get_default_speed',
     'PAIR_1', 'PAIR_2', 'PAIR_3',
   ],
   'motor': [
-    'run_for_degrees', 'run_for_time', 'run', 'stop',
+    'run_for_degrees', 'run_for_time', 'run_to_absolute_position',
+    'run_to_relative_position', 'run', 'stop',
     'get_speed', 'get_position', 'get_degrees_counted',
   ],
+  'port': ['A', 'B', 'C', 'D', 'E', 'F'],
+  'runloop': ['run'],
   'color_sensor': ['color', 'reflection', 'ambient_light', 'rgb', 'rgbi'],
   'distance_sensor': [
     'distance', 'presence', 'get_distance_cm', 'get_distance_inches',
