@@ -177,6 +177,7 @@ async function runBlockly() {
   setButtons(true);
   sim.isRunning = true;
   sim._setStatus('running');
+  window._blkVolume = 100;
 
   try {
     const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
