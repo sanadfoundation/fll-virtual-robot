@@ -32,14 +32,12 @@ module.exports = [
     },
   },
   {
-    name: 'reset(): restores position, heading, trail, and cmdQueue',
+    name: 'reset(): restores position, heading, trail, and pairMap',
     async fn(createSim, assert) {
       const sim = createSim();
-      // Mutate state
       sim.robot.x = 1000;
       sim.robot.y = 500;
       sim.robot.heading = 45;
-      sim.cmdQueue = [{ type: 'stop' }];
       sim.pairMap  = { 0: { left: 'A', right: 'B' } };
       sim.trail.push({ x: 1000, y: 500 });
 
@@ -48,7 +46,6 @@ module.exports = [
       assert.strictEqual(sim.robot.x, 350);
       assert.strictEqual(sim.robot.y, 980);
       assert.strictEqual(sim.robot.heading, -90);
-      assert.strictEqual(sim.cmdQueue.length, 0);
       assert.strictEqual(Object.keys(sim.pairMap).length, 0);
       assert.strictEqual(sim.trail.length, 1);
     },
@@ -97,26 +94,6 @@ module.exports = [
       sim._clampRobot();
       assert.strictEqual(sim.robot.x, 1181);
       assert.strictEqual(sim.robot.y, 571);
-    },
-  },
-  {
-    name: 'receiveCommands: parses JSON and stores in cmdQueue',
-    fn(createSim, assert) {
-      const sim = createSim();
-      const cmds = [{ type: 'stop', pair_id: 0 }];
-      sim.receiveCommands(JSON.stringify(cmds));
-      assert.strictEqual(sim.cmdQueue.length, 1);
-      assert.strictEqual(sim.cmdQueue[0].type, 'stop');
-      assert.strictEqual(sim.cmdQueue[0].pair_id, 0);
-    },
-  },
-  {
-    name: 'receiveCommands: bad JSON leaves cmdQueue unchanged',
-    fn(createSim, assert) {
-      const sim = createSim();
-      sim.cmdQueue = [{ type: 'stop' }];
-      sim.receiveCommands('{not json');
-      assert.deepStrictEqual(sim.cmdQueue, [{ type: 'stop' }]);
     },
   },
 ];

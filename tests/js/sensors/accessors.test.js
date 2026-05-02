@@ -4,17 +4,17 @@
 
 module.exports = [
   {
-    name: 'getColorSensorColor: returns shadowRobot.sensors.colorValue (default "none")',
+    name: 'getColorSensorColor: returns robot.sensors.colorValue (default "none")',
     fn(createSim, assert) {
       const sim = createSim();
       assert.strictEqual(sim.getColorSensorColor(), 'none');
     },
   },
   {
-    name: 'getColorSensorColor: reflects shadowRobot.sensors.colorValue',
+    name: 'getColorSensorColor: reflects robot.sensors.colorValue',
     fn(createSim, assert) {
       const sim = createSim();
-      sim.shadowRobot.sensors.colorValue = 'black';
+      sim.robot.sensors.colorValue = 'black';
       assert.strictEqual(sim.getColorSensorColor(), 'black');
     },
   },

@@ -88,16 +88,12 @@ class RobotSimulator {
 
     this.robot     = makeRobotState();
     this.trail     = [{ x: this.robot.x, y: this.robot.y }];
-    this.cmdQueue  = [];
     this.isRunning = false;
     this.speedMult = 1.0;
     this.pairMap   = {};  // pair_id → { left, right }
 
     this._missionBoxes   = [];
     this._stopRequested  = false;
-
-    this.shadowRobot   = makeRobotState();
-    this.shadowPairMap = {};
 
     this._scale = 1;
     this._offX  = 0;
@@ -355,47 +351,16 @@ class RobotSimulator {
     }
   }
 
-  // ── Command queue public API ────────────────────────────────────────────────
-
-  receiveCommands(jsonStr) {
-    try {
-      const cmds = JSON.parse(jsonStr);
-      this.cmdQueue = cmds;
-    } catch (e) {
-      console.error('Bad command JSON:', e);
-    }
-  }
-
-  async playQueue() {
-    if (this.isRunning) return;
-    this.isRunning = true;
-    this._setStatus('running');
-
-    for (const cmd of this.cmdQueue) {
-      if (!this.isRunning) break;
-      try {
-        await this._execCmd(cmd);
-      } catch (e) {
-        console.error('Command error:', e);
-      }
-    }
-
-    this.isRunning = false;
-    this._setStatus('ready');
-  }
-
   stop() {
     this.isRunning = false;
   }
 
   reset() {
     this.stop();
-    this.robot  = makeRobotState();
-    this.trail  = [{ x: this.robot.x, y: this.robot.y }];
-    this.cmdQueue = [];
-    this.pairMap  = {};
-    this.shadowRobot   = makeRobotState();
-    this.shadowPairMap = {};
+    this.robot   = makeRobotState();
+    this.trail   = [{ x: this.robot.x, y: this.robot.y }];
+    this.pairMap = {};
+    this._stopRequested = false;
     this._setStatus('ready');
   }
 
@@ -650,123 +615,6 @@ class RobotSimulator {
     return (dx * dx + dy * dy) <= (90 * 90);
   }
 
-  // ── Shadow robot (projected sensor state) ──────────────────────────────────
-  // The shadow robot tracks the projected position as Python queues commands,
-  // so sensor reads during Python execution return position-accurate values.
-
-  resetShadow() {
-    this.shadowRobot = {
-      x:       this.robot.x,
-      y:       this.robot.y,
-      heading: this.robot.heading,
-      motors:  { ...this.robot.motors },
-      sensors: { ...this.robot.sensors },
-      display: [...this.robot.display],
-    };
-    this.shadowPairMap = { ...this.pairMap };
-    this._shadowUpdateSensors();
-  }
-
-  shadowCmd(jsonStr) {
-    try {
-      const cmd = JSON.parse(String(jsonStr));
-      this._shadowExecCmd(cmd);
-    } catch (e) {
-      console.error('Shadow command error:', e);
-    }
-  }
-
-  _shadowExecCmd(cmd) {
-    switch (cmd.type) {
-      case 'pair':
-        this.shadowPairMap[cmd.pair_id] = { left: cmd.left, right: cmd.right };
-        break;
-      case 'move': {
-        const distMM = this._amountToMM(cmd.amount, cmd.unit);
-        const spd    = cmd.speed / 1000;
-        const steer  = (cmd.steering || 0) / 100;
-        this._shadowApplyTank(spd * (1 + steer), spd * (1 - steer), distMM);
-        break;
-      }
-      case 'move_tank': {
-        const distMM = this._amountToMM(cmd.amount, cmd.unit);
-        this._shadowApplyTank(cmd.left_speed / 1000, cmd.right_speed / 1000, distMM);
-        break;
-      }
-      case 'start':
-      case 'start_tank': {
-        const lv = cmd.type === 'start' ? cmd.speed / 1000 : cmd.left_speed / 1000;
-        const rv = cmd.type === 'start' ? cmd.speed / 1000 : cmd.right_speed / 1000;
-        this._shadowApplyTank(lv, rv, 200);
-        break;
-      }
-      case 'motor_degrees': {
-        const distMM = (cmd.degrees / 360) * WHEEL_CIRC_MM;
-        this._shadowApplyMotor(cmd.port, (cmd.velocity || 500) / 1000, distMM);
-        break;
-      }
-      case 'motor_time': {
-        const ms   = cmd.time_ms || 1000;
-        const v    = (cmd.velocity || 500) / 1000;
-        this._shadowApplyMotor(cmd.port, v, Math.abs(v) * MM_PER_MS_100 * ms);
-        break;
-      }
-      case 'motor_run':
-        this._shadowApplyMotor(cmd.port, (cmd.velocity || 500) / 1000, 180);
-        break;
-    }
-    this._shadowUpdateSensors();
-  }
-
-  _shadowApplyTank(leftV, rightV, refDistMM) {
-    const maxV     = Math.max(Math.abs(leftV), Math.abs(rightV), 0.01);
-    const totalMM  = Math.abs(refDistMM);
-    if (totalMM < 0.1) return;
-
-    const scale      = totalMM / maxV;
-    const leftTotal  = leftV  * scale;
-    const rightTotal = rightV * scale;
-    const avg        = (leftTotal + rightTotal) / 2;
-    const dH_rad     = -(rightTotal - leftTotal) / TRACK_W_MM;
-    const h0_rad     = this.shadowRobot.heading * Math.PI / 180;
-
-    if (Math.abs(dH_rad) < 1e-9) {
-      this.shadowRobot.x += Math.cos(h0_rad) * avg;
-      this.shadowRobot.y += Math.sin(h0_rad) * avg;
-    } else {
-      const h1_rad = h0_rad + dH_rad;
-      const r      = avg / dH_rad;
-      this.shadowRobot.x += r * (Math.sin(h1_rad) - Math.sin(h0_rad));
-      this.shadowRobot.y += r * (Math.cos(h0_rad) - Math.cos(h1_rad));
-      this.shadowRobot.heading = h1_rad * (180 / Math.PI);
-    }
-
-    this.shadowRobot.x = Math.max(0, Math.min(FIELD_W_MM, this.shadowRobot.x));
-    this.shadowRobot.y = Math.max(0, Math.min(FIELD_H_MM, this.shadowRobot.y));
-  }
-
-  _shadowApplyMotor(port, velocity, distMM) {
-    const pair = this._shadowFindPairForPort(port);
-    if (pair) {
-      const isLeft = pair.left === port;
-      this._shadowApplyTank(isLeft ? velocity : 0, isLeft ? 0 : velocity, distMM);
-    }
-    const deg = (distMM / WHEEL_CIRC_MM) * 360 * (velocity >= 0 ? 1 : -1);
-    this.shadowRobot.motors[port] = (this.shadowRobot.motors[port] || 0) + deg;
-  }
-
-  _shadowFindPairForPort(port) {
-    for (const p of Object.values(this.shadowPairMap)) {
-      if (p.left === port || p.right === port) return p;
-    }
-    return null;
-  }
-
-  _shadowUpdateSensors() {
-    const pos = this._sensorPosition(this.shadowRobot);
-    this.shadowRobot.sensors.colorValue = this._colorAtPosition(pos.x, pos.y);
-  }
-
   _sensorPosition(robot) {
     const localY = ROBOT_BODY_H / 2 - 12;  // 88mm from center to color sensor
     const rotRad = (robot.heading + 90) * Math.PI / 180;
@@ -817,23 +665,21 @@ class RobotSimulator {
   }
 
   // ── Sensor accessors (called from Python via JS bridge) ─────────────────────
-  // All reads return shadow state — the projected position as commands were queued —
-  // so sensor values reflect where the robot will be, not where it started.
 
-  getColorSensorColor() { return this.shadowRobot.sensors.colorValue; }
+  getColorSensorColor() { return this.robot.sensors.colorValue; }
 
   getColorSensorReflection() {
     const reflMap = {
       white: 90, yellow: 75, cyan: 70, orange: 65, green: 60,
       magenta: 55, red: 50, blue: 45, black: 5, none: 50,
     };
-    return reflMap[this.shadowRobot.sensors.colorValue] ?? 50;
+    return reflMap[this.robot.sensors.colorValue] ?? 50;
   }
 
   getColorSensorAmbient() { return 30; }
 
   getColorSensorRGB() {
-    const c = COLOR_MAP[this.shadowRobot.sensors.colorValue];
+    const c = COLOR_MAP[this.robot.sensors.colorValue];
     if (!c) return [128, 128, 128];
     const hex = c.replace('#', '');
     if (hex.length === 6) {
@@ -851,7 +697,7 @@ class RobotSimulator {
   getForceSensorValue()       { return 0; }
   getForceSensorPressed()     { return false; }
   getMotorSpeed(port)         { return 0; }
-  getMotorPosition(port)      { return this.shadowRobot.motors[port] || 0; }
+  getMotorPosition(port)      { return this.robot.motors[port] || 0; }
 
   // ── Audio ───────────────────────────────────────────────────────────────────
 
