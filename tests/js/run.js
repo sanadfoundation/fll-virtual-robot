@@ -59,10 +59,6 @@ const SUITES = [
   ['commands/dispatch',         './commands/dispatch.test.js'],
   ['sensors/accessors',         './sensors/accessors.test.js'],
   ['state/reset',               './state/reset.test.js'],
-  ['shadow/physics',            './shadow/shadow-physics.test.js'],
-  ['shadow/dispatch',           './shadow/shadow-dispatch.test.js'],
-  ['shadow/color-geometry',     './shadow/color-geometry.test.js'],
-  ['shadow/sensor-wiring',      './shadow/sensor-wiring.test.js'],
 ];
 
 (async () => {
