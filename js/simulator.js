@@ -569,6 +569,32 @@ class RobotSimulator {
     this.robot.y = Math.max(0, Math.min(FIELD_H_MM, this.robot.y));
   }
 
+  // ── SAB sensor snapshot ──────────────────────────────────────────────────────
+
+  _sensorState() {
+    const r = this.robot;
+    return {
+      x:           r.x,
+      y:           r.y,
+      heading:     r.heading,
+      color:       r.sensors.colorValue,
+      distance_mm: r.sensors.distanceMM,
+      motors:      { ...r.motors },
+      stopped:     false,
+    };
+  }
+
+  // ── AABB collision ───────────────────────────────────────────────────────────
+  // Treats robot as circle radius 90mm. box = {x,y,w,h} in mm (x/y = top-left).
+
+  _robotOverlapsAABB(robot, box) {
+    const closestX = Math.max(box.x, Math.min(robot.x, box.x + box.w));
+    const closestY = Math.max(box.y, Math.min(robot.y, box.y + box.h));
+    const dx = robot.x - closestX;
+    const dy = robot.y - closestY;
+    return (dx * dx + dy * dy) <= (90 * 90);
+  }
+
   // ── Shadow robot (projected sensor state) ──────────────────────────────────
   // The shadow robot tracks the projected position as Python queues commands,
   // so sensor reads during Python execution return position-accurate values.

@@ -56,9 +56,11 @@ async function runSuite(label, tests) {
 const SUITES = [
   ['physics/conversions',       './physics/conversions.test.js'],
   ['physics/tank-math',         './physics/tank-math.test.js'],
+  ['physics/aabb',              './physics/aabb.test.js'],
   ['commands/dispatch',         './commands/dispatch.test.js'],
   ['sensors/accessors',         './sensors/accessors.test.js'],
   ['state/reset',               './state/reset.test.js'],
+  ['state/sensor-state',        './state/sensor-state.test.js'],
 ];
 
 (async () => {
