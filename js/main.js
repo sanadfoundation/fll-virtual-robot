@@ -40,6 +40,9 @@ window.receiveCommands = function(jsonStr) {
   if (sim) sim.receiveCommands(String(jsonStr));
 };
 
+window.shadowCmd   = (jsonStr) => sim?.shadowCmd(jsonStr);
+window.resetShadow = ()        => sim?.resetShadow();
+
 window.getColorSensorColor      = ()     => sim ? sim.getColorSensorColor()       : 'none';
 window.getColorSensorReflection = ()     => sim ? sim.getColorSensorReflection()  : 0;
 window.getColorSensorAmbient    = ()     => sim ? sim.getColorSensorAmbient()     : 0;

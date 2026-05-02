@@ -24,7 +24,9 @@ class _Awaitable:
         return self  # CPython compat
 
 def _q(cmd):
-    return _Awaitable(cmd)
+    _cmds.append(cmd)
+    window.shadowCmd(json.dumps(cmd))
+    return _Awaitable(None)
 
 # ── color ──────────────────────────────────────────────────────────────────────
 
@@ -342,6 +344,7 @@ def run_user_code(code):
     }
 
     try:
+        window.resetShadow()
         exec(compile(str(code), '<user>', 'exec'), ns)
         window.receiveCommands(json.dumps(_cmds))
     except Exception as exc:

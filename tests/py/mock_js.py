@@ -10,6 +10,11 @@ The window object provides all the window.* callables spike_bridge needs.
 class _Window:
     """Minimal stub for the browser window object used by spike_bridge."""
 
+    def __init__(self):
+        self._last_commands = []
+        self._shadow_cmds = []
+        self._reset_count = 0
+
     def getColorSensorColor(self):        return 'none'
     def getColorSensorReflection(self):   return 50
     def getColorSensorAmbient(self):      return 30
@@ -24,6 +29,13 @@ class _Window:
     def receiveCommands(self, json_str):
         import json
         self._last_commands = json.loads(json_str)
+
+    def shadowCmd(self, json_str):
+        import json
+        self._shadow_cmds.append(json.loads(json_str))
+
+    def resetShadow(self):
+        self._reset_count += 1
 
     def appendOutput(self, text):
         pass  # suppress output during tests

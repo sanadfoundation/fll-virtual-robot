@@ -50,15 +50,15 @@ const COLOR_MAP = {
 const FIELD_OBJECTS = [
   // Home area
   { type: 'rect', x: 80, y: 780, w: 600, h: 300, fill: 'rgba(100,160,255,0.18)', stroke: '#4488ff', lw: 3, label: 'HOME' },
-  // A few mission areas (representative)
-  { type: 'rect', x: 900,  y: 100,  w: 200, h: 200, fill: 'rgba(255,200,100,0.2)', stroke: '#f0a830', lw: 2 },
-  { type: 'rect', x: 1600, y: 100,  w: 200, h: 200, fill: 'rgba(100,220,150,0.2)', stroke: '#30c060', lw: 2 },
-  { type: 'rect', x: 1900, y: 700,  w: 200, h: 200, fill: 'rgba(220,100,100,0.2)', stroke: '#cc4444', lw: 2 },
+  // Mission areas — sensorColor defines what the color sensor reads inside each zone
+  { type: 'rect', x: 900,  y: 100,  w: 200, h: 200, fill: 'rgba(255,200,100,0.2)', stroke: '#f0a830', lw: 2, sensorColor: 'yellow' },
+  { type: 'rect', x: 1600, y: 100,  w: 200, h: 200, fill: 'rgba(100,220,150,0.2)', stroke: '#30c060', lw: 2, sensorColor: 'green'  },
+  { type: 'rect', x: 1900, y: 700,  w: 200, h: 200, fill: 'rgba(220,100,100,0.2)', stroke: '#cc4444', lw: 2, sensorColor: 'red'    },
   // Colored lines on the mat
-  { type: 'line', x1: 0,    y1: 680, x2: 2362, y2: 680, stroke: '#222', lw: 4 },
+  { type: 'line', x1: 0,    y1: 680, x2: 2362, y2: 680, stroke: '#222', lw: 4, sensorColor: 'black' },
   { type: 'circle', x: 1181, y: 571, r: 80, fill: 'rgba(200,200,200,0.2)', stroke: '#888', lw: 2 },
   // Launch line
-  { type: 'line', x1: 0,    y1: 1000, x2: 680, y2: 1000, stroke: '#222', lw: 3 },
+  { type: 'line', x1: 0,    y1: 1000, x2: 680, y2: 1000, stroke: '#222', lw: 3, sensorColor: 'black' },
 ];
 
 // ── Robot state ──────────────────────────────────────────────────────────────
@@ -92,6 +92,9 @@ class RobotSimulator {
     this.isRunning = false;
     this.speedMult = 1.0;
     this.pairMap   = {};  // pair_id → { left, right }
+
+    this.shadowRobot   = makeRobotState();
+    this.shadowPairMap = {};
 
     this._scale = 1;
     this._offX  = 0;
@@ -388,6 +391,8 @@ class RobotSimulator {
     this.trail  = [{ x: this.robot.x, y: this.robot.y }];
     this.cmdQueue = [];
     this.pairMap  = {};
+    this.shadowRobot   = makeRobotState();
+    this.shadowPairMap = {};
     this._setStatus('ready');
   }
 
@@ -526,6 +531,9 @@ class RobotSimulator {
       this.trail.push({ x: this.robot.x, y: this.robot.y });
       this._clampRobot();
 
+      const sp = this._sensorPosition(this.robot);
+      this.robot.sensors.colorValue = this._colorAtPosition(sp.x, sp.y);
+
       await this._sleep(dt);
     }
   }
@@ -557,6 +565,157 @@ class RobotSimulator {
     this.robot.y = Math.max(0, Math.min(FIELD_H_MM, this.robot.y));
   }
 
+  // ── Shadow robot (projected sensor state) ──────────────────────────────────
+  // The shadow robot tracks the projected position as Python queues commands,
+  // so sensor reads during Python execution return position-accurate values.
+
+  resetShadow() {
+    this.shadowRobot = {
+      x:       this.robot.x,
+      y:       this.robot.y,
+      heading: this.robot.heading,
+      motors:  { ...this.robot.motors },
+      sensors: { ...this.robot.sensors },
+      display: [...this.robot.display],
+    };
+    this.shadowPairMap = { ...this.pairMap };
+    this._shadowUpdateSensors();
+  }
+
+  shadowCmd(jsonStr) {
+    try {
+      const cmd = JSON.parse(String(jsonStr));
+      this._shadowExecCmd(cmd);
+    } catch (e) {
+      console.error('Shadow command error:', e);
+    }
+  }
+
+  _shadowExecCmd(cmd) {
+    switch (cmd.type) {
+      case 'pair':
+        this.shadowPairMap[cmd.pair_id] = { left: cmd.left, right: cmd.right };
+        break;
+      case 'move': {
+        const distMM = this._amountToMM(cmd.amount, cmd.unit);
+        const spd    = cmd.speed / 1000;
+        const steer  = (cmd.steering || 0) / 100;
+        this._shadowApplyTank(spd * (1 + steer), spd * (1 - steer), distMM);
+        break;
+      }
+      case 'move_tank': {
+        const distMM = this._amountToMM(cmd.amount, cmd.unit);
+        this._shadowApplyTank(cmd.left_speed / 1000, cmd.right_speed / 1000, distMM);
+        break;
+      }
+      case 'start':
+      case 'start_tank': {
+        const lv = cmd.type === 'start' ? cmd.speed / 1000 : cmd.left_speed / 1000;
+        const rv = cmd.type === 'start' ? cmd.speed / 1000 : cmd.right_speed / 1000;
+        this._shadowApplyTank(lv, rv, 200);
+        break;
+      }
+      case 'motor_degrees': {
+        const distMM = (cmd.degrees / 360) * WHEEL_CIRC_MM;
+        this._shadowApplyMotor(cmd.port, (cmd.velocity || 500) / 1000, distMM);
+        break;
+      }
+      case 'motor_time': {
+        const ms   = cmd.time_ms || 1000;
+        const v    = (cmd.velocity || 500) / 1000;
+        this._shadowApplyMotor(cmd.port, v, Math.abs(v) * MM_PER_MS_100 * ms);
+        break;
+      }
+      case 'motor_run':
+        this._shadowApplyMotor(cmd.port, (cmd.velocity || 500) / 1000, 180);
+        break;
+    }
+    this._shadowUpdateSensors();
+  }
+
+  _shadowApplyTank(leftV, rightV, refDistMM) {
+    const maxV     = Math.max(Math.abs(leftV), Math.abs(rightV), 0.01);
+    const totalMM  = Math.abs(refDistMM);
+    if (totalMM < 0.1) return;
+
+    const scale      = totalMM / maxV;
+    const leftTotal  = leftV  * scale;
+    const rightTotal = rightV * scale;
+    const avg        = (leftTotal + rightTotal) / 2;
+    const dH_rad     = -(rightTotal - leftTotal) / TRACK_W_MM;
+    const h0_rad     = this.shadowRobot.heading * Math.PI / 180;
+
+    if (Math.abs(dH_rad) < 1e-9) {
+      this.shadowRobot.x += Math.cos(h0_rad) * avg;
+      this.shadowRobot.y += Math.sin(h0_rad) * avg;
+    } else {
+      const h1_rad = h0_rad + dH_rad;
+      const r      = avg / dH_rad;
+      this.shadowRobot.x += r * (Math.sin(h1_rad) - Math.sin(h0_rad));
+      this.shadowRobot.y += r * (Math.cos(h0_rad) - Math.cos(h1_rad));
+      this.shadowRobot.heading = h1_rad * (180 / Math.PI);
+    }
+
+    this.shadowRobot.x = Math.max(0, Math.min(FIELD_W_MM, this.shadowRobot.x));
+    this.shadowRobot.y = Math.max(0, Math.min(FIELD_H_MM, this.shadowRobot.y));
+  }
+
+  _shadowApplyMotor(port, velocity, distMM) {
+    const pair = this._shadowFindPairForPort(port);
+    if (pair) {
+      const isLeft = pair.left === port;
+      this._shadowApplyTank(isLeft ? velocity : 0, isLeft ? 0 : velocity, distMM);
+    }
+    const deg = (distMM / WHEEL_CIRC_MM) * 360 * (velocity >= 0 ? 1 : -1);
+    this.shadowRobot.motors[port] = (this.shadowRobot.motors[port] || 0) + deg;
+  }
+
+  _shadowFindPairForPort(port) {
+    for (const p of Object.values(this.shadowPairMap)) {
+      if (p.left === port || p.right === port) return p;
+    }
+    return null;
+  }
+
+  _shadowUpdateSensors() {
+    const pos = this._sensorPosition(this.shadowRobot);
+    this.shadowRobot.sensors.colorValue = this._colorAtPosition(pos.x, pos.y);
+  }
+
+  _sensorPosition(robot) {
+    const localY = ROBOT_BODY_H / 2 - 12;  // 88mm from center to color sensor
+    const rotRad = (robot.heading + 90) * Math.PI / 180;
+    return {
+      x: robot.x - localY * Math.sin(rotRad),
+      y: robot.y + localY * Math.cos(rotRad),
+    };
+  }
+
+  _colorAtPosition(x, y) {
+    for (const obj of FIELD_OBJECTS) {
+      if (!obj.sensorColor) continue;
+      if (obj.type === 'line') {
+        const dist = this._pointToLineDist(x, y, obj.x1, obj.y1, obj.x2, obj.y2);
+        if (dist <= Math.max((obj.lw || 1) / 2, 20)) return obj.sensorColor;
+      } else if (obj.type === 'rect') {
+        if (x >= obj.x && x <= obj.x + obj.w && y >= obj.y && y <= obj.y + obj.h)
+          return obj.sensorColor;
+      } else if (obj.type === 'circle') {
+        const dx = x - obj.x, dy = y - obj.y;
+        if (Math.sqrt(dx * dx + dy * dy) <= obj.r) return obj.sensorColor;
+      }
+    }
+    return 'none';
+  }
+
+  _pointToLineDist(px, py, x1, y1, x2, y2) {
+    const dx = x2 - x1, dy = y2 - y1;
+    const lenSq = dx * dx + dy * dy;
+    if (lenSq === 0) return Math.hypot(px - x1, py - y1);
+    const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / lenSq));
+    return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+  }
+
   // ── LED display helpers ─────────────────────────────────────────────────────
 
   _showText(text) {
@@ -573,17 +732,41 @@ class RobotSimulator {
   }
 
   // ── Sensor accessors (called from Python via JS bridge) ─────────────────────
+  // All reads return shadow state — the projected position as commands were queued —
+  // so sensor values reflect where the robot will be, not where it started.
 
-  getColorSensorColor()      { return this.robot.sensors.colorValue; }
-  getColorSensorReflection() { return 50; }
-  getColorSensorAmbient()    { return 30; }
-  getColorSensorRGB()        { return [128, 128, 128]; }
-  getDistanceSensorValue()   { return this.robot.sensors.distanceMM; }
-  getDistanceSensorPresence(){ return this.robot.sensors.distanceMM < 100; }
-  getForceSensorValue()      { return 0; }
-  getForceSensorPressed()    { return false; }
-  getMotorSpeed(port)        { return 0; }
-  getMotorPosition(port)     { return this.robot.motors[port] || 0; }
+  getColorSensorColor() { return this.shadowRobot.sensors.colorValue; }
+
+  getColorSensorReflection() {
+    const reflMap = {
+      white: 90, yellow: 75, cyan: 70, orange: 65, green: 60,
+      magenta: 55, red: 50, blue: 45, black: 5, none: 50,
+    };
+    return reflMap[this.shadowRobot.sensors.colorValue] ?? 50;
+  }
+
+  getColorSensorAmbient() { return 30; }
+
+  getColorSensorRGB() {
+    const c = COLOR_MAP[this.shadowRobot.sensors.colorValue];
+    if (!c) return [128, 128, 128];
+    const hex = c.replace('#', '');
+    if (hex.length === 6) {
+      return [
+        parseInt(hex.slice(0, 2), 16),
+        parseInt(hex.slice(2, 4), 16),
+        parseInt(hex.slice(4, 6), 16),
+      ];
+    }
+    return [128, 128, 128];
+  }
+
+  getDistanceSensorValue()    { return this.robot.sensors.distanceMM; }
+  getDistanceSensorPresence() { return this.robot.sensors.distanceMM < 100; }
+  getForceSensorValue()       { return 0; }
+  getForceSensorPressed()     { return false; }
+  getMotorSpeed(port)         { return 0; }
+  getMotorPosition(port)      { return this.shadowRobot.motors[port] || 0; }
 
   // ── Audio ───────────────────────────────────────────────────────────────────
 
