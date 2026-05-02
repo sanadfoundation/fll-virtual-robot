@@ -15,17 +15,6 @@ def postMessage(data):
     pass
 
 
-class _Window:
-    """Minimal window object for spike_bridge to load."""
-    def shadowCmd(self, json_str):
-        pass
-    def onPyReady(self):
-        pass
-
-
-window = _Window()
-
-
 class BridgeMock:
     """
     Intercepts spike_bridge._bridge_call to record commands without SAB/Atomics.
