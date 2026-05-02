@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FLL Virtual Robot Simulator</title>
 
+  <!-- MUST be first — registers service worker, reloads once, then injects
+       COOP + COEP headers required for SharedArrayBuffer. -->
+  <script src="https://cdn.jsdelivr.net/gh/gzuidhof/coi-serviceworker@v0.1.7/coi-serviceworker.min.js"></script>
+
   <!-- PyScript -->
   <link rel="stylesheet" href="https://pyscript.net/releases/2024.11.1/core.css">
   <script type="module" src="https://pyscript.net/releases/2024.11.1/core.js"></script>
@@ -141,7 +145,7 @@
 <script src="js/main.js"></script>
 
 <!-- ── PyScript: Spike Prime API Bridge ─────────────────── -->
-<script type="mpy" src="py/spike_bridge.py"></script>
+<script type="mpy" worker src="py/spike_bridge.py"></script>
 
 </body>
 </html>

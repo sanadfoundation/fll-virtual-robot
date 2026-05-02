@@ -30,30 +30,6 @@ function clearOutput() {
 
 window.appendOutput = appendOutput;
 
-// ── JS bridge functions called from Python via PyScript ──────────────────────
-
-window.queueSimCommand = function(jsonStr) {
-  // Legacy single-command path (unused in new model)
-};
-
-window.receiveCommands = function(jsonStr) {
-  if (sim) sim.receiveCommands(String(jsonStr));
-};
-
-window.shadowCmd   = (jsonStr) => sim?.shadowCmd(jsonStr);
-window.resetShadow = ()        => sim?.resetShadow();
-
-window.getColorSensorColor      = ()     => sim ? sim.getColorSensorColor()       : 'none';
-window.getColorSensorReflection = ()     => sim ? sim.getColorSensorReflection()  : 0;
-window.getColorSensorAmbient    = ()     => sim ? sim.getColorSensorAmbient()     : 0;
-window.getColorSensorRGB        = ()     => sim ? sim.getColorSensorRGB()         : [0,0,0];
-window.getDistanceSensorValue   = ()     => sim ? sim.getDistanceSensorValue()    : 999;
-window.getDistanceSensorPresence= ()     => sim ? sim.getDistanceSensorPresence() : false;
-window.getForceSensorValue      = ()     => sim ? sim.getForceSensorValue()       : 0;
-window.getForceSensorPressed    = ()     => sim ? sim.getForceSensorPressed()     : false;
-window.getMotorSpeed            = (port) => sim ? sim.getMotorSpeed(port)         : 0;
-window.getMotorPosition         = (port) => sim ? sim.getMotorPosition(port)      : 0;
-
 // ── Initialization ────────────────────────────────────────────────────────────
 
 function initEditor() {
@@ -87,6 +63,10 @@ function initEditor() {
 function initSim() {
   sim = new RobotSimulator('robot-canvas');
   window.sim = sim;
+
+  const sab = new SharedArrayBuffer(5132);
+  sim.setupSAB(sab);
+  window._sab = sab;   // stored so pyWorker can receive it after 'ready'
 }
 
 function initBlocklyWorkspace() {
@@ -141,24 +121,11 @@ async function runPython() {
     appendOutput('[!] Python runtime not ready yet. Please wait...', 'warn');
     return;
   }
-
-  const code = editor.getValue();
-  appendOutput('[Run] Executing Python code…', 'info');
+  clearOutput();
   setButtons(true);
-
-  try {
-    const fn = window.pyRunCode;
-    if (!fn) throw new Error('Python bridge not initialized');
-    // fn() is synchronous: it execs user code and calls receiveCommands()
-    fn(code);
-    // Now animate the queued commands
-    await sim.playQueue();
-    appendOutput('[Done] Simulation complete.', 'info');
-  } catch (e) {
-    appendOutput('[Error] ' + e.message, 'error');
-  } finally {
-    setButtons(false);
-  }
+  sim._stopRequested = false;
+  appendOutput('[Run] Executing Python code…', 'info');
+  window._pyWorker.postMessage({ type: 'run', code: editor.getValue() });
 }
 
 async function runBlockly() {
@@ -197,7 +164,8 @@ async function runBlockly() {
 }
 
 function handleStop() {
-  if (sim) sim.stop();
+  sim._stopRequested = true;
+  sim.isRunning = false;
   setButtons(false);
   appendOutput('[Stopped]', 'warn');
 }
@@ -205,6 +173,9 @@ function handleStop() {
 function handleReset() {
   if (sim) sim.reset();
   clearOutput();
+  if (window._pyWorker && window._sab) {
+    window._pyWorker.postMessage({ type: 'sab', sab: window._sab });
+  }
   appendOutput('[Ready] Simulator reset.', 'info');
 }
 
@@ -226,12 +197,40 @@ function updateSpeed(val) {
 // ── PyScript ready callback ───────────────────────────────────────────────────
 
 window.onPyReady = function() {
-  pyReady = true;
-  const overlay = document.getElementById('py-loading');
-  if (overlay) overlay.classList.add('hidden');
-  appendOutput('[Ready] Python runtime loaded.', 'info');
-  document.getElementById('btn-run').disabled = false;
+  // Legacy path — unused in new model. Worker fires 'ready' message instead.
 };
+
+// ── PyScript worker bootstrap ─────────────────────────────────────────────────
+// PyScript sets .xworker on the <script type="mpy" worker> element after init.
+// We poll once per frame until it appears, then exchange the SAB.
+
+function _pollForWorker() {
+  const el = document.querySelector('script[type="mpy"][worker]');
+  const worker = el && el.xworker;
+  if (!worker) {
+    requestAnimationFrame(_pollForWorker);
+    return;
+  }
+  window._pyWorker = worker;
+
+  worker.addEventListener('message', ({ data }) => {
+    if (data.type === 'ready') {
+      worker.postMessage({ type: 'sab', sab: window._sab });
+    } else if (data.type === 'ready_ack') {
+      pyReady = true;
+      const overlay = document.getElementById('py-loading');
+      if (overlay) overlay.classList.add('hidden');
+      document.getElementById('btn-run').disabled = false;
+      appendOutput('[Ready] Python runtime loaded.', 'info');
+    } else if (data.type === 'done') {
+      appendOutput('[Done] Simulation complete.', 'info');
+      setButtons(false);
+    } else if (data.type === 'error') {
+      appendOutput('[Error] ' + data.message, 'error');
+      setButtons(false);
+    }
+  });
+}
 
 // ── Resize handle ─────────────────────────────────────────────────────────────
 
@@ -297,6 +296,7 @@ runloop.run(main())
 document.addEventListener('DOMContentLoaded', () => {
   initEditor();
   initSim();
+  _pollForWorker();
   initResizeHandle();
 
   document.getElementById('tab-python').addEventListener('click', () => switchMode('python'));
