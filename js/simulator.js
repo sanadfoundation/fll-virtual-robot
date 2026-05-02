@@ -93,6 +93,9 @@ class RobotSimulator {
     this.speedMult = 1.0;
     this.pairMap   = {};  // pair_id → { left, right }
 
+    this._missionBoxes   = [];
+    this._stopRequested  = false;
+
     this.shadowRobot   = makeRobotState();
     this.shadowPairMap = {};
 
@@ -486,6 +489,9 @@ class RobotSimulator {
       case 'beep':
         this._playBeep(cmd.note, cmd.duration * 1000);
         break;
+
+      case 'read_sensors':
+        break;
     }
   }
 
@@ -529,8 +535,18 @@ class RobotSimulator {
       this.robot.heading -= (diff / TRACK_W_MM) * (180 / Math.PI);
 
       const headRad = this.robot.heading * Math.PI / 180;
+      const prevX = this.robot.x;
+      const prevY = this.robot.y;
       this.robot.x += Math.cos(headRad) * avg;
       this.robot.y += Math.sin(headRad) * avg;
+
+      for (const box of this._missionBoxes) {
+        if (this._robotOverlapsAABB(this.robot, box)) {
+          this.robot.x = prevX;
+          this.robot.y = prevY;
+          return;
+        }
+      }
 
       this.trail.push({ x: this.robot.x, y: this.robot.y });
       this._clampRobot();
