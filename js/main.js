@@ -121,7 +121,6 @@ async function runPython() {
     appendOutput('[!] Python runtime not ready yet. Please wait...', 'warn');
     return;
   }
-  clearOutput();
   setButtons(true);
   sim._stopRequested = false;
   appendOutput('[Run] Executing Python code…', 'info');
@@ -205,6 +204,7 @@ window.onPyReady = function() {
 // We poll once per frame until it appears, then exchange the SAB.
 
 function _pollForWorker() {
+  if (window._pyWorker) return;
   const el = document.querySelector('script[type="mpy"][worker]');
   const worker = el && el.xworker;
   if (!worker) {
