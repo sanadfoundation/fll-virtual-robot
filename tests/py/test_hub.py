@@ -1,66 +1,69 @@
 """Characterize hub display, pixel, and speaker command schemas."""
 import unittest
+import mock_js
 import spike_bridge as sb
 
 
 class TestLightMatrix(unittest.TestCase):
 
     def setUp(self):
-        sb._cmds = []
+        mock_js.bridge_mock.install()
 
     def test_write(self):
         sb.hub.light_matrix.write('Hello')
-        self.assertEqual(sb._cmds, [{'type': 'hub_display', 'text': 'Hello'}])
+        self.assertEqual(mock_js.bridge_mock.all(), [{'type': 'hub_display', 'text': 'Hello'}])
 
     def test_write_converts_to_str(self):
         sb.hub.light_matrix.write(42)
-        self.assertEqual(sb._cmds[0]['text'], '42')
-        self.assertIsInstance(sb._cmds[0]['text'], str)
+        cmd = mock_js.bridge_mock.all()[0]
+        self.assertEqual(cmd['text'], '42')
+        self.assertIsInstance(cmd['text'], str)
 
     def test_off(self):
         sb.hub.light_matrix.off()
-        self.assertEqual(sb._cmds, [{'type': 'hub_display_off'}])
+        self.assertEqual(mock_js.bridge_mock.all(), [{'type': 'hub_display_off'}])
 
     def test_set_pixel(self):
         sb.hub.light_matrix.set_pixel(2, 3, 80)
-        self.assertEqual(sb._cmds, [
+        self.assertEqual(mock_js.bridge_mock.all(), [
             {'type': 'hub_pixel', 'x': 2, 'y': 3, 'brightness': 80},
         ])
 
     def test_set_pixel_default_brightness(self):
         sb.hub.light_matrix.set_pixel(0, 0)
-        self.assertEqual(sb._cmds[0]['brightness'], 100)
+        self.assertEqual(mock_js.bridge_mock.all()[0]['brightness'], 100)
 
     def test_show_image(self):
         sb.hub.light_matrix.show_image('HAPPY')
-        self.assertEqual(sb._cmds[0], {'type': 'hub_image', 'image': 'HAPPY'})
+        self.assertEqual(mock_js.bridge_mock.all()[0], {'type': 'hub_image', 'image': 'HAPPY'})
 
     def test_sequence_write_then_off(self):
         sb.hub.light_matrix.write('Hi')
         sb.hub.light_matrix.off()
-        self.assertEqual(len(sb._cmds), 2)
-        self.assertEqual(sb._cmds[0]['type'], 'hub_display')
-        self.assertEqual(sb._cmds[1]['type'], 'hub_display_off')
+        cmds = mock_js.bridge_mock.all()
+        self.assertEqual(len(cmds), 2)
+        self.assertEqual(cmds[0]['type'], 'hub_display')
+        self.assertEqual(cmds[1]['type'], 'hub_display_off')
 
 
 class TestSpeaker(unittest.TestCase):
 
     def setUp(self):
-        sb._cmds = []
+        mock_js.bridge_mock.install()
 
     def test_beep_default(self):
         sb.hub.speaker.beep()
-        self.assertEqual(sb._cmds, [{'type': 'beep', 'note': 60, 'duration': 0.2}])
+        self.assertEqual(mock_js.bridge_mock.all(), [{'type': 'beep', 'note': 60, 'duration': 0.2}])
 
     def test_beep_custom(self):
         sb.hub.speaker.beep(note=72, seconds=0.5)
-        cmd = sb._cmds[0]
+        cmd = mock_js.bridge_mock.all()[0]
         self.assertEqual(cmd['note'],     72)
         self.assertEqual(cmd['duration'], 0.5)
 
     def test_play_notes(self):
         sb.hub.speaker.play_notes(['C4:1', 'D4:1'], tempo=120)
-        cmd = sb._cmds[0]
+        cmd = mock_js.bridge_mock.all()[0]
         self.assertEqual(cmd['type'],  'play_notes')
         self.assertEqual(cmd['notes'], ['C4:1', 'D4:1'])
         self.assertEqual(cmd['tempo'], 120)
