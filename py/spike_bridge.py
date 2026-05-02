@@ -1,246 +1,285 @@
-from js import window
 import json
 import builtins
 import sys
 
-# ── _Awaitable ─────────────────────────────────────────────────────────────────
-# All command-queuing methods return this. The command is queued at construction
-# time, so calling without `await` still works (backward compat). The object is
-# also awaitable so `await motor_pair.move(...)` works in async def main().
+# ── SAB bridge state ──────────────────────────────────────────────────────────
+# Set by _init_bridge() when the worker receives the SharedArrayBuffer.
 
-_cmds = []
+_flag_view  = None   # Int32Array over SAB [flag, cmd_len, result_len]
+_cmd_buf    = None   # Uint8Array  over SAB bytes 12–4107
+_result_buf = None   # Uint8Array  over SAB bytes 4108–5131
+_state      = {}     # last result from main thread; pre-populated by _init_bridge
+
+
+def _bridge_call(cmd):
+    from js import Atomics
+    cmd_bytes = json.dumps(cmd).encode('utf-8')
+    for i, b in enumerate(cmd_bytes):
+        _cmd_buf[i] = b
+    Atomics.store(_flag_view, 1, len(cmd_bytes))   # cmd_len
+    Atomics.store(_flag_view, 0, 1)                # flag = command pending
+    Atomics.notify(_flag_view, 0, 1)               # wake main thread
+    Atomics.wait(_flag_view, 0, 1)                 # block until flag != 1
+    result_len = Atomics.load(_flag_view, 2)
+    result_bytes = bytes(_result_buf[i] for i in range(result_len))
+    _state.update(json.loads(result_bytes.decode('utf-8')))
+    if _state.get('stopped'):
+        raise SystemExit
+
+
+def _init_bridge(sab):
+    global _flag_view, _cmd_buf, _result_buf, _state
+    from js import Int32Array, Uint8Array
+    _flag_view  = Int32Array.new(sab)
+    _cmd_buf    = Uint8Array.new(sab, 12, 4096)
+    _result_buf = Uint8Array.new(sab, 4108, 1024)
+    _state      = {}
+    _bridge_call({'type': 'read_sensors'})   # pre-populate _state
+
+
+# ── _Awaitable ────────────────────────────────────────────────────────────────
+# API methods call _bridge_call() (which blocks) then return this so that
+# `await motor_pair.move(...)` works in async def main() programs.
 
 class _Awaitable:
-    # MicroPython's await protocol uses __iter__/__next__, not __await__.
-    # __next__ raising StopIteration immediately signals instant completion.
-    def __init__(self, cmd=None):
-        if cmd is not None:
-            _cmds.append(cmd)
-    def __iter__(self):
-        return self
-    def __next__(self):
-        raise StopIteration(None)
-    def __await__(self):
-        return self  # CPython compat
+    def __iter__(self):   return self
+    def __next__(self):   raise StopIteration(None)
+    def __await__(self):  return self   # CPython compat
 
-def _q(cmd):
-    _cmds.append(cmd)
-    window.shadowCmd(json.dumps(cmd))
-    return _Awaitable(None)
 
-# ── color ──────────────────────────────────────────────────────────────────────
+# ── color ─────────────────────────────────────────────────────────────────────
 
 class color:
     BLACK = 'black';  RED = 'red';      GREEN = 'green';   YELLOW = 'yellow'
     BLUE  = 'blue';   WHITE = 'white';  CYAN  = 'cyan';    MAGENTA = 'magenta'
     ORANGE = 'orange'; NONE = 'none'
 
-# ── port — lowercase matches real Spike Prime; Port kept for compat ────────────
+
+# ── port ──────────────────────────────────────────────────────────────────────
 
 class port:
     A = 'A'; B = 'B'; C = 'C'; D = 'D'; E = 'E'; F = 'F'
 
 Port = port
 
-# ── motor ──────────────────────────────────────────────────────────────────────
+
+# ── motor ─────────────────────────────────────────────────────────────────────
 
 class motor:
     @staticmethod
-    def run_for_degrees(port, degrees, velocity=500, stop=1, acceleration=100, deceleration=100):
-        return _q({'type': 'motor_degrees', 'port': str(port), 'degrees': degrees, 'velocity': velocity})
+    def run_for_degrees(p, degrees, velocity=500, stop=1, acceleration=100, deceleration=100):
+        _bridge_call({'type': 'motor_degrees', 'port': str(p), 'degrees': degrees, 'velocity': velocity})
+        return _Awaitable()
 
     @staticmethod
-    def run_for_time(port, duration, velocity=500, stop=1, acceleration=100, deceleration=100):
-        return _q({'type': 'motor_time', 'port': str(port), 'time_ms': duration, 'velocity': velocity})
+    def run_for_time(p, duration, velocity=500, stop=1, acceleration=100, deceleration=100):
+        _bridge_call({'type': 'motor_time', 'port': str(p), 'time_ms': duration, 'velocity': velocity})
+        return _Awaitable()
 
     @staticmethod
-    def run_to_absolute_position(port, position, velocity=500, stop=1, direction=1):
-        return _q({'type': 'motor_degrees', 'port': str(port), 'degrees': int(position), 'velocity': velocity})
+    def run_to_absolute_position(p, position, velocity=500, stop=1, direction=1):
+        _bridge_call({'type': 'motor_degrees', 'port': str(p), 'degrees': int(position), 'velocity': velocity})
+        return _Awaitable()
 
     @staticmethod
-    def run_to_relative_position(port, position, velocity=500, stop=1):
-        return _q({'type': 'motor_degrees', 'port': str(port), 'degrees': int(position), 'velocity': velocity})
+    def run_to_relative_position(p, position, velocity=500, stop=1):
+        _bridge_call({'type': 'motor_degrees', 'port': str(p), 'degrees': int(position), 'velocity': velocity})
+        return _Awaitable()
 
     @staticmethod
-    def run(port, velocity=500):
-        return _q({'type': 'motor_run', 'port': str(port), 'velocity': velocity})
+    def run(p, velocity=500):
+        _bridge_call({'type': 'motor_run', 'port': str(p), 'velocity': velocity})
+        return _Awaitable()
 
     @staticmethod
-    def stop(port, stop=1):
-        return _q({'type': 'motor_stop', 'port': str(port)})
+    def stop(p, stop=1):
+        _bridge_call({'type': 'motor_stop', 'port': str(p)})
+        return _Awaitable()
 
     @staticmethod
-    def get_speed(port):
-        return int(window.getMotorSpeed(str(port)))
+    def get_speed(p):
+        return 0
 
     @staticmethod
-    def get_position(port):
-        return int(window.getMotorPosition(str(port)))
+    def get_position(p):
+        return (_state.get('motors') or {}).get(str(p), 0)
 
     @staticmethod
-    def get_degrees_counted(port):
-        return int(window.getMotorPosition(str(port)))
+    def get_degrees_counted(p):
+        return (_state.get('motors') or {}).get(str(p), 0)
 
-# ── motor_pair ─────────────────────────────────────────────────────────────────
 
-_MM_PER_MS = 0.9  # robot speed at 100% velocity (mm per ms)
+# ── motor_pair ────────────────────────────────────────────────────────────────
+
+_MM_PER_MS = 0.9
 
 class motor_pair:
     PAIR_1 = 0; PAIR_2 = 1; PAIR_3 = 2
 
     @staticmethod
     def pair(pair_id, left_port, right_port):
-        return _q({'type': 'pair', 'pair_id': pair_id,
-                   'left': str(left_port), 'right': str(right_port)})
+        _bridge_call({'type': 'pair', 'pair_id': pair_id,
+                      'left': str(left_port), 'right': str(right_port)})
+        return _Awaitable()
 
     @staticmethod
     def unpair(pair_id):
         return _Awaitable()
 
-    # ── Real Spike Prime v3 move API ──────────────────────────────────────────
-
     @staticmethod
     def move_for_time(pair_id, duration, steering=0, velocity=1000):
-        """Move for `duration` milliseconds."""
         v = velocity / 1000.0
         dist_cm = abs(v) * _MM_PER_MS * abs(duration) / 10.0
-        return _q({'type': 'move', 'pair_id': pair_id, 'steering': steering,
-                   'speed': velocity, 'amount': dist_cm, 'unit': 'cm'})
+        _bridge_call({'type': 'move', 'pair_id': pair_id, 'steering': steering,
+                      'speed': velocity, 'amount': dist_cm, 'unit': 'cm'})
+        return _Awaitable()
 
     @staticmethod
     def move_for_degrees(pair_id, degrees, steering=0, velocity=1000):
-        """Move until wheels rotate by `degrees`."""
-        return _q({'type': 'move', 'pair_id': pair_id, 'steering': steering,
-                   'speed': velocity, 'amount': degrees, 'unit': 'degrees'})
+        _bridge_call({'type': 'move', 'pair_id': pair_id, 'steering': steering,
+                      'speed': velocity, 'amount': degrees, 'unit': 'degrees'})
+        return _Awaitable()
 
     @staticmethod
     def move_for_rotations(pair_id, rotations, steering=0, velocity=1000):
-        """Move for `rotations` full wheel rotations."""
-        return _q({'type': 'move', 'pair_id': pair_id, 'steering': steering,
-                   'speed': velocity, 'amount': rotations, 'unit': 'rotations'})
-
-    # ── Simulator-specific API (kept for backward compat) ─────────────────────
+        _bridge_call({'type': 'move', 'pair_id': pair_id, 'steering': steering,
+                      'speed': velocity, 'amount': rotations, 'unit': 'rotations'})
+        return _Awaitable()
 
     @staticmethod
     def move(pair_id, steering, speed=500, amount=0, unit='degrees',
              acceleration=100, deceleration=100):
-        return _q({'type': 'move', 'pair_id': pair_id, 'steering': steering,
-                   'speed': speed, 'amount': amount, 'unit': unit})
+        _bridge_call({'type': 'move', 'pair_id': pair_id, 'steering': steering,
+                      'speed': speed, 'amount': amount, 'unit': unit})
+        return _Awaitable()
 
     @staticmethod
     def move_tank(pair_id, left_speed, right_speed, amount=0, unit='degrees',
                   acceleration=100, deceleration=100):
-        return _q({'type': 'move_tank', 'pair_id': pair_id,
-                   'left_speed': left_speed, 'right_speed': right_speed,
-                   'amount': amount, 'unit': unit})
+        _bridge_call({'type': 'move_tank', 'pair_id': pair_id,
+                      'left_speed': left_speed, 'right_speed': right_speed,
+                      'amount': amount, 'unit': unit})
+        return _Awaitable()
 
     @staticmethod
     def start(pair_id, steering=0, speed=500):
-        return _q({'type': 'start', 'pair_id': pair_id, 'steering': steering, 'speed': speed})
+        _bridge_call({'type': 'start', 'pair_id': pair_id, 'steering': steering, 'speed': speed})
+        return _Awaitable()
 
     @staticmethod
     def start_tank(pair_id, left_speed, right_speed):
-        return _q({'type': 'start_tank', 'pair_id': pair_id,
-                   'left_speed': left_speed, 'right_speed': right_speed})
+        _bridge_call({'type': 'start_tank', 'pair_id': pair_id,
+                      'left_speed': left_speed, 'right_speed': right_speed})
+        return _Awaitable()
 
     @staticmethod
     def start_at_power(pair_id, power, steering=0):
-        return _q({'type': 'start', 'pair_id': pair_id, 'steering': steering, 'speed': power * 10})
+        _bridge_call({'type': 'start', 'pair_id': pair_id, 'steering': steering, 'speed': power * 10})
+        return _Awaitable()
 
     @staticmethod
     def stop(pair_id, stop=1):
-        return _q({'type': 'stop', 'pair_id': pair_id})
+        _bridge_call({'type': 'stop', 'pair_id': pair_id})
+        return _Awaitable()
 
     @staticmethod
     def get_default_speed():
         return 500
 
-# ── color_sensor ───────────────────────────────────────────────────────────────
+
+# ── color_sensor ──────────────────────────────────────────────────────────────
 
 class color_sensor:
     @staticmethod
-    def color(port):
-        return str(window.getColorSensorColor())
+    def color(p):
+        return str(_state.get('color', 'none'))
 
     @staticmethod
-    def reflection(port):
-        return int(window.getColorSensorReflection())
+    def reflection(p):
+        return int(_state.get('reflection', 50))
 
     @staticmethod
-    def ambient_light(port):
-        return int(window.getColorSensorAmbient())
+    def ambient_light(p):
+        return 30
 
     @staticmethod
-    def rgb(port):
-        raw = window.getColorSensorRGB()
+    def rgb(p):
+        raw = _state.get('rgb', [128, 128, 128])
         return (int(raw[0]), int(raw[1]), int(raw[2]))
 
     @staticmethod
-    def rgbi(port):
-        raw = window.getColorSensorRGB()
+    def rgbi(p):
+        raw = _state.get('rgb', [128, 128, 128])
         return (int(raw[0]), int(raw[1]), int(raw[2]), 0)
 
-# ── distance_sensor ────────────────────────────────────────────────────────────
+
+# ── distance_sensor ───────────────────────────────────────────────────────────
 
 class distance_sensor:
     @staticmethod
-    def distance(port):
-        return int(window.getDistanceSensorValue())
+    def distance(p):
+        return int(_state.get('distance_mm', 300))
 
     @staticmethod
-    def presence(port):
-        return bool(window.getDistanceSensorPresence())
+    def presence(p):
+        return int(_state.get('distance_mm', 300)) < 100
 
     @staticmethod
-    def get_distance_cm(port):
-        return int(window.getDistanceSensorValue()) / 10
+    def get_distance_cm(p):
+        return _state.get('distance_mm', 300) / 10
 
     @staticmethod
-    def get_distance_inches(port):
-        return int(window.getDistanceSensorValue()) / 25.4
+    def get_distance_inches(p):
+        return _state.get('distance_mm', 300) / 25.4
 
-# ── force_sensor ───────────────────────────────────────────────────────────────
+
+# ── force_sensor ──────────────────────────────────────────────────────────────
 
 class force_sensor:
     @staticmethod
-    def force(port):
-        return int(window.getForceSensorValue())
-
+    def force(p):        return 0
     @staticmethod
-    def pressed(port):
-        return bool(window.getForceSensorPressed())
-
+    def pressed(p):      return False
     @staticmethod
-    def raw(port):
-        return int(window.getForceSensorValue())
+    def raw(p):          return 0
 
-# ── Hub ────────────────────────────────────────────────────────────────────────
+
+# ── Hub ───────────────────────────────────────────────────────────────────────
 
 class _LightMatrix:
     def write(self, text):
-        return _q({'type': 'hub_display', 'text': str(text)})
+        _bridge_call({'type': 'hub_display', 'text': str(text)})
+        return _Awaitable()
 
     def show_image(self, image):
-        return _q({'type': 'hub_image', 'image': str(image)})
+        _bridge_call({'type': 'hub_image', 'image': str(image)})
+        return _Awaitable()
 
     def set_pixel(self, x, y, brightness=100):
-        return _q({'type': 'hub_pixel', 'x': x, 'y': y, 'brightness': brightness})
+        _bridge_call({'type': 'hub_pixel', 'x': x, 'y': y, 'brightness': brightness})
+        return _Awaitable()
 
     def show(self, image):
-        return _q({'type': 'hub_image', 'image': str(image)})
+        _bridge_call({'type': 'hub_image', 'image': str(image)})
+        return _Awaitable()
 
     def off(self):
-        return _q({'type': 'hub_display_off'})
+        _bridge_call({'type': 'hub_display_off'})
+        return _Awaitable()
+
 
 class _Speaker:
     def beep(self, note=60, seconds=0.2, volume=100):
-        return _q({'type': 'beep', 'note': note, 'duration': seconds})
+        _bridge_call({'type': 'beep', 'note': note, 'duration': seconds})
+        return _Awaitable()
 
     def play_notes(self, notes, tempo=120):
-        return _q({'type': 'play_notes', 'notes': list(notes), 'tempo': tempo})
+        _bridge_call({'type': 'play_notes', 'notes': list(notes), 'tempo': tempo})
+        return _Awaitable()
 
     def stop(self):
         return _Awaitable()
+
 
 class _Motion:
     def tilt_angles(self):         return (0, 0, 0)
@@ -249,66 +288,67 @@ class _Motion:
     def reset_yaw_angle(self):     return _Awaitable()
     def get_yaw_angle(self):       return 0
 
+
 class _Button:
     def pressed(self, button):     return False
     def was_pressed(self, button): return False
+
 
 class _Hub:
     def __init__(self):
         self.light_matrix = _LightMatrix()
         self.speaker = _Speaker()
-        self.motion = _Motion()
-        self.button = _Button()
+        self.motion  = _Motion()
+        self.button  = _Button()
 
 hub = _Hub()
 
-# ── runloop ────────────────────────────────────────────────────────────────────
+
+# ── runloop ───────────────────────────────────────────────────────────────────
 
 class runloop:
     @staticmethod
     def run(coro):
-        # Drive the coroutine to completion synchronously. All our awaitables
-        # complete immediately (no real event-loop yielding needed), so the
-        # entire async def main() executes in a single trampoline pass and
-        # builds up _cmds before JS animates them.
+        # Drive the coroutine to completion. _bridge_call blocks synchronously
+        # per command, so the entire program executes sequentially in one pass.
         try:
             while True:
                 coro.send(None)
         except StopIteration:
             pass
 
-# ── wait ───────────────────────────────────────────────────────────────────────
+
+# ── wait ──────────────────────────────────────────────────────────────────────
 
 def wait(ms):
-    return _q({'type': 'wait', 'ms': int(ms)})
+    _bridge_call({'type': 'wait', 'ms': int(ms)})
+    return _Awaitable()
 
-# ── print override ─────────────────────────────────────────────────────────────
+
+# ── print override ────────────────────────────────────────────────────────────
 
 _orig_print = builtins.print
 
 def _py_print(*args, **kwargs):
     text = kwargs.get('sep', ' ').join(str(a) for a in args)
-    _q({'type': 'print', 'text': text})
+    _bridge_call({'type': 'print', 'text': text})
     _orig_print(*args, **kwargs)
 
 builtins.print = _py_print
 
-# ── Module injection — enables real import-style FLL code ──────────────────────
-# Supports:
-#   from hub import port, light_matrix, sound
-#   from app import sound
-#   import motor, motor_pair, runloop, color_sensor, distance_sensor, force_sensor
+
+# ── Module injection ──────────────────────────────────────────────────────────
 
 class _HubModule:
     light_matrix = hub.light_matrix
     speaker      = hub.speaker
-    sound        = hub.speaker   # alias used in some FLL programs
+    sound        = hub.speaker
     motion       = hub.motion
     button       = hub.button
-    port         = port          # from hub import port → lowercase port
+    port         = port
 
 class _AppModule:
-    sound = hub.speaker          # from app import sound
+    sound = hub.speaker
 
 sys.modules['hub']             = _HubModule()
 sys.modules['app']             = _AppModule()
@@ -320,37 +360,24 @@ sys.modules['distance_sensor'] = distance_sensor
 sys.modules['force_sensor']    = force_sensor
 sys.modules['color']           = color
 
-# ── User code runner ───────────────────────────────────────────────────────────
 
-def run_user_code(code):
-    global _cmds
-    _cmds = []
+# ── Worker message handler ────────────────────────────────────────────────────
 
-    # Pre-populate namespace so direct use without imports still works
-    ns = {
-        '__name__': '__main__',
-        'motor':           motor,
-        'motor_pair':      motor_pair,
-        'color_sensor':    color_sensor,
-        'distance_sensor': distance_sensor,
-        'force_sensor':    force_sensor,
-        'hub':             hub,
-        'color':           color,
-        'Port':            Port,
-        'port':            port,
-        'wait':            wait,
-        'runloop':         runloop,
-        'print':           _py_print,
-    }
+import js
 
-    try:
-        window.resetShadow()
-        exec(compile(str(code), '<user>', 'exec'), ns)
-        window.receiveCommands(json.dumps(_cmds))
-    except Exception as exc:
-        window.appendOutput('[Error] ' + str(type(exc).__name__) + ': ' + str(exc))
-    finally:
-        _cmds = []
+def _on_message(event):
+    data = event.data.to_py()
+    if data['type'] == 'sab':
+        _init_bridge(data['sab'])
+        js.postMessage({'type': 'ready_ack'})
+    elif data['type'] == 'run':
+        try:
+            exec(data['code'], {})
+            js.postMessage({'type': 'done'})
+        except SystemExit:
+            js.postMessage({'type': 'done'})
+        except Exception as e:
+            js.postMessage({'type': 'error', 'message': str(type(e).__name__) + ': ' + str(e)})
 
-window.pyRunCode = run_user_code
-window.onPyReady()
+js.addEventListener('message', _on_message)
+js.postMessage({'type': 'ready'})
