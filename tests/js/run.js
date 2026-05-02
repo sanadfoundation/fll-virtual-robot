@@ -5,6 +5,7 @@ const fs   = require('fs');
 const path = require('path');
 const assert = require('assert');
 const { makeWindowGlobals } = require('./mocks/window');
+const { TextEncoder, TextDecoder } = require('util');
 
 const SIM_CODE = fs.readFileSync(
   path.resolve(__dirname, '../../js/simulator.js'), 'utf8'
@@ -21,7 +22,8 @@ function createSim(windowOverrides) {
     cancelAnimationFrame:  () => {},
     CanvasRenderingContext2D: { prototype: {} },
     console, setTimeout, clearTimeout, setInterval, clearInterval,
-    // V8 built-ins (Math, Promise, Array…) are available automatically.
+    SharedArrayBuffer, Atomics, TextEncoder, TextDecoder,
+    // V8 built-ins (Math, Promise, Array, Int32Array, Uint8Array…) available automatically.
   });
 
   vm.runInContext(SIM_CODE, context);
@@ -62,6 +64,7 @@ const SUITES = [
   ['sensors/accessors',         './sensors/accessors.test.js'],
   ['state/reset',               './state/reset.test.js'],
   ['state/sensor-state',        './state/sensor-state.test.js'],
+  ['sab/protocol',              './sab/sab-protocol.test.js'],
 ];
 
 (async () => {

@@ -600,6 +600,45 @@ class RobotSimulator {
     };
   }
 
+  // ── SharedArrayBuffer command loop ───────────────────────────────────────────
+
+  setupSAB(sab) {
+    this._sab           = sab;
+    this._stopRequested = false;
+    this._commandLoop();
+  }
+
+  async _commandLoop() {
+    const flagView  = new Int32Array(this._sab);
+    const resultBuf = new Uint8Array(this._sab, 4108, 1024);
+    const enc       = new TextEncoder();
+    const dec       = new TextDecoder();
+
+    while (true) {
+      await Atomics.waitAsync(flagView, 0, 0).value;
+      if (Atomics.load(flagView, 0) !== 1) continue;
+
+      const cmdLen = Atomics.load(flagView, 1);
+      const cmd    = JSON.parse(dec.decode(new Uint8Array(this._sab, 12, cmdLen)));
+
+      let result;
+      if (this._stopRequested) {
+        result = { ...this._sensorState(), stopped: true };
+      } else {
+        this.isRunning = true;
+        await this._execCmd(cmd);
+        this.isRunning = false;
+        result = this._sensorState();
+      }
+
+      const bytes = enc.encode(JSON.stringify(result));
+      resultBuf.set(bytes);
+      Atomics.store(flagView, 2, bytes.length);
+      Atomics.store(flagView, 0, 0);
+      Atomics.notify(flagView, 0, 1);
+    }
+  }
+
   // ── AABB collision ───────────────────────────────────────────────────────────
   // Treats robot as circle radius 90mm. box = {x,y,w,h} in mm (x/y = top-left).
 
