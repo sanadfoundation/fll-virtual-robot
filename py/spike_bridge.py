@@ -288,7 +288,7 @@ _orig_print = builtins.print
 
 def _py_print(*args, **kwargs):
     text = kwargs.get('sep', ' ').join(str(a) for a in args)
-    window.appendOutput(text)
+    _q({'type': 'print', 'text': text})
     _orig_print(*args, **kwargs)
 
 builtins.print = _py_print

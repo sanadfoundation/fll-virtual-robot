@@ -38,7 +38,7 @@ class _Window:
         self._reset_count += 1
 
     def appendOutput(self, text):
-        pass  # suppress output during tests
+        self._output_calls.append(text)
 
     def onPyReady(self):
         pass  # called at module-load time; no-op for tests

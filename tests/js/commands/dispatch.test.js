@@ -116,4 +116,24 @@ module.exports = [
       assert.strictEqual(sim.robot.y, 980);
     },
   },
+
+  // ── print ─────────────────────────────────────────────────────────────────
+  {
+    name: 'print: calls window.appendOutput with cmd.text',
+    async fn(createSim, assert) {
+      const calls = [];
+      const sim = createSim({ appendOutput: (text) => calls.push(text) });
+      await sim._execCmd({ type: 'print', text: 'hello world' });
+      assert.deepStrictEqual(calls, ['hello world']);
+    },
+  },
+  {
+    name: 'print: does not affect robot position',
+    async fn(createSim, assert) {
+      const sim = createSim();
+      await sim._execCmd({ type: 'print', text: 'hello' });
+      assert.strictEqual(sim.robot.x, 350);
+      assert.strictEqual(sim.robot.y, 980);
+    },
+  },
 ];

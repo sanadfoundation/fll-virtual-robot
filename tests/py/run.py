@@ -27,11 +27,12 @@ import test_motor
 import test_hub
 import test_wait
 import test_shadow_sensor
+import test_print
 
 # 5. Discover and run.
 loader = unittest.TestLoader()
 suite  = unittest.TestSuite()
-for mod in [test_motor_pair, test_motor, test_hub, test_wait, test_shadow_sensor]:
+for mod in [test_motor_pair, test_motor, test_hub, test_wait, test_shadow_sensor, test_print]:
     suite.addTests(loader.loadTestsFromModule(mod))
 
 runner = unittest.TextTestRunner(verbosity=2)

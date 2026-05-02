@@ -462,6 +462,10 @@ class RobotSimulator {
       case 'motor_stop':
         break;
 
+      case 'print':
+        window.appendOutput(cmd.text);
+        break;
+
       case 'wait':
         await this._sleep(cmd.ms / this.speedMult);
         break;
