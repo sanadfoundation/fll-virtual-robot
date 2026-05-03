@@ -44,6 +44,7 @@ window.shadowCmd   = (jsonStr) => sim?.shadowCmd(jsonStr);
 window.resetShadow = ()        => sim?.resetShadow();
 
 window.getColorSensorColor      = ()     => sim ? sim.getColorSensorColor()       : 'none';
+window.getColorSensorColorInt   = ()     => sim?.getColorSensorColorInt() ?? -1;
 window.getColorSensorReflection = ()     => sim ? sim.getColorSensorReflection()  : 0;
 window.getColorSensorAmbient    = ()     => sim ? sim.getColorSensorAmbient()     : 0;
 window.getColorSensorRGB        = ()     => sim ? sim.getColorSensorRGB()         : [0,0,0];
