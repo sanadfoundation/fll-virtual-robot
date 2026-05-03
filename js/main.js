@@ -2,7 +2,7 @@
 
 // ── App state ────────────────────────────────────────────────────────────────
 
-let editor        = null;   // CodeMirror instance
+let editor        = null;   // Monaco editor instance
 let blocklyWs     = null;   // Blockly workspace
 let sim           = null;   // RobotSimulator instance
 let currentMode   = 'python'; // 'python' | 'blocks'
@@ -58,31 +58,26 @@ window.getMotorPosition         = (port) => sim ? sim.getMotorPosition(port)    
 // ── Initialization ────────────────────────────────────────────────────────────
 
 function initEditor() {
-  const textarea = document.getElementById('py-editor');
-  editor = CodeMirror.fromTextArea(textarea, {
-    mode: 'python',
-    theme: 'monokai',
-    lineNumbers: true,
-    indentUnit: 4,
-    tabSize: 4,
-    indentWithTabs: false,
-    lineWrapping: false,
-    extraKeys: {
-      Tab: cm => cm.execCommand('insertSoftTab'),
-      'Ctrl-Enter': () => handleRun(),
-      'Cmd-Enter':  () => handleRun(),
-      'Ctrl-Space': cm => cm.showHint({ hint: window.spikeHint, completeSingle: false }),
-    },
+  require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs' } });
+  require(['vs/editor/editor.main'], () => {
+    window.registerSpikeCompletions(monaco);
+    editor = monaco.editor.create(document.getElementById('py-editor'), {
+      value: DEFAULT_PYTHON_CODE,
+      language: 'python',
+      theme: 'vs-dark',
+      fontSize: 14,
+      minimap: { enabled: false },
+      automaticLayout: true,
+      tabSize: 4,
+      insertSpaces: true,
+      scrollBeyondLastLine: false,
+      wordWrap: 'off',
+    });
+    editor.addCommand(
+      monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
+      handleRun
+    );
   });
-
-  // Auto-trigger completions after typing '.'
-  editor.on('inputRead', (cm, change) => {
-    if (change.text[0] === '.') {
-      cm.showHint({ hint: window.spikeHint, completeSingle: false });
-    }
-  });
-
-  editor.setValue(DEFAULT_PYTHON_CODE);
 }
 
 function initSim() {
@@ -114,7 +109,7 @@ function switchMode(mode) {
     blkTab.classList.remove('active');
     pyWrap.style.display = 'block';
     blkDiv.style.display = 'none';
-    if (editor) editor.refresh();
+    if (editor) editor.layout();
   } else {
     blkTab.classList.add('active');
     pyTab.classList.remove('active');
@@ -256,7 +251,7 @@ function initResizeHandle() {
     const delta = e.clientX - startX;
     const newW  = Math.max(260, Math.min(startW + delta, window.innerWidth - 300));
     left.style.width = newW + 'px';
-    if (editor) editor.refresh();
+    if (editor) editor.layout();
   });
 
   document.addEventListener('mouseup', () => {
@@ -268,26 +263,23 @@ function initResizeHandle() {
 
 // ── Default Python code ───────────────────────────────────────────────────────
 
-const DEFAULT_PYTHON_CODE = `# FLL Virtual Robot — accepts real Spike Prime v3 Python code
-from hub import port, light_matrix, sound
-import motor_pair, motor, runloop
+const DEFAULT_PYTHON_CODE = `# FLL Virtual Robot — SPIKE Prime v3 Python API
+from hub import port
+import motor_pair, runloop
 
 async def main():
-    # Pair the drive motors (left = A, right = B)
+    # Pair the drive motors (left = port.A, right = port.B)
     motor_pair.pair(motor_pair.PAIR_1, port.A, port.B)
 
-    # Move forward for 2 seconds
-    await motor_pair.move_for_time(motor_pair.PAIR_1, 2000, 0, velocity=500)
+    # Move forward for 2 seconds at 360 deg/sec
+    await motor_pair.move_for_time(motor_pair.PAIR_1, 2000, 0, velocity=360)
 
-    # Turn right 90° (tank turn: 180° wheel rotation = 90° robot turn)
-    await motor_pair.move_tank(motor_pair.PAIR_1, 500, -500, 180, 'degrees')
+    # Turn right (left wheel forward, right wheel back)
+    await motor_pair.move_tank_for_time(motor_pair.PAIR_1, 360, -360, 800)
 
-    # Move forward for 1 second
-    await motor_pair.move_for_time(motor_pair.PAIR_1, 1000, 0, velocity=500)
+    # Move forward again
+    await motor_pair.move_for_time(motor_pair.PAIR_1, 1000, 0, velocity=360)
 
-    # Celebrate
-    light_matrix.write('Done')
-    sound.beep(72, 0.4)
     print('Mission complete!')
 
 runloop.run(main())
