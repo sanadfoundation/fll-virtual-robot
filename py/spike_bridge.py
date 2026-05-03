@@ -8,13 +8,17 @@ def _jsobj(d):
 # ── Phase 1: SAB state and bridge functions ──────────────────────────────────
 # _flag_view  : Int32Array — header slots [flag, cmd_len, result_len]
 # _byte_view  : Uint8Array — entire SAB (for absolute-offset byte reads/writes)
-# SAB layout  : bytes 0-11 = Int32 header, 12-4107 = cmd, 4108-5131 = result
+# SAB layout  : bytes 0-11 = Int32 header, 12-4107 = cmd, 4108-5131 = result, 5132-5135 = status
 _flag_view  = None
 _byte_view  = None
 _state      = {}
 
 _CMD_OFFSET    = 12
 _RESULT_OFFSET = 4108
+_STATUS_IDX    = 1283   # Int32Array index for status slot (SAB byte 5132)
+_STATUS_READY_ACK = 1
+_STATUS_DONE      = 2
+_STATUS_ERROR     = 3
 
 def _bridge_call(cmd):
     from js import Atomics
@@ -33,6 +37,19 @@ def _bridge_call(cmd):
     _state.update(json.loads(result_bytes.decode('utf-8')))
     if _state.get('stopped'):
         raise SystemExit
+
+def _signal_status(code):
+    from js import Atomics
+    Atomics.store(_flag_view, _STATUS_IDX, code)
+    Atomics.notify(_flag_view, _STATUS_IDX, 1)
+
+def _signal_error(e):
+    from js import Atomics
+    payload = json.dumps({'message': str(type(e).__name__) + ': ' + str(e)}).encode('utf-8')
+    for i, b in enumerate(payload):
+        Atomics.store(_byte_view, _RESULT_OFFSET + i, b)
+    Atomics.store(_flag_view, 2, len(payload))
+    _signal_status(_STATUS_ERROR)
 
 def _init_bridge(sab):
     global _flag_view, _byte_view, _state
@@ -294,15 +311,15 @@ def _on_message(event):
     msg_type = str(event.data.type)
     if msg_type == 'sab':
         _init_bridge(event.data.sab)
-        js.postMessage(_jsobj({'type': 'ready_ack'}))
+        _signal_status(_STATUS_READY_ACK)
     elif msg_type == 'run':
         try:
             exec(str(event.data.code), {})
-            js.postMessage(_jsobj({'type': 'done'}))
+            _signal_status(_STATUS_DONE)
         except SystemExit:
-            js.postMessage(_jsobj({'type': 'done'}))
+            _signal_status(_STATUS_DONE)
         except Exception as e:
-            js.postMessage(_jsobj({'type': 'error', 'message': str(type(e).__name__) + ': ' + str(e)}))
+            _signal_error(e)
 
+# Main thread uses xworker.ready Promise — no postMessage needed here.
 js.addEventListener('message', _on_message)
-js.postMessage(_jsobj({'type': 'ready'}))

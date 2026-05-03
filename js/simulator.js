@@ -571,6 +571,30 @@ class RobotSimulator {
     this._sab           = sab;
     this._stopRequested = false;
     this._commandLoop();
+    this._statusLoop();
+  }
+
+  onStatus(cb) {
+    this._statusCb = cb;
+  }
+
+  async _statusLoop() {
+    const STATUS_IDX = 1283;
+    const flagView   = new Int32Array(this._sab);
+    const dec        = new TextDecoder();
+    while (true) {
+      await Atomics.waitAsync(flagView, STATUS_IDX, 0).value;
+      const status = Atomics.load(flagView, STATUS_IDX);
+      if (status === 0) continue;
+      let errMsg = '';
+      if (status === 3) {
+        const resultLen  = Atomics.load(flagView, 2);
+        const resultCopy = new Uint8Array(new Uint8Array(this._sab, 4108, resultLen));
+        try { errMsg = JSON.parse(dec.decode(resultCopy)).message || ''; } catch (_) {}
+      }
+      Atomics.store(flagView, STATUS_IDX, 0);
+      if (this._statusCb) this._statusCb(status, errMsg);
+    }
   }
 
   async _commandLoop() {

@@ -66,7 +66,7 @@ function initSim() {
 
   if (!self.crossOriginIsolated) return;   // first load: coi-serviceworker will reload
 
-  const sab = new SharedArrayBuffer(5132);
+  const sab = new SharedArrayBuffer(5136);
   sim.setupSAB(sab);
   window._sab = sab;   // stored so pyWorker can receive it after 'ready'
 }
@@ -215,20 +215,26 @@ function _pollForWorker() {
   }
   window._pyWorker = worker;
 
-  worker.addEventListener('message', ({ data }) => {
-    if (data.type === 'ready') {
-      worker.postMessage({ type: 'sab', sab: window._sab });
-    } else if (data.type === 'ready_ack') {
-      pyReady = true;
-      const overlay = document.getElementById('py-loading');
-      if (overlay) overlay.classList.add('hidden');
+  // xworker.ready resolves when the Python script has fully loaded.
+  // Send the SAB then; Python signals back via the SAB status slot (no postMessage).
+  worker.ready.then(() => {
+    worker.postMessage({ type: 'sab', sab: window._sab });
+  });
+
+  sim.onStatus((status, errMsg) => {
+    if (status === 1) {       // ready_ack
+      if (!pyReady) {
+        pyReady = true;
+        const overlay = document.getElementById('py-loading');
+        if (overlay) overlay.classList.add('hidden');
+        appendOutput('[Ready] Python runtime loaded.', 'info');
+      }
       document.getElementById('btn-run').disabled = false;
-      appendOutput('[Ready] Python runtime loaded.', 'info');
-    } else if (data.type === 'done') {
+    } else if (status === 2) { // done
       appendOutput('[Done] Simulation complete.', 'info');
       setButtons(false);
-    } else if (data.type === 'error') {
-      appendOutput('[Error] ' + data.message, 'error');
+    } else if (status === 3) { // error
+      appendOutput('[Error] ' + errMsg, 'error');
       setButtons(false);
     }
   });
