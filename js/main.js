@@ -64,6 +64,8 @@ function initSim() {
   sim = new RobotSimulator('robot-canvas');
   window.sim = sim;
 
+  if (!self.crossOriginIsolated) return;   // first load: coi-serviceworker will reload
+
   const sab = new SharedArrayBuffer(5132);
   sim.setupSAB(sab);
   window._sab = sab;   // stored so pyWorker can receive it after 'ready'
