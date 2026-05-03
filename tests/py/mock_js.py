@@ -16,6 +16,13 @@ class _Window:
         self._reset_count = 0
 
     def getColorSensorColor(self):        return 'none'
+    def getColorSensorColorInt(self):
+        color_int_map = {
+            'none': -1, 'black': 0, 'magenta': 1, 'purple': 2, 'blue': 3,
+            'azure': 4, 'turquoise': 5, 'green': 6, 'yellow': 7,
+            'orange': 8, 'red': 9, 'white': 10,
+        }
+        return color_int_map.get(self.getColorSensorColor(), -1)
     def getColorSensorReflection(self):   return 50
     def getColorSensorAmbient(self):      return 30
     def getColorSensorRGB(self):          return [128, 128, 128]
