@@ -583,8 +583,9 @@ class RobotSimulator {
       await Atomics.waitAsync(flagView, 0, 0).value;
       if (Atomics.load(flagView, 0) !== 1) continue;
 
-      const cmdLen = Atomics.load(flagView, 1);
-      const cmd    = JSON.parse(dec.decode(new Uint8Array(this._sab, 12, cmdLen)));
+      const cmdLen  = Atomics.load(flagView, 1);
+      const cmdCopy = new Uint8Array(new Uint8Array(this._sab, 12, cmdLen));
+      const cmd     = JSON.parse(dec.decode(cmdCopy));
 
       let result;
       if (this._stopRequested) {

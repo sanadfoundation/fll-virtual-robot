@@ -15,6 +15,16 @@ def postMessage(data):
     pass
 
 
+import json as _json
+
+class _JSON:
+    @staticmethod
+    def parse(s):
+        return _json.loads(s)
+
+JSON = _JSON()
+
+
 class BridgeMock:
     """
     Intercepts spike_bridge._bridge_call to record commands without SAB/Atomics.
@@ -34,6 +44,7 @@ class BridgeMock:
     def install(self):
         import spike_bridge as sb
         sb._bridge_call = self._capture
+        sb._flag_view = True   # sentinel so _py_print guard passes
         sb._state.clear()
         sb._state.update({
             'x': 350, 'y': 980, 'heading': -90,
