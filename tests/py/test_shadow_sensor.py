@@ -24,17 +24,17 @@ class TestShadowBridge(unittest.TestCase):
     # ── _q() forwards every command to shadowCmd ──────────────────────────────
 
     def test_q_calls_shadowCmd_with_move_command(self):
-        self.sb.motor_pair.move(0, 0, speed=500, amount=360, unit='degrees')
+        self.sb.motor_pair.move_for_degrees(0, 360, steering=0, velocity=500)
         self.assertEqual(len(self.window._shadow_cmds), 1)
         self.assertEqual(self.window._shadow_cmds[0]['type'], 'move')
 
     def test_q_shadowCmd_receives_exact_same_dict_as_cmds(self):
-        self.sb.motor_pair.move(0, 0, speed=500, amount=360, unit='degrees')
+        self.sb.motor_pair.move_for_degrees(0, 360, steering=0, velocity=500)
         self.assertEqual(self.sb._cmds[0], self.window._shadow_cmds[0])
 
     def test_q_calls_shadowCmd_for_every_command(self):
         self.sb.motor_pair.pair(0, 'A', 'B')
-        self.sb.motor_pair.move(0, 0, speed=500, amount=360, unit='degrees')
+        self.sb.motor_pair.move_for_degrees(0, 360, steering=0, velocity=500)
         self.sb.motor_pair.stop(0)
         self.assertEqual(len(self.window._shadow_cmds), 3)
         self.assertEqual(self.window._shadow_cmds[0]['type'], 'pair')
@@ -42,7 +42,7 @@ class TestShadowBridge(unittest.TestCase):
         self.assertEqual(self.window._shadow_cmds[2]['type'], 'stop')
 
     def test_q_still_queues_cmd_for_animation(self):
-        self.sb.motor_pair.move(0, 0, speed=500, amount=360, unit='degrees')
+        self.sb.motor_pair.move_for_degrees(0, 360, steering=0, velocity=500)
         # Command must also land in _cmds for the animation queue
         self.assertEqual(len(self.sb._cmds), 1)
         self.assertEqual(self.sb._cmds[0]['type'], 'move')
@@ -83,7 +83,7 @@ class TestShadowBridge(unittest.TestCase):
         self.window.shadowCmd   = tracking_shadow
         try:
             self.sb.run_user_code(
-                'import motor_pair\nmotor_pair.move(0, 0, speed=500, amount=360, unit="degrees")'
+                'import motor_pair\nmotor_pair.move_for_degrees(0, 360, steering=0, velocity=500)'
             )
         finally:
             self.window.resetShadow = original_reset
