@@ -1101,27 +1101,51 @@ const TOOLBOX_XML = `
 
 // ── Blockly workspace initializer ─────────────────────────────────────────────
 
-function initBlockly(divId) {
+const SPIKE_BLOCKLY_PALETTES = {
+  dark: {
+    workspaceBackgroundColour: '#1e1e2e',
+    toolboxBackgroundColour:   '#2a2a3e',
+    toolboxForegroundColour:   '#cdd6f4',
+    flyoutBackgroundColour:    '#313145',
+    flyoutForegroundColour:    '#cdd6f4',
+    scrollbarColour:           '#3d3d5c',
+    gridColour:                '#2a2a3e',
+  },
+  light: {
+    workspaceBackgroundColour: '#ffffff',
+    toolboxBackgroundColour:   '#f1f5f9',
+    toolboxForegroundColour:   '#0f172a',
+    flyoutBackgroundColour:    '#e2e8f0',
+    flyoutForegroundColour:    '#0f172a',
+    scrollbarColour:           '#cbd5e1',
+    gridColour:                '#cbd5e1',
+  },
+};
+
+function initBlockly(divId, themeName) {
   if (typeof Blockly === 'undefined') return null;
 
   Blockly.defineBlocksWithJsonArray(SPIKE_BLOCKS);
   registerGenerators(Blockly);
 
+  const palette = SPIKE_BLOCKLY_PALETTES[themeName] || SPIKE_BLOCKLY_PALETTES.dark;
+  const themeId = 'spike-' + (palette === SPIKE_BLOCKLY_PALETTES.light ? 'light' : 'dark');
+
   const workspace = Blockly.inject(divId, {
     toolbox:  TOOLBOX_XML,
-    grid:     { spacing: 20, length: 3, colour: '#2a2a3e', snap: true },
+    grid:     { spacing: 20, length: 3, colour: palette.gridColour, snap: true },
     zoom:     { controls: true, wheel: true, startScale: 0.9 },
     trashcan: true,
-    theme: Blockly.Theme.defineTheme('spikeDark', {
+    theme: Blockly.Theme.defineTheme(themeId, {
       base: Blockly.Themes.Classic,
       componentStyles: {
-        workspaceBackgroundColour: '#1e1e2e',
-        toolboxBackgroundColour:   '#2a2a3e',
-        toolboxForegroundColour:   '#cdd6f4',
-        flyoutBackgroundColour:    '#313145',
-        flyoutForegroundColour:    '#cdd6f4',
+        workspaceBackgroundColour: palette.workspaceBackgroundColour,
+        toolboxBackgroundColour:   palette.toolboxBackgroundColour,
+        toolboxForegroundColour:   palette.toolboxForegroundColour,
+        flyoutBackgroundColour:    palette.flyoutBackgroundColour,
+        flyoutForegroundColour:    palette.flyoutForegroundColour,
         flyoutOpacity:             0.95,
-        scrollbarColour:           '#3d3d5c',
+        scrollbarColour:           palette.scrollbarColour,
         insertionMarkerColour:     '#7c6af7',
         markerColour:              '#7c6af7',
         cursorColour:              '#56d4c0',
