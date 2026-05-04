@@ -45,24 +45,19 @@ def _bridge_call(cmd):
     if _test_intercept is not None:
         _test_intercept(cmd)
         return _NoopAwaitable()
-    return _PromiseAwaitable(js.bridgeSend(json.dumps(cmd)))
+    return _await_and_update(js.bridgeSend(json.dumps(cmd)))
 
 class _NoopAwaitable:
     def __iter__(self):  return self
     def __next__(self):  raise StopIteration(None)
     def __await__(self): return self
 
-class _PromiseAwaitable:
-    """Wraps a JS Promise; awaiting it updates _state from the JSON reply."""
-    def __init__(self, promise):
-        self._promise = promise
-    def __await__(self):
-        return self._inner().__await__()
-    async def _inner(self):
-        result_str = await self._promise
-        _state.update(json.loads(str(result_str)))
-        if _state.get('stopped'):
-            raise SystemExit
+async def _await_and_update(promise):
+    """Awaits the JS Promise, updates _state from its JSON reply."""
+    result_str = await promise
+    _state.update(json.loads(str(result_str)))
+    if _state.get('stopped'):
+        raise SystemExit
 
 # ── Phase 3: Spike Prime API ─────────────────────────────────────────────────
 class color:

@@ -56,7 +56,7 @@ Blockly bypasses the worker entirely — generated JS calls `window.sim._animate
 
 **`js/simulator.js`** — `RobotSimulator` class. The physics live in `_animateTank(leftV, rightV, refDistMM)`: normalized velocities (`-1..1`), reference distance is what the *faster* wheel travels. `_amountToMM()` converts `degrees/rotations/cm/inches` to mm. `_execCmd()` dispatches the command queue.
 
-**`py/spike_bridge.py`** — Entire Spike Prime v3 API as MicroPython classes. Loaded via `<script type="mpy" worker src="py/spike_bridge.py">`. Each API call returns a `_PromiseAwaitable` wrapping `js.bridgeSend(...)` — user code must `await` motion calls for sensor state to stay in sync with animation. `runloop.run(coro)` stores the user coroutine; `_handle_run` (driven by `asyncio.create_task` from the `'run'` message handler) awaits it. No `import traceback` — MicroPython doesn't include it; errors surface as `ExcType: message`.
+**`py/spike_bridge.py`** — Entire Spike Prime v3 API as MicroPython classes. Loaded via `<script type="mpy" worker src="py/spike_bridge.py">`. Each API call returns the coroutine produced by `_await_and_update(js.bridgeSend(...))` — user code must `await` motion calls for sensor state to stay in sync with animation. `runloop.run(coro)` stores the user coroutine; `_handle_run` (driven by `asyncio.create_task` from the `'run'` message handler) awaits it. No `import traceback` — MicroPython doesn't include it; errors surface as `ExcType: message`.
 
 **`js/autocomplete.js`** — CodeMirror 5 hint function (`window.spikeHint`). Dot-completion resolves multi-level paths (`hub.light_matrix` → its methods). Triggered automatically on `.` and manually on `Ctrl+Space`.
 
