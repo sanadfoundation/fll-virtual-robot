@@ -63,12 +63,6 @@ function initEditor() {
 function initSim() {
   sim = new RobotSimulator('robot-canvas');
   window.sim = sim;
-
-  if (!self.crossOriginIsolated) return;   // first load: coi-serviceworker will reload
-
-  const sab = new SharedArrayBuffer(5136);
-  sim.setupSAB(sab);
-  window._sab = sab;   // stored so pyWorker can receive it after 'ready'
 }
 
 function initBlocklyWorkspace() {
@@ -174,9 +168,6 @@ function handleStop() {
 function handleReset() {
   if (sim) sim.reset();
   clearOutput();
-  if (window._pyWorker && window._sab) {
-    window._pyWorker.postMessage({ type: 'sab', sab: window._sab });
-  }
   appendOutput('[Ready] Simulator reset.', 'info');
 }
 
@@ -195,15 +186,9 @@ function updateSpeed(val) {
   if (label) label.textContent = val + 'x';
 }
 
-// ── PyScript ready callback ───────────────────────────────────────────────────
-
-window.onPyReady = function() {
-  // Legacy path — unused in new model. Worker fires 'ready' message instead.
-};
-
 // ── PyScript worker bootstrap ─────────────────────────────────────────────────
 // PyScript sets .xworker on the <script type="mpy" worker> element after init.
-// We poll once per frame until it appears, then exchange the SAB.
+// Poll once per frame until it appears, then wire up the message bridge.
 
 function _pollForWorker() {
   if (window._pyWorker) return;
@@ -215,14 +200,10 @@ function _pollForWorker() {
   }
   window._pyWorker = worker;
 
-  // xworker.ready resolves when the Python script has fully loaded.
-  // Send the SAB then; Python signals back via the SAB status slot (no postMessage).
-  worker.ready.then(() => {
-    worker.postMessage({ type: 'sab', sab: window._sab });
-  });
+  worker.addEventListener('message', async ({ data }) => {
+    if (!data || !data.type) return;
 
-  sim.onStatus((status, errMsg) => {
-    if (status === 1) {       // ready_ack
+    if (data.type === 'ready') {
       if (!pyReady) {
         pyReady = true;
         const overlay = document.getElementById('py-loading');
@@ -230,11 +211,14 @@ function _pollForWorker() {
         appendOutput('[Ready] Python runtime loaded.', 'info');
       }
       document.getElementById('btn-run').disabled = false;
-    } else if (status === 2) { // done
+    } else if (data.type === 'cmd') {
+      const result = await sim.executeCommand(data.cmd);
+      worker.postMessage({ type: 'cmd_result', id: data.id, result });
+    } else if (data.type === 'done') {
       appendOutput('[Done] Simulation complete.', 'info');
       setButtons(false);
-    } else if (status === 3) { // error
-      appendOutput('[Error] ' + errMsg, 'error');
+    } else if (data.type === 'error') {
+      appendOutput('[Error] ' + data.message, 'error');
       setButtons(false);
     }
   });

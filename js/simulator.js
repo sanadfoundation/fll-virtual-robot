@@ -565,68 +565,17 @@ class RobotSimulator {
     };
   }
 
-  // ── SharedArrayBuffer command loop ───────────────────────────────────────────
+  // ── Worker command bridge ────────────────────────────────────────────────────
+  // main.js calls this for each {type:'cmd'} the Python worker sends.
 
-  setupSAB(sab) {
-    this._sab           = sab;
-    this._stopRequested = false;
-    this._commandLoop();
-    this._statusLoop();
-  }
-
-  onStatus(cb) {
-    this._statusCb = cb;
-  }
-
-  async _statusLoop() {
-    const STATUS_IDX = 1283;
-    const flagView   = new Int32Array(this._sab);
-    const dec        = new TextDecoder();
-    while (true) {
-      await Atomics.waitAsync(flagView, STATUS_IDX, 0).value;
-      const status = Atomics.load(flagView, STATUS_IDX);
-      if (status === 0) continue;
-      let errMsg = '';
-      if (status === 3) {
-        const resultLen  = Atomics.load(flagView, 2);
-        const resultCopy = new Uint8Array(new Uint8Array(this._sab, 4108, resultLen));
-        try { errMsg = JSON.parse(dec.decode(resultCopy)).message || ''; } catch (_) {}
-      }
-      Atomics.store(flagView, STATUS_IDX, 0);
-      if (this._statusCb) this._statusCb(status, errMsg);
+  async executeCommand(cmd) {
+    if (this._stopRequested) {
+      return { ...this._sensorState(), stopped: true };
     }
-  }
-
-  async _commandLoop() {
-    const flagView  = new Int32Array(this._sab);
-    const resultBuf = new Uint8Array(this._sab, 4108, 1024);
-    const enc       = new TextEncoder();
-    const dec       = new TextDecoder();
-
-    while (true) {
-      await Atomics.waitAsync(flagView, 0, 0).value;
-      if (Atomics.load(flagView, 0) !== 1) continue;
-
-      const cmdLen  = Atomics.load(flagView, 1);
-      const cmdCopy = new Uint8Array(new Uint8Array(this._sab, 12, cmdLen));
-      const cmd     = JSON.parse(dec.decode(cmdCopy));
-
-      let result;
-      if (this._stopRequested) {
-        result = { ...this._sensorState(), stopped: true };
-      } else {
-        this.isRunning = true;
-        await this._execCmd(cmd);
-        this.isRunning = false;
-        result = this._sensorState();
-      }
-
-      const bytes = enc.encode(JSON.stringify(result));
-      resultBuf.set(bytes);
-      Atomics.store(flagView, 2, bytes.length);
-      Atomics.store(flagView, 0, 0);
-      Atomics.notify(flagView, 0, 1);
-    }
+    this.isRunning = true;
+    await this._execCmd(cmd);
+    this.isRunning = false;
+    return this._sensorState();
   }
 
   // ── AABB collision ───────────────────────────────────────────────────────────

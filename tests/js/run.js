@@ -22,7 +22,7 @@ function createSim(windowOverrides) {
     cancelAnimationFrame:  () => {},
     CanvasRenderingContext2D: { prototype: {} },
     console, setTimeout, clearTimeout, setInterval, clearInterval,
-    SharedArrayBuffer, Atomics, TextEncoder, TextDecoder,
+    TextEncoder, TextDecoder,
     // V8 built-ins (Math, Promise, Array, Int32Array, Uint8Array…) available automatically.
   });
 
@@ -64,7 +64,7 @@ const SUITES = [
   ['sensors/accessors',         './sensors/accessors.test.js'],
   ['state/reset',               './state/reset.test.js'],
   ['state/sensor-state',        './state/sensor-state.test.js'],
-  ['sab/protocol',              './sab/sab-protocol.test.js'],
+  ['bridge/protocol',           './bridge/bridge-protocol.test.js'],
 ];
 
 (async () => {

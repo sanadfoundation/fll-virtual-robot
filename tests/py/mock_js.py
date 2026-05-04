@@ -2,9 +2,11 @@
 Fake `js` module for running spike_bridge.py under CPython.
 
 Inject via sys.modules['js'] before importing spike_bridge.
-Provides no-ops for addEventListener/postMessage (called at module load).
+Provides no-ops for module-load calls (eval, addEventListener, signalReady).
 Tests call bridge_mock.install() in setUp to intercept _bridge_call.
 """
+
+import json as _json
 
 
 def addEventListener(event, handler):
@@ -15,19 +17,38 @@ def postMessage(data):
     pass
 
 
-import json as _json
+def eval(s):
+    pass
+
+
+def signalReady():
+    pass
+
+
+def signalDone():
+    pass
+
+
+def signalError(msg):
+    pass
+
+
+def bridgeSend(s):
+    return None
+
 
 class _JSON:
     @staticmethod
     def parse(s):
         return _json.loads(s)
 
+
 JSON = _JSON()
 
 
 class BridgeMock:
     """
-    Intercepts spike_bridge._bridge_call to record commands without SAB/Atomics.
+    Intercepts spike_bridge._bridge_call to record commands without round-tripping.
 
     Usage in test setUp:
         import mock_js
@@ -43,8 +64,7 @@ class BridgeMock:
 
     def install(self):
         import spike_bridge as sb
-        sb._bridge_call = self._capture
-        sb._flag_view = True   # sentinel so _py_print guard passes
+        sb._test_intercept = self._capture
         sb._state.clear()
         sb._state.update({
             'x': 350, 'y': 980, 'heading': -90,
