@@ -65,6 +65,9 @@ const SUITES = [
   ['state/reset',               './state/reset.test.js'],
   ['state/sensor-state',        './state/sensor-state.test.js'],
   ['bridge/protocol',           './bridge/bridge-protocol.test.js'],
+  ['persistence/speed',         './persistence/speed.test.js'],
+  ['persistence/defaults',      './persistence/defaults.test.js'],
+  ['persistence/blockly-xml',   './persistence/blockly-default-xml.test.js'],
 ];
 
 (async () => {

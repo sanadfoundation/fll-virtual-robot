@@ -1920,7 +1920,39 @@ const SPIKE_BLOCKLY_PALETTES = {
   },
 };
 
-function initBlockly(divId, themeName) {
+const DEFAULT_BLOCKLY_XML = `
+    <xml xmlns="https://developers.google.com/blockly/xml">
+      <block type="flipperevents_whenProgramStarts" x="30" y="30">
+        <next>
+          <block type="flippermove_move">
+            <field name="DIRECTION">forward</field>
+            <field name="UNIT">cm</field>
+            <value name="VALUE"><shadow type="math_number"><field name="NUM">20</field></shadow></value>
+            <next>
+              <block type="flippermove_steer">
+                <field name="UNIT">rotations</field>
+                <value name="STEERING"><shadow type="math_number"><field name="NUM">50</field></shadow></value>
+                <value name="VALUE"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+                <next>
+                  <block type="flippermove_move">
+                    <field name="DIRECTION">forward</field>
+                    <field name="UNIT">cm</field>
+                    <value name="VALUE"><shadow type="math_number"><field name="NUM">20</field></shadow></value>
+                    <next>
+                      <block type="flipperlight_lightDisplayText">
+                        <value name="TEXT"><shadow type="text"><field name="TEXT">Done!</field></shadow></value>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </xml>`;
+
+function initBlockly(divId, themeName, initialXml) {
   if (typeof Blockly === 'undefined') return null;
 
   Blockly.defineBlocksWithJsonArray(SPIKE_BLOCKS.map(_withEmblem));
@@ -2005,31 +2037,14 @@ function initBlockly(divId, themeName) {
   const host = document.getElementById(divId);
   if (host) host.appendChild(toggleBtn);
 
-  const starterXml = `
-    <xml xmlns="https://developers.google.com/blockly/xml">
-      <block type="flipperevents_whenProgramStarts" x="30" y="30">
-        <next>
-          <block type="flippermove_move">
-            <field name="DIRECTION">forward</field>
-            <field name="UNIT">cm</field>
-            <value name="VALUE"><shadow type="math_number"><field name="NUM">20</field></shadow></value>
-            <next>
-              <block type="flippermove_steer">
-                <field name="UNIT">rotations</field>
-                <value name="STEERING"><shadow type="math_number"><field name="NUM">50</field></shadow></value>
-                <value name="VALUE"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
-                <next>
-                  <block type="flipperlight_lightDisplayText">
-                    <value name="TEXT"><shadow type="text"><field name="TEXT">Done!</field></shadow></value>
-                  </block>
-                </next>
-              </block>
-            </next>
-          </block>
-        </next>
-      </block>
-    </xml>`;
-  Blockly.Xml.domToWorkspace(Blockly.utils.xml.textToDom(starterXml), workspace);
+  const xmlText = (typeof initialXml === 'string' && initialXml.trim()) ? initialXml : DEFAULT_BLOCKLY_XML;
+  try {
+    Blockly.Xml.domToWorkspace(Blockly.utils.xml.textToDom(xmlText), workspace);
+  } catch (e) {
+    console.error('Blockly initial XML load failed, falling back to default:', e);
+    workspace.clear();
+    Blockly.Xml.domToWorkspace(Blockly.utils.xml.textToDom(DEFAULT_BLOCKLY_XML), workspace);
+  }
 
   return workspace;
 }
@@ -2062,5 +2077,6 @@ function generateBlocklyJS(workspace) {
   return preamble + '\n' + body;
 }
 
-window.initBlockly       = initBlockly;
-window.generateBlocklyJS = generateBlocklyJS;
+window.initBlockly         = initBlockly;
+window.generateBlocklyJS   = generateBlocklyJS;
+window.DEFAULT_BLOCKLY_XML = DEFAULT_BLOCKLY_XML;

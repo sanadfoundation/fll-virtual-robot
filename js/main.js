@@ -44,9 +44,24 @@ function clearOutput() {
 
 window.appendOutput = appendOutput;
 
-// ── Theme ────────────────────────────────────────────────────────────────────
+// ── Persistence ──────────────────────────────────────────────────────────────
 
-const THEME_KEY = 'fll-vr-theme';
+const THEME_KEY   = 'fll-vr-theme';
+const SPEED_KEY   = 'fll-vr-speed';
+const PYCODE_KEY  = 'fll-vr-python-code';
+const BLOCKLY_KEY = 'fll-vr-blockly-xml';
+
+const DEFAULT_THEME = 'light';
+const DEFAULT_SPEED = 1;
+
+function lsGet(key) {
+  try { return localStorage.getItem(key); } catch (e) { return null; }
+}
+function lsSet(key, value) {
+  try { localStorage.setItem(key, value); } catch (e) { /* storage unavailable */ }
+}
+
+// ── Theme ────────────────────────────────────────────────────────────────────
 
 function currentTheme() {
   return document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
@@ -63,7 +78,7 @@ function applyTheme(theme) {
     monaco.editor.setTheme(monacoThemeFor(t));
   }
   retintBlockly(t);
-  try { localStorage.setItem(THEME_KEY, t); } catch (e) { /* storage may be unavailable */ }
+  lsSet(THEME_KEY, t);
 }
 
 // Blockly options like grid colour and workspace background are baked in at
@@ -84,13 +99,8 @@ function retintBlockly(theme) {
 }
 
 function initTheme() {
-  let stored = null;
-  try { stored = localStorage.getItem(THEME_KEY); } catch (e) { /* ignore */ }
-  let theme = stored;
-  if (theme !== 'light' && theme !== 'dark') {
-    const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
-    theme = prefersLight ? 'light' : 'dark';
-  }
+  const stored = lsGet(THEME_KEY);
+  const theme = (stored === 'light' || stored === 'dark') ? stored : DEFAULT_THEME;
   document.documentElement.dataset.theme = theme;
 }
 
@@ -107,8 +117,10 @@ function initEditor() {
   require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs' } });
   require(['vs/editor/editor.main'], () => {
     window.registerSpikeCompletions(monaco);
+    const stored = lsGet(PYCODE_KEY);
+    const initialCode = (stored !== null) ? stored : DEFAULT_PYTHON_CODE;
     editor = monaco.editor.create(document.getElementById('py-editor'), {
-      value: DEFAULT_PYTHON_CODE,
+      value: initialCode,
       language: 'python',
       theme: monacoThemeFor(currentTheme()),
       fontSize: 14,
@@ -123,6 +135,12 @@ function initEditor() {
       monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
       handleRun
     );
+
+    let pySaveTimer = null;
+    editor.onDidChangeModelContent(() => {
+      clearTimeout(pySaveTimer);
+      pySaveTimer = setTimeout(() => lsSet(PYCODE_KEY, editor.getValue()), 250);
+    });
   });
 }
 
@@ -134,16 +152,22 @@ function initSim() {
 function initBlocklyWorkspace() {
   if (blocklyWs) return;
   try {
-    blocklyWs = window.initBlockly('blockly-div', currentTheme());
-    if (blocklyWs && pendingBlocklyXml) {
-      // Restore workspace state preserved across a theme re-inject.
-      try {
-        blocklyWs.clear();
-        Blockly.Xml.domToWorkspace(Blockly.utils.xml.textToDom(pendingBlocklyXml), blocklyWs);
-      } catch (e) {
-        console.error('Blockly XML restore failed:', e);
-      }
-      pendingBlocklyXml = null;
+    // Priority: pending XML from a theme re-inject > saved XML in localStorage > default starter.
+    const stored = lsGet(BLOCKLY_KEY);
+    const initialXml = pendingBlocklyXml || stored || undefined;
+    pendingBlocklyXml = null;
+
+    blocklyWs = window.initBlockly('blockly-div', currentTheme(), initialXml);
+
+    if (blocklyWs) {
+      blocklyWs.addChangeListener((e) => {
+        // Skip UI-only events (clicks, scrolls) — they don't change the program.
+        if (e && e.isUiEvent) return;
+        try {
+          const xml = Blockly.Xml.domToText(Blockly.Xml.workspaceToDom(blocklyWs));
+          lsSet(BLOCKLY_KEY, xml);
+        } catch (err) { /* workspace may be mid-dispose */ }
+      });
     }
   } catch (e) {
     appendOutput('[Error] Blockly init failed: ' + e.message, 'error');
@@ -256,10 +280,60 @@ function setButtons(running) {
 
 // ── Speed control ─────────────────────────────────────────────────────────────
 
-function updateSpeed(val) {
-  if (sim) sim.speedMult = parseFloat(val);
+function updateSpeed(val, options) {
+  const num = parseFloat(val);
+  if (sim) sim.speedMult = num;
   const label = document.getElementById('speed-label');
-  if (label) label.textContent = val + 'x';
+  if (label) label.textContent = num + 'x';
+  if (!options || options.persist !== false) lsSet(SPEED_KEY, String(num));
+}
+
+function applyStoredSpeed() {
+  const stored = parseFloat(lsGet(SPEED_KEY));
+  const speed = isFinite(stored) && stored > 0 ? stored : DEFAULT_SPEED;
+  const slider = document.getElementById('speed-slider');
+  if (slider) slider.value = String(speed);
+  updateSpeed(speed, { persist: false });
+}
+
+// ── Defaults ──────────────────────────────────────────────────────────────────
+
+function handleDefaults() {
+  const ok = window.confirm(
+    'Reset everything to defaults?\n\n' +
+    'This will replace your current theme, speed, Python code, and block program with the defaults. This cannot be undone.'
+  );
+  if (!ok) return;
+
+  // Theme
+  applyTheme(DEFAULT_THEME);
+
+  // Speed
+  const slider = document.getElementById('speed-slider');
+  if (slider) slider.value = String(DEFAULT_SPEED);
+  updateSpeed(DEFAULT_SPEED);
+
+  // Python code
+  if (editor) editor.setValue(DEFAULT_PYTHON_CODE);
+  lsSet(PYCODE_KEY, DEFAULT_PYTHON_CODE);
+
+  // Blockly XML — replace live workspace if mounted, otherwise stage for next mount.
+  const defaultXml = window.DEFAULT_BLOCKLY_XML || '';
+  if (blocklyWs && typeof Blockly !== 'undefined') {
+    try {
+      blocklyWs.clear();
+      if (defaultXml) {
+        Blockly.Xml.domToWorkspace(Blockly.utils.xml.textToDom(defaultXml), blocklyWs);
+      }
+    } catch (e) {
+      console.error('Blockly defaults reset failed:', e);
+    }
+  } else {
+    pendingBlocklyXml = defaultXml || null;
+  }
+  if (defaultXml) lsSet(BLOCKLY_KEY, defaultXml);
+
+  appendOutput('[Defaults] Theme, speed, and editor contents reset.', 'info');
 }
 
 // ── PyScript worker bootstrap ─────────────────────────────────────────────────
@@ -372,10 +446,12 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-run').addEventListener('click', handleRun);
   document.getElementById('btn-stop').addEventListener('click', handleStop);
   document.getElementById('btn-reset').addEventListener('click', handleReset);
+  document.getElementById('btn-defaults').addEventListener('click', handleDefaults);
   document.getElementById('btn-theme').addEventListener('click', toggleTheme);
 
   const speedSlider = document.getElementById('speed-slider');
   if (speedSlider) speedSlider.addEventListener('input', e => updateSpeed(e.target.value));
+  applyStoredSpeed();
 
   // Disable run until Python is ready
   document.getElementById('btn-run').disabled = true;
