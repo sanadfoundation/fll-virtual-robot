@@ -66,6 +66,19 @@ _COLOR_INT_MAP = {
     'orange': 8, 'red': 9, 'white': 10,
 }
 
+# ── Port configuration ───────────────────────────────────────────────────────
+# Canonical robot wiring. The simulator's drawn robot has 2 wheels (motors A/B)
+# plus a color sensor and distance sensor; ports C and D are unwired in the
+# default config. Customization will arrive as a separate feature.
+_PORT_CONFIG = {
+    'A': 'motor',
+    'B': 'motor',
+    'C': 'empty',
+    'D': 'empty',
+    'E': 'color_sensor',
+    'F': 'distance_sensor',
+}
+
 # ── Phase 3: Spike Prime v3 API ──────────────────────────────────────────────
 class color:
     BLACK     = 0
@@ -98,6 +111,21 @@ def _port_id(p):
     if len(s) == 1 and s in 'ABCDEF':
         return s
     return s  # let downstream surface a useful error
+
+
+def _require(port, expected_kind, op):
+    """Validate that `port` has `expected_kind` plugged in. Raises RuntimeError otherwise.
+    Returns the wire-letter form of the port for downstream use."""
+    letter = _port_id(port)
+    actual = _PORT_CONFIG.get(letter, 'empty')
+    if actual != expected_kind:
+        readable = expected_kind.replace('_', ' ')
+        raise RuntimeError(
+            "port " + letter + " has no " + readable +
+            " (configured: " + (actual or 'empty') + ")"
+        )
+    return letter
+
 
 class motor:
     # Stop-mode constants
