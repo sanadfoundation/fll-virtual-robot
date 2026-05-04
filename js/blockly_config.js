@@ -25,11 +25,23 @@ const C_MYBLOCKS = '#ff5d64';
 const _PORTS_SINGLE = [['A','A'],['B','B'],['C','C'],['D','D'],['E','E'],['F','F']];
 const _PORTS_MULTI  = _PORTS_SINGLE; // multi-port selectors collapse to single in standard Blockly
 
+// Inline-SVG → data URI so we can ship icon dropdowns without per-asset files.
+const _dataUri = (svg) =>
+  'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+
+// Pair pills: the option is rendered as a small white rounded pill with the
+// "A+B" label baked in, mirroring LEGO's movement-pair selector chrome.
+function _pairPillSvg(label) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 32"><rect x="2" y="3" width="60" height="26" rx="13" fill="#fff" stroke="#222" stroke-width="2"/><text x="32" y="22" font-family="Helvetica,Arial,sans-serif" font-size="16" font-weight="700" text-anchor="middle" fill="#222">${label}</text></svg>`;
+}
+const _pairOpt = (label, value) =>
+  [{ src: _dataUri(_pairPillSvg(label)), width: 40, height: 20, alt: label }, value];
+
 const _PAIRS = [
-  ['A+B','AB'],['C+D','CD'],['E+F','EF'],
-  ['A+C','AC'],['A+D','AD'],['A+E','AE'],['A+F','AF'],
-  ['B+C','BC'],['B+D','BD'],['B+E','BE'],['B+F','BF'],
-  ['C+E','CE'],['C+F','CF'],['D+E','DE'],['D+F','DF'],['E+F','EF'],
+  _pairOpt('A+B','AB'), _pairOpt('C+D','CD'), _pairOpt('E+F','EF'),
+  _pairOpt('A+C','AC'), _pairOpt('A+D','AD'), _pairOpt('A+E','AE'), _pairOpt('A+F','AF'),
+  _pairOpt('B+C','BC'), _pairOpt('B+D','BD'), _pairOpt('B+E','BE'), _pairOpt('B+F','BF'),
+  _pairOpt('C+E','CE'), _pairOpt('C+F','CF'), _pairOpt('D+E','DE'), _pairOpt('D+F','DF'),
 ];
 
 // Direction selectors render as image-only dropdowns: a small white pill
@@ -52,6 +64,18 @@ const _SHORTEST = [
   ['counterclockwise','counterclockwise'],
 ];
 
+// 24×24 colored circle (with optional empty-ring slash for "no color"/"off").
+function _swatchSvg(fill, empty) {
+  const ring = empty ? '#999' : (fill === '#ffffff' ? '#666' : '#222');
+  const body = empty ? '#fff' : fill;
+  const slash = empty
+    ? '<line x1="12" y1="36" x2="36" y2="12" stroke="#d33" stroke-width="4" stroke-linecap="round"/>'
+    : '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><circle cx="24" cy="24" r="18" fill="${body}" stroke="${ring}" stroke-width="2"/>${slash}</svg>`;
+}
+const _swatch = (fill, alt, empty) =>
+  ({ src: _dataUri(_swatchSvg(fill, empty)), width: 24, height: 24, alt });
+
 const _MOTOR_UNITS  = [['rotations','rotations'],['degrees','degrees'],['seconds','seconds']];
 const _MOVE_UNITS   = [['rotations','rotations'],['degrees','degrees'],['seconds','seconds'],['cm','cm'],['inches','inches']];
 const _DIST_UNITS   = [['cm','cm'],['inches','inches']];
@@ -59,13 +83,29 @@ const _DIST_RANGE   = [['%','%'],['cm','cm'],['inches','inches']];
 const _FORCE_UNITS  = [['newton','newton'],['%','%']];
 
 const _COLORS = [
-  ['no color','-1'], ['black','0'], ['magenta','1'], ['violet','3'],
-  ['blue','4'], ['cyan','5'], ['green','7'], ['yellow','9'], ['white','10'],
+  [_swatch('#fff',     'no color', true), '-1'],
+  [_swatch('#000000',  'black'),           '0'],
+  [_swatch('#d6005c',  'magenta'),         '1'],
+  [_swatch('#6e3aaa',  'violet'),          '3'],
+  [_swatch('#1d6dd1',  'blue'),            '4'],
+  [_swatch('#25b9d8',  'cyan'),            '5'],
+  [_swatch('#1a9c4a',  'green'),           '7'],
+  [_swatch('#f7c911',  'yellow'),          '9'],
+  [_swatch('#ffffff',  'white'),          '10'],
 ];
 
 const _CENTRE_BTN_COLORS = [
-  ['off','0'],   ['pink','1'],  ['violet','2'], ['blue','3'],     ['light blue','4'],
-  ['cyan','5'], ['green','6'], ['yellow','7'], ['orange','8'],   ['red','9'], ['white','10'],
+  [_swatch('#fff',    'off', true),     '0'],
+  [_swatch('#ff80c0', 'pink'),          '1'],
+  [_swatch('#b066d8', 'violet'),        '2'],
+  [_swatch('#1d6dd1', 'blue'),          '3'],
+  [_swatch('#6db3e6', 'light blue'),    '4'],
+  [_swatch('#25b9d8', 'cyan'),          '5'],
+  [_swatch('#1a9c4a', 'green'),         '6'],
+  [_swatch('#f7c911', 'yellow'),        '7'],
+  [_swatch('#f08020', 'orange'),        '8'],
+  [_swatch('#d12a2a', 'red'),           '9'],
+  [_swatch('#ffffff', 'white'),        '10'],
 ];
 
 const _TILT       = [['forward','1'],['backward','2'],['left','3'],['right','4']];
@@ -84,8 +124,43 @@ const _PRESS_IS   = [['pressed','pressed'],['hard-pressed','hard-pressed'],['rel
 const _COMPARE    = [['closer than','<'],['exactly at','='],['further than','>']];
 const _COMPARE_LT = [['<','<'],['=','='],['>','>']];
 const _STOP_KIND  = [['all','all'],['and exit program','program'],['this stack','this']];
-const _STOP_METHOD= [['brake','brake'],['hold position','hold'],['coast','coast']];
-const _ACCEL      = [['slow','slow'],['medium','medium'],['fast','fast']];
+
+// Stop-method icons: down-arrow-into-floor (brake), padlock (hold), dashed
+// arrow (coast). Acceleration: 1/2/3 chevrons pointing right.
+const _STOP_ICONS = {
+  brake: '<path d="M24 8 V30 M16 22 L24 30 L32 22" stroke="#222" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="10" y1="36" x2="38" y2="36" stroke="#222" stroke-width="3" stroke-linecap="round"/>',
+  hold:  '<path d="M16 24 v-6 a8 8 0 0 1 16 0 v6" stroke="#222" stroke-width="3" fill="none"/><rect x="12" y="22" width="24" height="18" rx="2" fill="#222"/><circle cx="24" cy="30" r="2.5" fill="#fff"/>',
+  coast: '<line x1="6" y1="24" x2="13" y2="24" stroke="#999" stroke-width="3" stroke-linecap="round" stroke-dasharray="4 3"/><path d="M14 24 L36 24 M28 16 L36 24 L28 32" stroke="#222" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+};
+function _stopMethodSvg(kind) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">${_STOP_ICONS[kind]}</svg>`;
+}
+const _stopOpt = (alt, value) =>
+  [{ src: _dataUri(_stopMethodSvg(value)), width: 24, height: 24, alt }, value];
+
+const _STOP_METHOD = [
+  _stopOpt('brake',         'brake'),
+  _stopOpt('hold position', 'hold'),
+  _stopOpt('coast',         'coast'),
+];
+
+function _accelSvg(level) {
+  const n = { slow: 1, medium: 2, fast: 3 }[level];
+  let paths = '';
+  for (let i = 0; i < n; i++) {
+    const x = 14 + i * 9;
+    paths += `<path d="M${x} 16 L${x + 8} 24 L${x} 32" stroke="#222" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">${paths}</svg>`;
+}
+const _accelOpt = (alt, value) =>
+  [{ src: _dataUri(_accelSvg(value)), width: 24, height: 24, alt }, value];
+
+const _ACCEL = [
+  _accelOpt('slow',   'slow'),
+  _accelOpt('medium', 'medium'),
+  _accelOpt('fast',   'fast'),
+];
 const _LIGHT_DIR  = [['clockwise','clockwise'],['counterclockwise','counterclockwise']];
 const _SOUND_FX   = [['pitch','PITCH'],['pan left/right','PAN']];
 const _MATHOP     = [
