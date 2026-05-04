@@ -462,7 +462,7 @@ runloop.run(main())
 `,
 ];
 
-const DEFAULT_PYTHON_CODE = `# FLL Virtual Robot — Mission: drive over yellow, green, and red zones
+const DEFAULT_PYTHON_CODE = `# FLL Virtual Robot — Mission: drive over yellow and stop at green
 from hub import port
 import motor_pair, runloop
 
@@ -476,20 +476,8 @@ async def main():
     # Turn right 90° (now heading east)
     await motor_pair.move_tank_for_time(motor_pair.PAIR_1, 360, -360, 500)
 
-    # Drive 1350 mm east — passes through yellow (x≈1000) then green (x≈1700)
+    # Drive 1350 mm east — passes through yellow (x≈1000) and stops in green (x≈1700)
     await motor_pair.move_for_degrees(motor_pair.PAIR_1, 2762, 0, velocity=720)
-
-    # Turn right 90° (now heading south)
-    await motor_pair.move_tank_for_time(motor_pair.PAIR_1, 360, -360, 500)
-
-    # Drive 600 mm south to the red-zone row (y≈800)
-    await motor_pair.move_for_degrees(motor_pair.PAIR_1, 1228, 0, velocity=720)
-
-    # Turn left 90° (now heading east)
-    await motor_pair.move_tank_for_time(motor_pair.PAIR_1, -360, 360, 500)
-
-    # Drive 300 mm east into the red zone (x≈2000)
-    await motor_pair.move_for_degrees(motor_pair.PAIR_1, 614, 0, velocity=720)
 
     print('Mission complete!')
 
