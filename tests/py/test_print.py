@@ -44,7 +44,7 @@ class TestPrintQueuing(unittest.TestCase):
         self.assertEqual(cmds[1]['text'], 'second')
 
     def test_print_commands_interleave_with_move_commands(self):
-        sb.motor_pair.move(0, 0, speed=500, amount=360, unit='degrees')
+        sb.motor_pair.move_for_degrees(0, 360, steering=0, velocity=500)
         print('moved')
         sb.motor_pair.stop(0)
         types = [c['type'] for c in mock_js.bridge_mock.all()]

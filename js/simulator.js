@@ -45,6 +45,11 @@ const COLOR_MAP = {
   none:    null,
 };
 
+const COLOR_INT_MAP = {
+  none: -1, black: 0, magenta: 1, purple: 2, blue: 3,
+  azure: 4, turquoise: 5, green: 6, yellow: 7, orange: 8, red: 9, white: 10,
+};
+
 // ── FLL Mat field elements ───────────────────────────────────────────────────
 
 const FIELD_OBJECTS = [
@@ -641,6 +646,11 @@ class RobotSimulator {
   // ── Sensor accessors (called from Python via JS bridge) ─────────────────────
 
   getColorSensorColor() { return this.robot.sensors.colorValue; }
+
+  getColorSensorColorInt() {
+    const v = this.robot.sensors.colorValue;
+    return COLOR_INT_MAP[v] ?? -1;
+  }
 
   getColorSensorReflection() {
     const reflMap = {

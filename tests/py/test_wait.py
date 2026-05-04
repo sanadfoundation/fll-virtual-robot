@@ -32,14 +32,14 @@ class TestRunloop(unittest.TestCase):
     def test_runloop_drives_simple_coroutine(self):
         async def main():
             sb.wait(100)
-            sb.motor_pair.move(0, 0, 500, 360, 'degrees')
+            sb.motor_pair.move(0, 0, velocity=500)
             sb.wait(200)
 
         sb.runloop.run(main())
         cmds = mock_js.bridge_mock.all()
         self.assertEqual(len(cmds), 3)
         self.assertEqual(cmds[0], {'type': 'wait', 'ms': 100})
-        self.assertEqual(cmds[1]['type'], 'move')
+        self.assertEqual(cmds[1]['type'], 'start')
         self.assertEqual(cmds[2], {'type': 'wait', 'ms': 200})
 
     def test_runloop_with_pair_and_move(self):

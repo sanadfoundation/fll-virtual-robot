@@ -13,13 +13,8 @@
   <script src="https://unpkg.com/blockly@10.4.3/blockly.min.js"></script>
   <script src="https://unpkg.com/blockly@10.4.3/javascript_compressed.js"></script>
 
-  <!-- CodeMirror -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/monokai.min.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.js"></script>
+  <!-- Monaco Editor -->
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs/loader.js"></script>
 
   <!-- App styles -->
   <link rel="stylesheet" href="css/style.css">
@@ -71,7 +66,7 @@
   <div class="panel-left">
     <div class="editor-wrap">
       <div id="py-editor-wrap" style="height:100%">
-        <textarea id="py-editor"></textarea>
+        <div id="py-editor" style="height:100%"></div>
       </div>
       <div id="blockly-div"></div>
     </div>
@@ -137,7 +132,7 @@
 <!-- ── JavaScript ────────────────────────────────────────── -->
 <script src="js/simulator.js"></script>
 <script src="js/blockly_config.js"></script>
-<script src="js/autocomplete.js"></script>
+<script src="js/monaco_config.js"></script>
 <script src="js/main.js"></script>
 
 <!-- ── PyScript: Spike Prime API Bridge ─────────────────── -->

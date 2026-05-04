@@ -95,4 +95,34 @@ module.exports = [
       assert.strictEqual(createSim().getMotorPosition('A'), 0);
     },
   },
+  {
+    name: 'getColorSensorColorInt: returns -1 for "none" (default)',
+    fn(createSim, assert) {
+      assert.strictEqual(createSim().getColorSensorColorInt(), -1);
+    },
+  },
+  {
+    name: 'getColorSensorColorInt: returns 0 for "black"',
+    fn(createSim, assert) {
+      const sim = createSim();
+      sim.robot.sensors.colorValue = 'black';
+      assert.strictEqual(sim.getColorSensorColorInt(), 0);
+    },
+  },
+  {
+    name: 'getColorSensorColorInt: returns 9 for "red"',
+    fn(createSim, assert) {
+      const sim = createSim();
+      sim.robot.sensors.colorValue = 'red';
+      assert.strictEqual(sim.getColorSensorColorInt(), 9);
+    },
+  },
+  {
+    name: 'getColorSensorColorInt: returns 6 for "green"',
+    fn(createSim, assert) {
+      const sim = createSim();
+      sim.robot.sensors.colorValue = 'green';
+      assert.strictEqual(sim.getColorSensorColorInt(), 6);
+    },
+  },
 ];

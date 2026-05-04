@@ -8,20 +8,6 @@ Items are grouped by theme and loosely prioritized within each group (top = high
 
 ---
 
-## 3D LDraw View *(blocked — requires execution model redesign first)*
-
-Decisions already made in design session:
-- 3D **replaces** the 2D canvas entirely (no toggle)
-- Scene: LDraw robot model + FLL mat image texture + user-uploaded LDraw mission models
-- Camera: preset angles only — Top, Iso, Follow (no free orbit)
-- Robot model: self-contained `.ldr` bundled with app; mission models: user uploads via file picker
-- Renderer: **Three.js r168+ + LDrawLoader** from CDN (importmap); no build step
-- Collision & distance sensor: shadow robot does AABB collision + forward raycast against mission model geometry
-
-Blocked until the step-interleaved execution model is in place so robot-model physics (collision, pushing) works correctly.
-
----
-
 ## Spike Prime API Completeness
 
 ### Motor control
@@ -43,6 +29,28 @@ Blocked until the step-interleaved execution model is in place so robot-model ph
 ### Sound
 - **`hub.speaker.beep()`** and **`hub.speaker.start_beep()`** — single-note beeps. Students add these as audio cues in Python programs.
 - **`hub.speaker.play_sound()`** — named sound playback (e.g. `"Cat"`, `"Dog"`). Lower priority than beep but present in the real API.
+
+### Python API Alignment
+
+Re-align the standard API modules/methods using https://tuftsceeo.github.io/SPIKEPythonDocs/SPIKE3.html as documentation source. Incorporate the API docs for potential inline code api docs.
+
+### Blockly Model Alignment
+
+Similar to https://spike.ahardy.za.net/ we need to have the Blockly model aligned exactly to what the Spike Prime App does.
+
+---
+
+## 3D LDraw View *(blocked — requires execution model redesign first)*
+
+Decisions already made in design session:
+- 3D **replaces** the 2D canvas entirely (no toggle)
+- Scene: LDraw robot model + FLL mat image texture + user-uploaded LDraw mission models
+- Camera: preset angles only — Top, Iso, Follow (no free orbit)
+- Robot model: self-contained `.ldr` bundled with app; mission models: user uploads via file picker
+- Renderer: **Three.js r168+ + LDrawLoader** from CDN (importmap); no build step
+- Collision & distance sensor: shadow robot does AABB collision + forward raycast against mission model geometry
+
+Blocked until the step-interleaved execution model is in place so robot-model physics (collision, pushing) works correctly.
 
 ---
 
