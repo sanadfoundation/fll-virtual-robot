@@ -455,7 +455,7 @@ class RobotSimulator {
   async _execCmd(cmd) {
     const requiredKind = PORT_KIND_FOR_CMD[cmd.type];
     if (requiredKind && cmd.port !== undefined) {
-      const cfg = PORT_CONFIG[cmd.port];
+      const cfg = this._portConfig[cmd.port];
       const actualKind = cfg ? cfg.kind : 'empty';
       if (actualKind !== requiredKind) {
         throw new Error(

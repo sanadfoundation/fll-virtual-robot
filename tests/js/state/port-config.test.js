@@ -5,8 +5,6 @@ module.exports = [
     name: 'PORT_CONFIG is exposed and matches default wiring',
     fn: async (createSim, assert) => {
       const sim = createSim();
-      const ctx = sim.constructor; // RobotSimulator class — but config is a const
-      // PORT_CONFIG lives at module scope; expose via window or read via sim instance
       assert.strictEqual(sim._portConfig.A.kind, 'motor');
       assert.strictEqual(sim._portConfig.A.role, 'drive-left');
       assert.strictEqual(sim._portConfig.B.kind, 'motor');
