@@ -82,6 +82,93 @@ const _SOUNDS = [
   ['Motor Start','motor'],['Beep','beep'],
 ];
 
+// ── Per-block category emblems (from LEGO Education SPIKE Prime IDE) ─────────
+// Each block gets a small white icon on the right edge identifying its
+// category, mirroring the LEGO word-block UI. Blocks not listed here (Light,
+// Control, Operator, plain timer) render without an emblem.
+const _ICON_FOR_TYPE = {
+  flippermotor_motorTurnForDirection:        'Motors.svg',
+  flippermotor_motorGoDirectionToPosition:   'Motors.svg',
+  flippermotor_motorStartDirection:          'Motors.svg',
+  flippermotor_motorStop:                    'Motors.svg',
+  flippermotor_motorSetSpeed:                'Motors.svg',
+  flippermotor_absolutePosition:             'Motors.svg',
+  flippermotor_speed:                        'Motors.svg',
+
+  flippermove_move:                          'Movement.svg',
+  flippermove_startMove:                     'Movement.svg',
+  flippermove_steer:                         'Movement.svg',
+  flippermove_startSteer:                    'Movement.svg',
+  flippermove_stopMove:                      'Movement.svg',
+  flippermove_movementSpeed:                 'Movement.svg',
+  flippermove_setMovementPair:               'Movement.svg',
+  flippermove_setDistance:                   'Movement.svg',
+
+  flippersound_playSoundUntilDone:           'Sound.svg',
+  flippersound_playSound:                    'Sound.svg',
+  flippersound_beepForTime:                  'Sound.svg',
+  flippersound_beep:                         'Sound.svg',
+  flippersound_stopSound:                    'Sound.svg',
+
+  flipperevents_whenProgramStarts:           'EventsStart.svg',
+  flipperevents_whenColor:                   'ColorSensor.svg',
+  flipperevents_whenPressed:                 'ForceSensor.svg',
+  flipperevents_whenDistance:                'UltraSound.svg',
+  flipperevents_whenTilted:                  'Hub.svg',
+  flipperevents_whenOrientation:             'Hub.svg',
+  flipperevents_whenGesture:                 'Hub.svg',
+  flipperevents_whenButton:                  'Hub.svg',
+  flipperevents_whenTimer:                   'Hub.svg',
+
+  flippersensors_isColor:                    'ColorSensor.svg',
+  flippersensors_color:                      'ColorSensor.svg',
+  flippersensors_isReflectivity:             'ColorSensor.svg',
+  flippersensors_reflectivity:               'ColorSensor.svg',
+  flippersensors_isPressed:                  'ForceSensor.svg',
+  flippersensors_force:                      'ForceSensor.svg',
+  flippersensors_isDistance:                 'UltraSound.svg',
+  flippersensors_distance:                   'UltraSound.svg',
+  flippersensors_isTilted:                   'Hub.svg',
+  flippersensors_isorientation:              'Hub.svg',
+  flippersensors_ismotion:                   'Hub.svg',
+  flippersensors_orientationAxis:            'Hub.svg',
+  flippersensors_resetYaw:                   'Hub.svg',
+  flippersensors_buttonIsPressed:            'Hub.svg',
+
+  flippermoremotor_motorGoToRelativePosition:'Motors.svg',
+  flippermoremotor_motorStartPower:          'Motors.svg',
+  flippermoremotor_motorSetStopMethod:       'Motors.svg',
+  flippermoremotor_motorSetAcceleration:     'Motors.svg',
+  flippermoremotor_motorSetDegreeCounted:    'Motors.svg',
+  flippermoremotor_power:                    'Motors.svg',
+  flippermoremotor_position:                 'Motors.svg',
+  flippermoremove_movementSetStopMethod:     'Movement.svg',
+  flippermoremove_startDualSpeed:            'Movement.svg',
+  flippermoremove_movementSetAcceleration:   'Movement.svg',
+  flippermoresensors_setOrientation:         'Hub.svg',
+  flippermoresensors_rawColor:               'ColorSensor.svg',
+  flippermoresensors_acceleration:           'Hub.svg',
+  flippermoresensors_angularVelocity:        'Hub.svg',
+  flippermoresensors_orientation:            'Hub.svg',
+  flippermoresensors_motion:                 'Hub.svg',
+};
+
+// Append a field_image to message0/args0 of every block that has an emblem.
+function _withEmblem(block) {
+  const icon = _ICON_FOR_TYPE[block.type];
+  if (!icon) return block;
+  const argsLen = (block.args0 || []).length;
+  const slot    = argsLen + 1;
+  return {
+    ...block,
+    message0: (block.message0 || '') + ` %${slot}`,
+    args0: [
+      ...(block.args0 || []),
+      { type: 'field_image', src: 'static/icons/' + icon, width: 24, height: 24, alt: '' },
+    ],
+  };
+}
+
 // ── Block definitions ────────────────────────────────────────────────────────
 const SPIKE_BLOCKS = [
 
@@ -1728,7 +1815,7 @@ const TOOLBOX_XML = `
 function initBlockly(divId) {
   if (typeof Blockly === 'undefined') return null;
 
-  Blockly.defineBlocksWithJsonArray(SPIKE_BLOCKS);
+  Blockly.defineBlocksWithJsonArray(SPIKE_BLOCKS.map(_withEmblem));
   registerGenerators(Blockly);
 
   // Zelos = Google's Scratch-style renderer (rounded blocks, hat events,
