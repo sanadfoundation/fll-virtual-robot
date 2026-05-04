@@ -1797,6 +1797,19 @@ const TOOLBOX_XML = `
     </block>
   </category>
 
+  <!-- EXTENSIONS_PLACEHOLDER -->
+
+  <sep></sep>
+
+  <category name="VARIABLES" colour="${C_VARS}" custom="VARIABLE"></category>
+  <category name="MY BLOCKS"  colour="${C_MYBLOCKS}" custom="PROCEDURE"></category>
+
+</xml>`;
+
+// Extension categories — hidden by default, mirror LEGO's "Show extensions"
+// toggle in the bottom toolbar of the SPIKE Prime IDE. Inserted at
+// EXTENSIONS_PLACEHOLDER when the toggle is on.
+const TOOLBOX_EXTENSIONS_XML = `
   <category name="MORE-MOVEMENT" colour="${C_MOVEMENT}">
     <block type="flippermoremove_movementSetStopMethod"/>
     <block type="flippermoremove_startDualSpeed">
@@ -1831,13 +1844,14 @@ const TOOLBOX_XML = `
     <block type="flippermoresensors_orientation"/>
     <block type="flippermoresensors_motion"/>
   </category>
+`;
 
-  <sep></sep>
-
-  <category name="VARIABLES" colour="${C_VARS}" custom="VARIABLE"></category>
-  <category name="MY BLOCKS"  colour="${C_MYBLOCKS}" custom="PROCEDURE"></category>
-
-</xml>`;
+function _buildToolboxXml(extensionsVisible) {
+  return TOOLBOX_XML.replace(
+    '<!-- EXTENSIONS_PLACEHOLDER -->',
+    extensionsVisible ? TOOLBOX_EXTENSIONS_XML : ''
+  );
+}
 
 // ── Blockly workspace initializer ────────────────────────────────────────────
 
@@ -1855,9 +1869,13 @@ function initBlockly(divId) {
   // a "hat" on every event-style block, matching the LEGO SPIKE word-block UX.
   // Workspace and flyout are kept light to mirror the LEGO IDE's white canvas;
   // the dark navigation bar in index.html still frames it.
+  // Hide MORE-MOVEMENT/MORE-MOTOR/MORE-SENSOR by default, mirroring LEGO's
+  // "Show extensions" toggle in their bottom toolbar.
+  let extensionsVisible = false;
+
   const workspace = Blockly.inject(divId, {
     renderer: 'zelos',
-    toolbox:  TOOLBOX_XML,
+    toolbox:  _buildToolboxXml(extensionsVisible),
     grid:     { spacing: 40, length: 2, colour: '#e6e6ec', snap: true },
     zoom:     { controls: true, wheel: true, startScale: 0.75, minScale: 0.3, maxScale: 2 },
     trashcan: true,
@@ -1899,6 +1917,24 @@ function initBlockly(divId) {
   }
   setTimeout(_paintToolboxDots, 0);
   setTimeout(_paintToolboxDots, 200);
+
+  // Bottom-left "Show extensions" toggle. Click swaps the toolbox between
+  // its base and extended forms, then re-paints the dot CSS variables.
+  const toggleBtn = document.createElement('button');
+  toggleBtn.id = 'extensions-toggle';
+  toggleBtn.type = 'button';
+  toggleBtn.title = 'Show / hide block extensions (More-Movement, More-Motor, More-Sensors)';
+  toggleBtn.textContent = '+ extensions';
+  toggleBtn.addEventListener('click', () => {
+    extensionsVisible = !extensionsVisible;
+    workspace.updateToolbox(_buildToolboxXml(extensionsVisible));
+    toggleBtn.textContent = extensionsVisible ? '− extensions' : '+ extensions';
+    toggleBtn.classList.toggle('on', extensionsVisible);
+    setTimeout(_paintToolboxDots, 0);
+    setTimeout(_paintToolboxDots, 200);
+  });
+  const host = document.getElementById(divId);
+  if (host) host.appendChild(toggleBtn);
 
   const starterXml = `
     <xml xmlns="https://developers.google.com/blockly/xml">
