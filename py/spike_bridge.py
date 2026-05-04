@@ -18,7 +18,6 @@ js.eval(
     "      self.postMessage({type:'cmd',id:id,cmd:JSON.parse(cmdJson)});"
     "    });"
     "  };"
-    "  globalThis.signalReady=function(){self.postMessage({type:'ready'});};"
     "  globalThis.signalDone =function(){self.postMessage({type:'done'});};"
     "  globalThis.signalError=function(msg){self.postMessage({type:'error',message:msg});};"
     "  self.addEventListener('message',function(e){"
@@ -576,5 +575,7 @@ def _on_message(event):
     if msg_type == 'run':
         asyncio.create_task(_handle_run(str(event.data.code)))
 
+# Main thread uses xworker.ready Promise to detect worker readiness,
+# so we don't post a 'ready' message here — that would trigger polyscript's
+# internal one-shot RPC listener and fire a runEvent console error.
 js.addEventListener('message', _on_message)
-js.signalReady()

@@ -1,5 +1,18 @@
 'use strict';
 
+// ── Polyscript noise suppressor ──────────────────────────────────────────────
+// PyScript's worker bridge installs one-shot RPC listeners that throw a
+// harmless "Cannot read properties of undefined (reading 'onmessage')" when
+// our app-level messages arrive instead of polyscript's expected RPC shape.
+// The simulator works fine; the rejection is internal to polyscript. Filter
+// it out so the console stays useful for real errors.
+window.addEventListener('unhandledrejection', (e) => {
+  const msg = e.reason && e.reason.message;
+  if (typeof msg === 'string' && msg.indexOf("reading 'onmessage'") !== -1) {
+    e.preventDefault();
+  }
+});
+
 // ── App state ────────────────────────────────────────────────────────────────
 
 let editor        = null;   // Monaco editor instance
@@ -195,18 +208,21 @@ function _pollForWorker() {
   }
   window._pyWorker = worker;
 
+  // xworker.ready resolves when the Python worker script has fully loaded.
+  // Use it instead of a 'ready' postMessage from Python — sending one would
+  // trigger polyscript's one-shot RPC listener and throw a runEvent error.
+  worker.ready.then(() => {
+    pyReady = true;
+    const overlay = document.getElementById('py-loading');
+    if (overlay) overlay.classList.add('hidden');
+    appendOutput('[Ready] Python runtime loaded.', 'info');
+    document.getElementById('btn-run').disabled = false;
+  });
+
   worker.addEventListener('message', async ({ data }) => {
     if (!data || !data.type) return;
 
-    if (data.type === 'ready') {
-      if (!pyReady) {
-        pyReady = true;
-        const overlay = document.getElementById('py-loading');
-        if (overlay) overlay.classList.add('hidden');
-        appendOutput('[Ready] Python runtime loaded.', 'info');
-      }
-      document.getElementById('btn-run').disabled = false;
-    } else if (data.type === 'cmd') {
+    if (data.type === 'cmd') {
       const result = await sim.executeCommand(data.cmd);
       worker.postMessage({ type: 'cmd_result', id: data.id, result });
     } else if (data.type === 'done') {
