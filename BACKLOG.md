@@ -69,7 +69,8 @@ The individual motor API, `motor_pair.move_for_degrees` / `_for_time`, light mat
 
 Collision against mission AABBs already stops the robot (`_robotOverlapsAABB`); field walls clamp position. Remaining:
 
-- **Mission objects in the scene** — populate `_missionBoxes` from a mission set so collision is actually exercised in default play.
+- **Physics engine for collision** — replace the dead-stop AABB check with a 2D physics engine (Rapier / Planck / Matter) so the robot pushes, deflects, and is pushed by mission models the way a real bot would, and so mission pieces can slide / topple / stack. Also informs the 3D view's collision model.
+- **Mission objects in the scene** — populate `_missionBoxes` (or the physics world) from a mission set so collision is actually exercised in default play.
 - **Sensor footprint overlay** — draw the color sensor patch and distance sensor ray on the canvas during playback.
 - **Surface friction variation** — "smooth mat" vs "rough mat" calibration modes that perturb travel distance slightly.
 
@@ -90,6 +91,13 @@ Code (Python + Blockly), theme, and speed already persist via localStorage. Rema
 
 - **File import / export** — download the current program as `.py` (and Blockly as XML or `.llsp3`), and load one back from disk.
 - **Example programs** — a dropdown of canonical FLL programs (straight drive, gyro turn, line follow, arm control).
+
+---
+
+## App Shell
+
+- **New-release detection + reload nudge** — poll a deployed `version.json` (or hash an asset) and show a non-blocking banner offering to reload when a new build ships, so users on long-lived tabs don't keep running stale code.
+- **"Support us" link** — header/footer link to the Sanad Foundation donation / sponsorship page so users have a clear path to contribute.
 
 ---
 
