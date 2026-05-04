@@ -16,6 +16,7 @@ function makeWindowGlobals() {
 
   const document = {
     getElementById: (id) => id === 'robot-canvas' ? canvas : fakeEl(),
+    createElement: (tag) => tag === 'canvas' ? makeCanvas() : fakeEl(),
   };
 
   return { window, document, canvas };
