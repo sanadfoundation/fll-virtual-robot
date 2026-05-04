@@ -32,6 +32,36 @@
   /* Glow effects */
   --glow-amber: 0 0 12px rgba(251,191,36,0.25);
   --glow-blue:  0 0 12px rgba(59,130,246,0.3);
+
+  /* Shadows (theme-aware) */
+  --shadow-canvas:  0 8px 40px rgba(0,0,0,0.6);
+  --shadow-panel:   0 4px 16px rgba(0,0,0,0.5);
+  --shadow-hints:   0 4px 20px rgba(0,0,0,0.5);
+}
+
+/* ── Light theme overrides ─────────────────────────────── */
+:root[data-theme="light"] {
+  --bg:       #f6f7fb;
+  --surface:  #ffffff;
+  --surface2: #f1f5f9;
+  --surface3: #e2e8f0;
+  --border:   #d8dee9;
+  --border2:  #b8c2d0;
+
+  --text:     #0f172a;
+  --text-dim: #94a3b8;
+  --text-mid: #475569;
+
+  /* Deeper accents so console info/warn text reads on light backgrounds */
+  --cyan:     #0891b2;
+  --yellow:   #a16207;
+
+  --glow-amber: 0 0 12px rgba(251,191,36,0.35);
+  --glow-blue:  0 0 12px rgba(59,130,246,0.25);
+
+  --shadow-canvas:  0 8px 30px rgba(15,23,42,0.18);
+  --shadow-panel:   0 4px 14px rgba(15,23,42,0.10);
+  --shadow-hints:   0 4px 20px rgba(15,23,42,0.18);
 }
 
 /* ── Base ──────────────────────────────────────────────── */
@@ -194,6 +224,27 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
   transform: translateY(-1px);
 }
 
+.btn-theme {
+  background: transparent;
+  color: var(--text-mid);
+  border: 1px solid var(--border2);
+  padding: 5px 10px;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.btn-theme:hover {
+  color: var(--amber);
+  border-color: var(--amber);
+  transform: translateY(-1px);
+}
+
+/* Show only the icon matching the current theme */
+.btn-theme .icon-sun  { display: none; }
+.btn-theme .icon-moon { display: inline; }
+:root[data-theme="light"] .btn-theme .icon-sun  { display: inline; }
+:root[data-theme="light"] .btn-theme .icon-moon { display: none; }
+
 .btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
 
 /* ── Speed control ─────────────────────────────────────── */
@@ -337,7 +388,7 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
   border-radius: 3px;
   box-shadow:
     0 0 0 1px var(--border2),
-    0 8px 40px rgba(0,0,0,0.6);
+    var(--shadow-canvas);
 }
 
 /* ── Sensor / telemetry panel ──────────────────────────── */
@@ -353,7 +404,7 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
   font-size: 11px;
   min-width: 168px;
   backdrop-filter: blur(8px);
-  box-shadow: var(--glow-blue), 0 4px 16px rgba(0,0,0,0.5);
+  box-shadow: var(--glow-blue), var(--shadow-panel);
 }
 
 #sensor-panel h3 {
@@ -563,7 +614,7 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
   background: var(--surface2) !important;
   border: 1px solid var(--border2) !important;
   border-radius: 6px !important;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.5), var(--glow-blue) !important;
+  box-shadow: var(--shadow-hints), var(--glow-blue) !important;
   font-family: var(--font-code) !important;
   font-size: 12px !important;
   padding: 3px !important;

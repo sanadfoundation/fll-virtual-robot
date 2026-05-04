@@ -2,11 +2,12 @@
 
 // ── App state ────────────────────────────────────────────────────────────────
 
-let editor        = null;   // Monaco editor instance
-let blocklyWs     = null;   // Blockly workspace
-let sim           = null;   // RobotSimulator instance
-let currentMode   = 'python'; // 'python' | 'blocks'
-let pyReady       = false;
+let editor              = null;   // Monaco editor instance
+let blocklyWs           = null;   // Blockly workspace
+let pendingBlocklyXml   = null;   // Saved XML to restore after a re-inject (theme switch)
+let sim                 = null;   // RobotSimulator instance
+let currentMode         = 'python'; // 'python' | 'blocks'
+let pyReady             = false;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -55,6 +56,63 @@ window.getForceSensorPressed    = ()     => sim ? sim.getForceSensorPressed()   
 window.getMotorSpeed            = (port) => sim ? sim.getMotorSpeed(port)         : 0;
 window.getMotorPosition         = (port) => sim ? sim.getMotorPosition(port)      : 0;
 
+// ── Theme ────────────────────────────────────────────────────────────────────
+
+const THEME_KEY = 'fll-vr-theme';
+
+function currentTheme() {
+  return document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+}
+
+function monacoThemeFor(theme) {
+  return theme === 'light' ? 'vs' : 'vs-dark';
+}
+
+function applyTheme(theme) {
+  const t = theme === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = t;
+  if (window.monaco && monaco.editor) {
+    monaco.editor.setTheme(monacoThemeFor(t));
+  }
+  retintBlockly(t);
+  try { localStorage.setItem(THEME_KEY, t); } catch (e) { /* storage may be unavailable */ }
+}
+
+// Blockly options like grid colour and workspace background are baked in at
+// inject time, so a runtime setTheme() leaves them stale. To get a clean
+// re-skin we save the workspace XML, dispose, and re-inject with the new
+// theme. If the user is on the Python tab, we defer re-init until they switch
+// back to Blocks (the saved XML is held in pendingBlocklyXml).
+function retintBlockly(theme) {
+  if (!blocklyWs || typeof Blockly === 'undefined') return;
+  let xml = '';
+  try {
+    xml = Blockly.Xml.domToText(Blockly.Xml.workspaceToDom(blocklyWs));
+  } catch (e) { /* ignore — fall through with empty xml */ }
+  blocklyWs.dispose();
+  blocklyWs = null;
+  pendingBlocklyXml = xml || null;
+  if (currentMode === 'blocks') initBlocklyWorkspace();
+}
+
+function initTheme() {
+  let stored = null;
+  try { stored = localStorage.getItem(THEME_KEY); } catch (e) { /* ignore */ }
+  let theme = stored;
+  if (theme !== 'light' && theme !== 'dark') {
+    const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+    theme = prefersLight ? 'light' : 'dark';
+  }
+  document.documentElement.dataset.theme = theme;
+}
+
+function toggleTheme() {
+  applyTheme(currentTheme() === 'light' ? 'dark' : 'light');
+}
+
+// Apply theme as early as possible to avoid a flash of dark UI in light mode.
+initTheme();
+
 // ── Initialization ────────────────────────────────────────────────────────────
 
 function initEditor() {
@@ -64,7 +122,7 @@ function initEditor() {
     editor = monaco.editor.create(document.getElementById('py-editor'), {
       value: DEFAULT_PYTHON_CODE,
       language: 'python',
-      theme: 'vs-dark',
+      theme: monacoThemeFor(currentTheme()),
       fontSize: 14,
       minimap: { enabled: false },
       automaticLayout: true,
@@ -88,7 +146,17 @@ function initSim() {
 function initBlocklyWorkspace() {
   if (blocklyWs) return;
   try {
-    blocklyWs = window.initBlockly('blockly-div');
+    blocklyWs = window.initBlockly('blockly-div', currentTheme());
+    if (blocklyWs && pendingBlocklyXml) {
+      // Restore workspace state preserved across a theme re-inject.
+      try {
+        blocklyWs.clear();
+        Blockly.Xml.domToWorkspace(Blockly.utils.xml.textToDom(pendingBlocklyXml), blocklyWs);
+      } catch (e) {
+        console.error('Blockly XML restore failed:', e);
+      }
+      pendingBlocklyXml = null;
+    }
   } catch (e) {
     appendOutput('[Error] Blockly init failed: ' + e.message, 'error');
     console.error('Blockly init error:', e);
@@ -297,6 +365,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-run').addEventListener('click', handleRun);
   document.getElementById('btn-stop').addEventListener('click', handleStop);
   document.getElementById('btn-reset').addEventListener('click', handleReset);
+  document.getElementById('btn-theme').addEventListener('click', toggleTheme);
 
   const speedSlider = document.getElementById('speed-slider');
   if (speedSlider) speedSlider.addEventListener('input', e => updateSpeed(e.target.value));
