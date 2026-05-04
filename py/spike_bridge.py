@@ -115,6 +115,7 @@ def _port_id(p):
 
 def _require(port, expected_kind, op):
     """Validate that `port` has `expected_kind` plugged in. Raises RuntimeError otherwise.
+    `op` is the caller name (e.g. 'motor.run') reserved for future diagnostic logging.
     Returns the wire-letter form of the port for downstream use."""
     letter = _port_id(port)
     actual = _PORT_CONFIG.get(letter, 'empty')
@@ -122,7 +123,7 @@ def _require(port, expected_kind, op):
         readable = expected_kind.replace('_', ' ')
         raise RuntimeError(
             "port " + letter + " has no " + readable +
-            " (configured: " + (actual or 'empty') + ")"
+            " (configured: " + actual + ")"
         )
     return letter
 
