@@ -1122,7 +1122,27 @@ const SPIKE_BLOCKLY_PALETTES = {
   },
 };
 
-function initBlockly(divId, themeName) {
+const DEFAULT_BLOCKLY_XML = `
+    <xml xmlns="https://developers.google.com/blockly/xml">
+      <block type="spike_event_start" x="30" y="30">
+        <next><block type="spike_move_straight">
+          <field name="DIR">1</field><field name="DIST">20</field>
+          <next><block type="spike_move_steering">
+            <field name="STEERING">50</field><field name="DIST">15</field>
+            <next><block type="spike_move_straight">
+              <field name="DIR">1</field><field name="DIST">20</field>
+              <next><block type="spike_light_write">
+                <value name="TEXT">
+                  <shadow type="text"><field name="TEXT">Done!</field></shadow>
+                </value>
+              </block></next>
+            </block></next>
+          </block></next>
+        </block></next>
+      </block>
+    </xml>`;
+
+function initBlockly(divId, themeName, initialXml) {
   if (typeof Blockly === 'undefined') return null;
 
   Blockly.defineBlocksWithJsonArray(SPIKE_BLOCKS);
@@ -1153,23 +1173,14 @@ function initBlockly(divId, themeName) {
     }),
   });
 
-  const starterXml = `
-    <xml xmlns="https://developers.google.com/blockly/xml">
-      <block type="spike_event_start" x="30" y="30">
-        <next><block type="spike_move_straight">
-          <field name="DIR">1</field><field name="DIST">20</field>
-          <next><block type="spike_move_steering">
-            <field name="STEERING">50</field><field name="DIST">15</field>
-            <next><block type="spike_light_write">
-              <value name="TEXT">
-                <shadow type="text"><field name="TEXT">Done!</field></shadow>
-              </value>
-            </block></next>
-          </block></next>
-        </block></next>
-      </block>
-    </xml>`;
-  Blockly.Xml.domToWorkspace(Blockly.utils.xml.textToDom(starterXml), workspace);
+  const xmlText = (typeof initialXml === 'string' && initialXml.trim()) ? initialXml : DEFAULT_BLOCKLY_XML;
+  try {
+    Blockly.Xml.domToWorkspace(Blockly.utils.xml.textToDom(xmlText), workspace);
+  } catch (e) {
+    console.error('Blockly initial XML load failed, falling back to default:', e);
+    workspace.clear();
+    Blockly.Xml.domToWorkspace(Blockly.utils.xml.textToDom(DEFAULT_BLOCKLY_XML), workspace);
+  }
 
   return workspace;
 }
@@ -1196,5 +1207,6 @@ function generateBlocklyJS(workspace) {
   return preamble + '\n' + body;
 }
 
-window.initBlockly      = initBlockly;
-window.generateBlocklyJS = generateBlocklyJS;
+window.initBlockly         = initBlockly;
+window.generateBlocklyJS   = generateBlocklyJS;
+window.DEFAULT_BLOCKLY_XML = DEFAULT_BLOCKLY_XML;
