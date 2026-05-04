@@ -1731,13 +1731,22 @@ function initBlockly(divId) {
   Blockly.defineBlocksWithJsonArray(SPIKE_BLOCKS);
   registerGenerators(Blockly);
 
+  // Zelos = Google's Scratch-style renderer (rounded blocks, hat events,
+  // hexagonal booleans, pill reporters, drop shadows). startHats: true puts
+  // a "hat" on every event-style block, matching the LEGO SPIKE word-block UX.
   const workspace = Blockly.inject(divId, {
+    renderer: 'zelos',
     toolbox:  TOOLBOX_XML,
-    grid:     { spacing: 20, length: 3, colour: '#2a2a3e', snap: true },
-    zoom:     { controls: true, wheel: true, startScale: 0.9 },
+    grid:     { spacing: 40, length: 2, colour: '#2a2a3e', snap: true },
+    zoom:     { controls: true, wheel: true, startScale: 0.75, minScale: 0.3, maxScale: 2 },
     trashcan: true,
     theme: Blockly.Theme.defineTheme('spikeDark', {
-      base: Blockly.Themes.Classic,
+      base: Blockly.Themes.Zelos,
+      name: 'spikeDark',
+      startHats: true,
+      blockStyles: {
+        procedure_blocks: { hat: 'none' },
+      },
       componentStyles: {
         workspaceBackgroundColour: '#1e1e2e',
         toolboxBackgroundColour:   '#2a2a3e',
@@ -1749,6 +1758,7 @@ function initBlockly(divId) {
         insertionMarkerColour:     '#7c6af7',
         markerColour:              '#7c6af7',
         cursorColour:              '#56d4c0',
+        selectedGlowColour:        '#4eff4e',
       },
     }),
   });
