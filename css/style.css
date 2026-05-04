@@ -270,10 +270,14 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
 /* Make dropdown text dark so it stays legible on the now-white pill. Zelos
    injects its own theme-scoped rule (.zelos-renderer.spikelight-theme
    .blocklyDropdownText { fill: #fff !important }) so we have to match its
-   specificity to override. */
+   specificity to override. We list both the zelos- and spike_compact-
+   subclass selectors so the rule wins regardless of which renderer is active. */
 .zelos-renderer.spikelight-theme .blocklyDropdownText,
 .zelos-renderer.spikelight-theme .blocklyEditableText > text,
-.zelos-renderer.spikelight-theme .blocklyNonEditableText > text {
+.zelos-renderer.spikelight-theme .blocklyNonEditableText > text,
+.spike_compact-renderer.spikelight-theme .blocklyDropdownText,
+.spike_compact-renderer.spikelight-theme .blocklyEditableText > text,
+.spike_compact-renderer.spikelight-theme .blocklyNonEditableText > text {
   fill: #2a2a3e !important;
 }
 
@@ -389,6 +393,15 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
   background: #7c6af7;
   border-color: #7c6af7;
   color: #ffffff;
+}
+
+/* Flyout category header (the <label web-class="flyout-header"> at the top
+   of every category) — title-case section heading echoing LEGO's IDE. */
+.blocklyFlyoutLabel.flyout-header .blocklyFlyoutLabelText {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  fill: #1a1a22 !important;
+  letter-spacing: 0;
 }
 
 /* ── CodeMirror overrides ──────────────────────────────── */

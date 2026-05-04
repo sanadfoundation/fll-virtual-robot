@@ -1573,7 +1573,8 @@ function _shadowText(name, v) {
 const TOOLBOX_XML = `
 <xml xmlns="https://developers.google.com/blockly/xml">
 
-  <category name="MOTOR" colour="${C_MOTOR}">
+  <category name="MOTORS" colour="${C_MOTOR}">
+    <label text="Motors" web-class="flyout-header"/>
     <block type="flippermotor_motorTurnForDirection">
       ${_shadowNum('VALUE', 1)}
     </block>
@@ -1590,6 +1591,7 @@ const TOOLBOX_XML = `
   </category>
 
   <category name="MOVEMENT" colour="${C_MOVEMENT}">
+    <label text="Movement" web-class="flyout-header"/>
     <block type="flippermove_move">
       ${_shadowNum('VALUE', 10)}
     </block>
@@ -1612,6 +1614,7 @@ const TOOLBOX_XML = `
   </category>
 
   <category name="LIGHT" colour="${C_LIGHT}">
+    <label text="Light" web-class="flyout-header"/>
     <block type="flipperlight_lightDisplayImageOnForTime">
       ${_shadowText('MATRIX', '9909999099000009000909990')}
       ${_shadowNum('VALUE', 2)}
@@ -1640,6 +1643,7 @@ const TOOLBOX_XML = `
   </category>
 
   <category name="SOUND" colour="${C_SOUND}">
+    <label text="Sound" web-class="flyout-header"/>
     <block type="flippersound_playSoundUntilDone"/>
     <block type="flippersound_playSound"/>
     <block type="flippersound_beepForTime">
@@ -1666,7 +1670,8 @@ const TOOLBOX_XML = `
     <block type="sound_volume"/>
   </category>
 
-  <category name="EVENT" colour="${C_EVENT}">
+  <category name="EVENTS" colour="${C_EVENT}">
+    <label text="Events" web-class="flyout-header"/>
     <block type="flipperevents_whenProgramStarts"/>
     <block type="flipperevents_whenColor"/>
     <block type="flipperevents_whenPressed"/>
@@ -1691,6 +1696,7 @@ const TOOLBOX_XML = `
   </category>
 
   <category name="CONTROL" colour="${C_CONTROL}">
+    <label text="Control" web-class="flyout-header"/>
     <block type="control_wait">
       ${_shadowNum('DURATION', 1)}
     </block>
@@ -1706,7 +1712,8 @@ const TOOLBOX_XML = `
     <block type="flippercontrol_stop"/>
   </category>
 
-  <category name="SENSOR" colour="${C_SENSOR}">
+  <category name="SENSORS" colour="${C_SENSOR}">
+    <label text="Sensors" web-class="flyout-header"/>
     <block type="flippersensors_isColor"/>
     <block type="flippersensors_color"/>
     <block type="flippersensors_isReflectivity">
@@ -1729,7 +1736,8 @@ const TOOLBOX_XML = `
     <block type="flippersensors_resetTimer"/>
   </category>
 
-  <category name="OPERATOR" colour="${C_OPERATOR}">
+  <category name="OPERATORS" colour="${C_OPERATOR}">
+    <label text="Operators" web-class="flyout-header"/>
     <block type="operator_random">
       ${_shadowNum('FROM', 1)}
       ${_shadowNum('TO', 10)}
@@ -1811,6 +1819,7 @@ const TOOLBOX_XML = `
 // EXTENSIONS_PLACEHOLDER when the toggle is on.
 const TOOLBOX_EXTENSIONS_XML = `
   <category name="MORE-MOVEMENT" colour="${C_MOVEMENT}">
+    <label text="More Movement" web-class="flyout-header"/>
     <block type="flippermoremove_movementSetStopMethod"/>
     <block type="flippermoremove_startDualSpeed">
       ${_shadowNum('LEFT', 50)}
@@ -1819,7 +1828,8 @@ const TOOLBOX_EXTENSIONS_XML = `
     <block type="flippermoremove_movementSetAcceleration"/>
   </category>
 
-  <category name="MORE-MOTOR" colour="${C_MOTOR}">
+  <category name="MORE-MOTORS" colour="${C_MOTOR}">
+    <label text="More Motors" web-class="flyout-header"/>
     <block type="flippermoremotor_motorGoToRelativePosition">
       ${_shadowNum('POSITION', 0)}
       ${_shadowNum('SPEED', 100)}
@@ -1836,7 +1846,8 @@ const TOOLBOX_EXTENSIONS_XML = `
     <block type="flippermoremotor_position"/>
   </category>
 
-  <category name="MORE-SENSOR" colour="${C_SENSOR}">
+  <category name="MORE-SENSORS" colour="${C_SENSOR}">
+    <label text="More Sensors" web-class="flyout-header"/>
     <block type="flippermoresensors_setOrientation"/>
     <block type="flippermoresensors_rawColor"/>
     <block type="flippermoresensors_acceleration"/>
@@ -1853,6 +1864,39 @@ function _buildToolboxXml(extensionsVisible) {
   );
 }
 
+// ── Compact Zelos renderer ───────────────────────────────────────────────────
+// Subclass Zelos's ConstantProvider to tighten paddings around fields and
+// between rows so blocks read closer to LEGO's own SPIKE Prime IDE density.
+// Registered once on first initBlockly() call.
+let _compactRendererRegistered = false;
+function _registerCompactRenderer(Blockly) {
+  if (_compactRendererRegistered) return;
+  if (!(Blockly.zelos && Blockly.zelos.Renderer && Blockly.zelos.ConstantProvider)) return;
+
+  class SpikeConstantProvider extends Blockly.zelos.ConstantProvider {
+    init() {
+      super.init();
+      // LEGO blocks are tighter horizontally and a touch shorter vertically.
+      this.FIELD_BORDER_RECT_X_PADDING = 4;     // Zelos default: 5
+      this.FIELD_BORDER_RECT_Y_PADDING = 3;     // Zelos default: 5
+      this.BETWEEN_FIELDS_PADDING      = 4;     // Zelos default: 6
+      this.MIN_BLOCK_HEIGHT            = 28;    // Zelos default: 40
+      this.SMALL_PADDING               = 4;     // Zelos default: 8
+      this.MEDIUM_PADDING              = 6;     // Zelos default: 8
+      this.MEDIUM_LARGE_PADDING        = 6;     // Zelos default: 12
+      this.LARGE_PADDING               = 8;     // Zelos default: 12
+    }
+  }
+
+  class SpikeCompactRenderer extends Blockly.zelos.Renderer {
+    constructor(name) { super(name); }
+    makeConstants_() { return new SpikeConstantProvider(); }
+  }
+
+  Blockly.blockRendering.register('spike_compact', SpikeCompactRenderer);
+  _compactRendererRegistered = true;
+}
+
 // ── Blockly workspace initializer ────────────────────────────────────────────
 
 function initBlockly(divId) {
@@ -1860,6 +1904,7 @@ function initBlockly(divId) {
 
   Blockly.defineBlocksWithJsonArray(SPIKE_BLOCKS.map(_withEmblem));
   registerGenerators(Blockly);
+  _registerCompactRenderer(Blockly);
 
   // Zelos = Google's Scratch-style renderer (rounded blocks, hat events,
   // hexagonal booleans, pill reporters, drop shadows). startHats: true puts
@@ -1874,7 +1919,7 @@ function initBlockly(divId) {
   let extensionsVisible = false;
 
   const workspace = Blockly.inject(divId, {
-    renderer: 'zelos',
+    renderer: 'spike_compact',
     toolbox:  _buildToolboxXml(extensionsVisible),
     grid:     { spacing: 40, length: 2, colour: '#e6e6ec', snap: true },
     zoom:     { controls: true, wheel: true, startScale: 0.75, minScale: 0.3, maxScale: 2 },
