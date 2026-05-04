@@ -339,6 +339,36 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
   display: none !important;
 }
 
+/* Image-only dropdowns (direction arrows, color swatches, stop-method icons,
+   acceleration chevrons) lay out as a wrapping row — matches LEGO SPIKE.
+   Text dropdowns stay vertical because :has(img) doesn't match them.
+   Blockly's default per-item min-width (~91px) and the checkbox column also
+   need to be neutralized so icons sit flush. */
+.blocklyDropdownMenu:has(img) {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  max-width: 240px;
+  gap: 4px;
+  padding: 4px;
+}
+.blocklyDropdownMenu:has(img) .blocklyMenuItem {
+  min-width: 0 !important;
+  width: auto !important;
+  padding: 4px !important;
+  border-radius: 6px;
+}
+.blocklyDropdownMenu:has(img) .blocklyMenuItemContent {
+  padding: 0 !important;
+}
+.blocklyDropdownMenu:has(img) .blocklyMenuItemCheckbox {
+  display: none !important;
+}
+.blocklyDropdownMenu:has(img) .blocklyMenuItem.blocklyMenuItemSelected {
+  outline: 3px solid #fff;
+  outline-offset: -3px;
+}
+
 /* ── Narrow dot-style toolbox to mirror LEGO's SPIKE word-block IDE ─────── */
 
 .blocklyToolboxDiv {
