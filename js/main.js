@@ -120,7 +120,16 @@ function initEditor() {
   require(['vs/editor/editor.main'], () => {
     window.registerSpikeCompletions(monaco);
     const stored = lsGet(PYCODE_KEY);
-    const initialCode = (stored !== null) ? stored : DEFAULT_PYTHON_CODE;
+    // When the shipped default changes, users who never edited their starter
+    // are stuck on the old one (it was saved verbatim to localStorage). Detect
+    // that by matching against PRIOR_DEFAULT_PYTHON_CODES — every superseded
+    // default goes in there, and stored code matching any of them is upgraded
+    // to the current default. Customized code never matches, so it's safe.
+    const isStaleDefault = stored !== null && PRIOR_DEFAULT_PYTHON_CODES.some(
+      d => d.replace(/\r\n/g, '\n').trim() === stored.replace(/\r\n/g, '\n').trim()
+    );
+    const initialCode = (stored === null || isStaleDefault) ? DEFAULT_PYTHON_CODE : stored;
+    if (isStaleDefault) lsSet(PYCODE_KEY, DEFAULT_PYTHON_CODE);
     editor = monaco.editor.create(document.getElementById('py-editor'), {
       value: initialCode,
       language: 'python',
@@ -424,6 +433,34 @@ function initResizeHandle() {
 }
 
 // ── Default Python code ───────────────────────────────────────────────────────
+
+// Every superseded DEFAULT_PYTHON_CODE goes here so we can recognize an
+// untouched starter in localStorage and upgrade it. Append, never edit, the
+// existing entries — match is whitespace/CRLF-tolerant but exact otherwise.
+const PRIOR_DEFAULT_PYTHON_CODES = [
+  // Pre-2026-05 default (the simple forward/turn/forward demo)
+  `# FLL Virtual Robot — SPIKE Prime v3 Python API
+from hub import port
+import motor_pair, runloop
+
+async def main():
+    # Pair the drive motors (left = port.A, right = port.B)
+    motor_pair.pair(motor_pair.PAIR_1, port.A, port.B)
+
+    # Move forward for 2 seconds at 360 deg/sec
+    await motor_pair.move_for_time(motor_pair.PAIR_1, 2000, 0, velocity=360)
+
+    # Turn right (left wheel forward, right wheel back)
+    await motor_pair.move_tank_for_time(motor_pair.PAIR_1, 360, -360, 800)
+
+    # Move forward again
+    await motor_pair.move_for_time(motor_pair.PAIR_1, 1000, 0, velocity=360)
+
+    print('Mission complete!')
+
+runloop.run(main())
+`,
+];
 
 const DEFAULT_PYTHON_CODE = `# FLL Virtual Robot — Mission: drive over yellow, green, and red zones
 from hub import port
