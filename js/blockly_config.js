@@ -204,7 +204,7 @@ const SPIKE_BLOCKS = [
   // ── MOTOR ───────────────────────────────────────────────────────────────────
 
   { type: 'flippermotor_motorTurnForDirection',
-    message0: 'run motor %1 %2 for %3 %4',
+    message0: '%1 run %2 for %3 %4',
     args0: [
       { type: 'field_dropdown', name: 'PORT',      options: _PORTS_MULTI },
       { type: 'field_dropdown', name: 'DIRECTION', options: _DIR_CW_CCW },
@@ -216,7 +216,7 @@ const SPIKE_BLOCKS = [
   },
 
   { type: 'flippermotor_motorGoDirectionToPosition',
-    message0: 'move motor %1 to position %2 (%3)',
+    message0: '%1 go %3 to position %2',
     args0: [
       { type: 'field_dropdown', name: 'PORT',      options: _PORTS_MULTI },
       { type: 'input_value',    name: 'POSITION',  check: ['Number','String'] },
@@ -227,7 +227,7 @@ const SPIKE_BLOCKS = [
   },
 
   { type: 'flippermotor_motorStartDirection',
-    message0: 'start motor %1 %2',
+    message0: '%1 start motor %2',
     args0: [
       { type: 'field_dropdown', name: 'PORT',      options: _PORTS_MULTI },
       { type: 'field_dropdown', name: 'DIRECTION', options: _DIR_CW_CCW },
@@ -237,14 +237,14 @@ const SPIKE_BLOCKS = [
   },
 
   { type: 'flippermotor_motorStop',
-    message0: 'stop motor %1',
+    message0: '%1 stop motor',
     args0: [{ type: 'field_dropdown', name: 'PORT', options: _PORTS_MULTI }],
     inputsInline: true, previousStatement: null, nextStatement: null,
     colour: C_MOTOR, tooltip: 'Stop a motor.',
   },
 
   { type: 'flippermotor_motorSetSpeed',
-    message0: 'set motor %1 speed to %2 %%',
+    message0: '%1 set speed to %2 %%',
     args0: [
       { type: 'field_dropdown', name: 'PORT',  options: _PORTS_MULTI },
       { type: 'input_value',    name: 'SPEED', check: ['Number','String'] },
@@ -254,14 +254,14 @@ const SPIKE_BLOCKS = [
   },
 
   { type: 'flippermotor_absolutePosition',
-    message0: 'motor %1 position',
+    message0: '%1 position',
     args0: [{ type: 'field_dropdown', name: 'PORT', options: _PORTS_SINGLE }],
     output: 'Number', colour: C_MOTOR,
     tooltip: 'Current motor position in degrees (0–359).',
   },
 
   { type: 'flippermotor_speed',
-    message0: 'motor %1 speed',
+    message0: '%1 speed',
     args0: [{ type: 'field_dropdown', name: 'PORT', options: _PORTS_SINGLE }],
     output: 'Number', colour: C_MOTOR,
     tooltip: 'Current motor speed.',
@@ -1883,6 +1883,22 @@ function initBlockly(divId) {
       },
     }),
   });
+
+  // Convert each toolbox row's inline border-left-color (Blockly's way of
+  // applying the category colour) into a CSS custom property the stylesheet
+  // can use to paint a circular dot. Re-run on workspace updates so newly
+  // rendered categories also get the variable.
+  function _paintToolboxDots() {
+    const rows = document.querySelectorAll('#' + divId + ' .blocklyTreeRow, .blocklyTreeRow');
+    rows.forEach((row) => {
+      const c = row.style.borderLeftColor || getComputedStyle(row).borderLeftColor;
+      if (c && c !== 'rgba(0, 0, 0, 0)' && c !== 'transparent') {
+        row.style.setProperty('--cat-color', c);
+      }
+    });
+  }
+  setTimeout(_paintToolboxDots, 0);
+  setTimeout(_paintToolboxDots, 200);
 
   const starterXml = `
     <xml xmlns="https://developers.google.com/blockly/xml">
