@@ -425,7 +425,7 @@ function initResizeHandle() {
 
 // ── Default Python code ───────────────────────────────────────────────────────
 
-const DEFAULT_PYTHON_CODE = `# FLL Virtual Robot — SPIKE Prime v3 Python API
+const DEFAULT_PYTHON_CODE = `# FLL Virtual Robot — Mission: drive over yellow, green, and red zones
 from hub import port
 import motor_pair, runloop
 
@@ -433,14 +433,26 @@ async def main():
     # Pair the drive motors (left = port.A, right = port.B)
     motor_pair.pair(motor_pair.PAIR_1, port.A, port.B)
 
-    # Move forward for 2 seconds at 360 deg/sec
-    await motor_pair.move_for_time(motor_pair.PAIR_1, 2000, 0, velocity=360)
+    # From spawn (350, 980), drive 780 mm north to the row of upper boxes (y≈200)
+    await motor_pair.move_for_degrees(motor_pair.PAIR_1, 1596, 0, velocity=720)
 
-    # Turn right (left wheel forward, right wheel back)
-    await motor_pair.move_tank_for_time(motor_pair.PAIR_1, 360, -360, 800)
+    # Turn right 90° (now heading east)
+    await motor_pair.move_tank_for_time(motor_pair.PAIR_1, 360, -360, 500)
 
-    # Move forward again
-    await motor_pair.move_for_time(motor_pair.PAIR_1, 1000, 0, velocity=360)
+    # Drive 1350 mm east — passes through yellow (x≈1000) then green (x≈1700)
+    await motor_pair.move_for_degrees(motor_pair.PAIR_1, 2762, 0, velocity=720)
+
+    # Turn right 90° (now heading south)
+    await motor_pair.move_tank_for_time(motor_pair.PAIR_1, 360, -360, 500)
+
+    # Drive 600 mm south to the red-zone row (y≈800)
+    await motor_pair.move_for_degrees(motor_pair.PAIR_1, 1228, 0, velocity=720)
+
+    # Turn left 90° (now heading east)
+    await motor_pair.move_tank_for_time(motor_pair.PAIR_1, -360, 360, 500)
+
+    # Drive 300 mm east into the red zone (x≈2000)
+    await motor_pair.move_for_degrees(motor_pair.PAIR_1, 614, 0, velocity=720)
 
     print('Mission complete!')
 
