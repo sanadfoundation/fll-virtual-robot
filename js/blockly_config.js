@@ -110,6 +110,17 @@ const _ICON_FOR_TYPE = {
   flippersound_beep:                         'Sound.svg',
   flippersound_stopSound:                    'Sound.svg',
 
+  flipperlight_lightDisplayImageOnForTime:   'Light.svg',
+  flipperlight_lightDisplayImageOn:          'Light.svg',
+  flipperlight_lightDisplayText:             'Light.svg',
+  flipperlight_lightDisplayOff:              'Light.svg',
+  flipperlight_lightDisplaySetBrightness:    'Light.svg',
+  flipperlight_lightDisplaySetPixel:         'Light.svg',
+  flipperlight_lightDisplayRotate:           'Light.svg',
+  flipperlight_lightDisplaySetOrientation:   'Light.svg',
+  flipperlight_centerButtonLight:            'Light.svg',
+  flipperlight_ultrasonicLightUp:            'UltraSound.svg',
+
   flipperevents_whenProgramStarts:           'EventsStart.svg',
   flipperevents_whenColor:                   'ColorSensor.svg',
   flipperevents_whenPressed:                 'ForceSensor.svg',
