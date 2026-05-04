@@ -32,9 +32,25 @@ const _PAIRS = [
   ['C+E','CE'],['C+F','CF'],['D+E','DE'],['D+F','DF'],['E+F','EF'],
 ];
 
-const _DIR_CW_CCW = [['clockwise','clockwise'],['counterclockwise','counterclockwise']];
-const _DIR_FW_BW  = [['forward','forward'],['backward','back']];
-const _SHORTEST   = [['shortest path','shortest'],['clockwise','clockwise'],['counterclockwise','counterclockwise']];
+// Direction selectors render as image-only dropdowns: a small white pill
+// containing the LEGO arrow glyph. Standard Blockly's field_dropdown supports
+// image options via [{src, width, height, alt}, value] tuples; no custom field
+// type needed.
+const _ARROW = (file, alt) =>
+  ({ src: 'static/icons/' + file, width: 24, height: 24, alt });
+const _DIR_CW_CCW = [
+  [_ARROW('FieldCw.svg',  'clockwise'),        'clockwise'],
+  [_ARROW('FieldCcw.svg', 'counterclockwise'), 'counterclockwise'],
+];
+const _DIR_FW_BW = [
+  [_ARROW('FieldFw.svg', 'forward'),  'forward'],
+  [_ARROW('FieldBw.svg', 'backward'), 'back'],
+];
+const _SHORTEST = [
+  ['shortest path','shortest'],
+  ['clockwise','clockwise'],
+  ['counterclockwise','counterclockwise'],
+];
 
 const _MOTOR_UNITS  = [['rotations','rotations'],['degrees','degrees'],['seconds','seconds']];
 const _MOVE_UNITS   = [['rotations','rotations'],['degrees','degrees'],['seconds','seconds'],['cm','cm'],['inches','inches']];
@@ -1834,27 +1850,32 @@ function initBlockly(divId) {
   // Zelos = Google's Scratch-style renderer (rounded blocks, hat events,
   // hexagonal booleans, pill reporters, drop shadows). startHats: true puts
   // a "hat" on every event-style block, matching the LEGO SPIKE word-block UX.
+  // Zelos = Google's Scratch-style renderer (rounded blocks, hat events,
+  // hexagonal booleans, pill reporters, drop shadows). startHats: true puts
+  // a "hat" on every event-style block, matching the LEGO SPIKE word-block UX.
+  // Workspace and flyout are kept light to mirror the LEGO IDE's white canvas;
+  // the dark navigation bar in index.html still frames it.
   const workspace = Blockly.inject(divId, {
     renderer: 'zelos',
     toolbox:  TOOLBOX_XML,
-    grid:     { spacing: 40, length: 2, colour: '#2a2a3e', snap: true },
+    grid:     { spacing: 40, length: 2, colour: '#e6e6ec', snap: true },
     zoom:     { controls: true, wheel: true, startScale: 0.75, minScale: 0.3, maxScale: 2 },
     trashcan: true,
-    theme: Blockly.Theme.defineTheme('spikeDark', {
+    theme: Blockly.Theme.defineTheme('spikeLight', {
       base: Blockly.Themes.Zelos,
-      name: 'spikeDark',
+      name: 'spikeLight',
       startHats: true,
       blockStyles: {
         procedure_blocks: { hat: 'none' },
       },
       componentStyles: {
-        workspaceBackgroundColour: '#1e1e2e',
-        toolboxBackgroundColour:   '#2a2a3e',
-        toolboxForegroundColour:   '#cdd6f4',
-        flyoutBackgroundColour:    '#313145',
-        flyoutForegroundColour:    '#cdd6f4',
-        flyoutOpacity:             0.95,
-        scrollbarColour:           '#3d3d5c',
+        workspaceBackgroundColour: '#ffffff',
+        toolboxBackgroundColour:   '#f5f5f7',
+        toolboxForegroundColour:   '#3c3c44',
+        flyoutBackgroundColour:    '#ffffff',
+        flyoutForegroundColour:    '#3c3c44',
+        flyoutOpacity:             1.0,
+        scrollbarColour:           '#cccccc',
         insertionMarkerColour:     '#7c6af7',
         markerColour:              '#7c6af7',
         cursorColour:              '#56d4c0',

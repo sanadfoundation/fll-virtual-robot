@@ -255,7 +255,37 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
 
 #blockly-div {
   display: none;
-  background: var(--surface);
+  background: #ffffff;
+}
+
+/* ── Blockly (Zelos) tweaks to match LEGO SPIKE word-block UI ────────────── */
+
+/* Bright white field pills (Zelos defaults to a subtle off-white). */
+.blocklyEditableText > .blocklyFieldRect,
+.blocklyNonEditableText > .blocklyFieldRect,
+.blocklyDropdownRect {
+  fill: #ffffff !important;
+}
+
+/* Make dropdown text dark so it stays legible on the now-white pill. Zelos
+   injects its own theme-scoped rule (.zelos-renderer.spikelight-theme
+   .blocklyDropdownText { fill: #fff !important }) so we have to match its
+   specificity to override. */
+.zelos-renderer.spikelight-theme .blocklyDropdownText,
+.zelos-renderer.spikelight-theme .blocklyEditableText > text,
+.zelos-renderer.spikelight-theme .blocklyNonEditableText > text {
+  fill: #2a2a3e !important;
+}
+
+/* Drop the darker bottom edge Zelos draws on every block — LEGO has none. */
+.blocklyDraggable > path[stroke-width="1"],
+.blocklyDraggable > .blocklyPathDark {
+  display: none !important;
+}
+
+/* Brighter/cleaner toolbox category labels. */
+.blocklyToolboxCategory {
+  padding: 4px 8px;
 }
 
 /* ── CodeMirror overrides ──────────────────────────────── */
