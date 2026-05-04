@@ -22,11 +22,18 @@ class TestMotorPairPair(unittest.TestCase):
         self.assertEqual(cmd['left'],    'C')
         self.assertEqual(cmd['right'],   'D')
 
-    def test_pair_port_objects_converted_to_str(self):
+    def test_pair_int_port_constants_translate_to_letters(self):
+        # port.A = 0 (matches docs); bridge translates to wire letter 'A'.
         sb.motor_pair.pair(0, sb.port.A, sb.port.B)
         cmd = mock_js.bridge_mock.all()[0]
-        self.assertIsInstance(cmd['left'],  str)
-        self.assertIsInstance(cmd['right'], str)
+        self.assertEqual(cmd['left'],  'A')
+        self.assertEqual(cmd['right'], 'B')
+
+    def test_pair_letter_strings_pass_through(self):
+        sb.motor_pair.pair(0, 'C', 'D')
+        cmd = mock_js.bridge_mock.all()[0]
+        self.assertEqual(cmd['left'],  'C')
+        self.assertEqual(cmd['right'], 'D')
 
 
 class TestMotorPairMoveForDegrees(unittest.TestCase):
@@ -87,6 +94,7 @@ class TestMotorPairMoveForTankTime(unittest.TestCase):
         mock_js.bridge_mock.install()
 
     def test_move_tank_for_time(self):
+        # Docs signature: move_tank_for_time(pair, left_velocity, right_velocity, duration)
         sb.motor_pair.move_tank_for_time(0, 500, -500, 1000)
         cmd = mock_js.bridge_mock.all()[0]
         self.assertEqual(cmd['type'],        'move_tank')
@@ -99,6 +107,37 @@ class TestMotorPairMoveForTankTime(unittest.TestCase):
     def test_move_tank_for_time_uses_max_velocity(self):
         sb.motor_pair.move_tank_for_time(0, 200, 800, 1000)
         self.assertAlmostEqual(mock_js.bridge_mock.all()[0]['amount'], 800.0)
+
+
+class TestMotorPairMoveTankForDegrees(unittest.TestCase):
+
+    def setUp(self):
+        mock_js.bridge_mock.install()
+
+    def test_move_tank_for_degrees(self):
+        sb.motor_pair.move_tank_for_degrees(0, 720, 500, -500)
+        cmd = mock_js.bridge_mock.all()[0]
+        self.assertEqual(cmd['type'],        'move_tank')
+        self.assertEqual(cmd['pair_id'],     0)
+        self.assertEqual(cmd['amount'],      720)
+        self.assertEqual(cmd['left_speed'],  500)
+        self.assertEqual(cmd['right_speed'], -500)
+        self.assertEqual(cmd['unit'],        'degrees')
+
+
+class TestMotorPairMoveTankContinuous(unittest.TestCase):
+
+    def setUp(self):
+        mock_js.bridge_mock.install()
+
+    def test_move_tank_continuous(self):
+        sb.motor_pair.move_tank(0, 500, 300)
+        cmd = mock_js.bridge_mock.all()[0]
+        self.assertEqual(cmd['type'],        'start_tank')
+        self.assertEqual(cmd['pair_id'],     0)
+        self.assertEqual(cmd['left_speed'],  500)
+        self.assertEqual(cmd['right_speed'], 300)
+        self.assertNotIn('amount', cmd)
 
 
 class TestMotorPairMoveContinuous(unittest.TestCase):
@@ -127,21 +166,6 @@ class TestMotorPairStop(unittest.TestCase):
     def test_stop(self):
         sb.motor_pair.stop(0)
         self.assertEqual(mock_js.bridge_mock.all(), [{'type': 'stop', 'pair_id': 0}])
-
-
-class TestMotorPairBackwardCompat(unittest.TestCase):
-    """move_tank still works (compat alias)."""
-
-    def setUp(self):
-        mock_js.bridge_mock.install()
-
-    def test_move_tank_alias(self):
-        sb.motor_pair.move_tank(0, 500, 300, amount=360, unit='degrees')
-        cmd = mock_js.bridge_mock.all()[0]
-        self.assertEqual(cmd['type'],        'move_tank')
-        self.assertEqual(cmd['left_speed'],  500)
-        self.assertEqual(cmd['right_speed'], 300)
-        self.assertEqual(cmd['amount'],      360)
 
 
 class TestMotorPairConstants(unittest.TestCase):

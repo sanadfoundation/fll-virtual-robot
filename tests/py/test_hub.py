@@ -130,9 +130,15 @@ class TestColorConstants(unittest.TestCase):
 
 class TestPortConstants(unittest.TestCase):
 
-    def test_port_strings(self):
-        for p in ['A', 'B', 'C', 'D', 'E', 'F']:
-            self.assertEqual(getattr(sb.port, p), p)
+    def test_port_ints(self):
+        # Match the official LEGO docs: port.A..F = 0..5.
+        for i, p in enumerate('ABCDEF'):
+            self.assertEqual(getattr(sb.port, p), i)
+
+    def test_hub_port_namespace(self):
+        # Docs publish hub.port as a sub-module; we expose the same constants.
+        for i, p in enumerate('ABCDEF'):
+            self.assertEqual(getattr(sb.hub.port, p), i)
 
 
 class TestStubModules(unittest.TestCase):

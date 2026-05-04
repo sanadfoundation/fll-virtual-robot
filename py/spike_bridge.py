@@ -82,9 +82,22 @@ class color:
     UNKNOWN   = -1
 
 class port:
-    A = 'A'; B = 'B'; C = 'C'; D = 'D'; E = 'E'; F = 'F'
+    # Integer values match the official LEGO Education docs.
+    # The bridge converts to wire letters via _port_id() before posting.
+    A = 0; B = 1; C = 2; D = 3; E = 4; F = 5
 
 Port = port
+
+_PORT_LETTERS = ('A', 'B', 'C', 'D', 'E', 'F')
+
+def _port_id(p):
+    """Normalize a user-supplied port (int 0–5 or string 'A'–'F') to its wire letter."""
+    if isinstance(p, int) and 0 <= p < len(_PORT_LETTERS):
+        return _PORT_LETTERS[p]
+    s = str(p)
+    if len(s) == 1 and s in 'ABCDEF':
+        return s
+    return s  # let downstream surface a useful error
 
 class motor:
     # Stop-mode constants
@@ -109,27 +122,27 @@ class motor:
 
     @staticmethod
     def run_for_degrees(port, degrees, velocity=360, *, stop=1, acceleration=1000, deceleration=1000):
-        return _bridge_call({'type': 'motor_degrees', 'port': str(port), 'degrees': degrees, 'velocity': velocity})
+        return _bridge_call({'type': 'motor_degrees', 'port': _port_id(port), 'degrees': degrees, 'velocity': velocity})
 
     @staticmethod
     def run_for_time(port, duration, velocity=360, *, stop=1, acceleration=1000, deceleration=1000):
-        return _bridge_call({'type': 'motor_time', 'port': str(port), 'time_ms': duration, 'velocity': velocity})
+        return _bridge_call({'type': 'motor_time', 'port': _port_id(port), 'time_ms': duration, 'velocity': velocity})
 
     @staticmethod
     def run_to_absolute_position(port, position, velocity=360, *, direction=2, stop=1, acceleration=1000, deceleration=1000):
-        return _bridge_call({'type': 'motor_degrees', 'port': str(port), 'degrees': int(position), 'velocity': velocity})
+        return _bridge_call({'type': 'motor_degrees', 'port': _port_id(port), 'degrees': int(position), 'velocity': velocity})
 
     @staticmethod
     def run_to_relative_position(port, position, velocity=360, *, stop=1, acceleration=1000, deceleration=1000):
-        return _bridge_call({'type': 'motor_degrees', 'port': str(port), 'degrees': int(position), 'velocity': velocity})
+        return _bridge_call({'type': 'motor_degrees', 'port': _port_id(port), 'degrees': int(position), 'velocity': velocity})
 
     @staticmethod
     def run(port, velocity=360, *, acceleration=1000):
-        return _bridge_call({'type': 'motor_run', 'port': str(port), 'velocity': velocity})
+        return _bridge_call({'type': 'motor_run', 'port': _port_id(port), 'velocity': velocity})
 
     @staticmethod
     def stop(port, *, stop=1):
-        return _bridge_call({'type': 'motor_stop', 'port': str(port)})
+        return _bridge_call({'type': 'motor_stop', 'port': _port_id(port)})
 
     @staticmethod
     def velocity(port):
@@ -137,11 +150,11 @@ class motor:
 
     @staticmethod
     def absolute_position(port):
-        return int((_state.get('motors') or {}).get(str(port), 0))
+        return int((_state.get('motors') or {}).get(_port_id(port), 0))
 
     @staticmethod
     def relative_position(port):
-        return int((_state.get('motors') or {}).get(str(port), 0))
+        return int((_state.get('motors') or {}).get(_port_id(port), 0))
 
     @staticmethod
     def reset_relative_position(port, position=0):
@@ -162,7 +175,7 @@ class motor_pair:
     @staticmethod
     def pair(pair, left_motor, right_motor):
         return _bridge_call({'type': 'pair', 'pair_id': pair,
-                             'left': str(left_motor), 'right': str(right_motor)})
+                             'left': _port_id(left_motor), 'right': _port_id(right_motor)})
 
     @staticmethod
     def unpair(pair):
@@ -184,7 +197,20 @@ class motor_pair:
                              'speed': velocity, 'amount': degrees, 'unit': 'degrees'})
 
     @staticmethod
-    def move_tank_for_time(pair, left_velocity, right_velocity, duration, *, stop=1, acceleration=1000, deceleration=1000):
+    def move_tank(pair, left_velocity, right_velocity, *, acceleration=1000):
+        return _bridge_call({'type': 'start_tank', 'pair_id': pair,
+                             'left_speed': left_velocity, 'right_speed': right_velocity})
+
+    @staticmethod
+    def move_tank_for_degrees(pair, degrees, left_velocity, right_velocity,
+                              *, stop=1, acceleration=1000, deceleration=1000):
+        return _bridge_call({'type': 'move_tank', 'pair_id': pair,
+                             'left_speed': left_velocity, 'right_speed': right_velocity,
+                             'amount': degrees, 'unit': 'degrees'})
+
+    @staticmethod
+    def move_tank_for_time(pair, left_velocity, right_velocity, duration,
+                           *, stop=1, acceleration=1000, deceleration=1000):
         max_v = max(abs(left_velocity), abs(right_velocity), 1)
         degrees = max_v * (duration / 1000.0)
         return _bridge_call({'type': 'move_tank', 'pair_id': pair,
@@ -194,14 +220,6 @@ class motor_pair:
     @staticmethod
     def stop(pair, *, stop=1):
         return _bridge_call({'type': 'stop', 'pair_id': pair})
-
-    # ── Backward-compat aliases (positional, not in completions) ───────────────
-    @staticmethod
-    def move_tank(pair_id, left_speed, right_speed, amount=0, unit='degrees',
-                  acceleration=100, deceleration=100):
-        return _bridge_call({'type': 'move_tank', 'pair_id': pair_id,
-                             'left_speed': left_speed, 'right_speed': right_speed,
-                             'amount': amount, 'unit': unit})
 
 
 class color_sensor:
@@ -254,6 +272,27 @@ class force_sensor:
 
 
 class _LightMatrix:
+    # Built-in IMAGE_* constants — values match the official LEGO docs.
+    IMAGE_HEART=1; IMAGE_HEART_SMALL=2; IMAGE_HAPPY=3; IMAGE_SMILE=4
+    IMAGE_SAD=5; IMAGE_CONFUSED=6; IMAGE_ANGRY=7; IMAGE_ASLEEP=8
+    IMAGE_SURPRISED=9; IMAGE_SILLY=10; IMAGE_FABULOUS=11; IMAGE_MEH=12
+    IMAGE_YES=13; IMAGE_NO=14
+    IMAGE_CLOCK12=15; IMAGE_CLOCK1=16; IMAGE_CLOCK2=17; IMAGE_CLOCK3=18
+    IMAGE_CLOCK4=19; IMAGE_CLOCK5=20; IMAGE_CLOCK6=21; IMAGE_CLOCK7=22
+    IMAGE_CLOCK8=23; IMAGE_CLOCK9=24; IMAGE_CLOCK10=25; IMAGE_CLOCK11=26
+    IMAGE_ARROW_N=27; IMAGE_ARROW_NE=28; IMAGE_ARROW_E=29; IMAGE_ARROW_SE=30
+    IMAGE_ARROW_S=31; IMAGE_ARROW_SW=32; IMAGE_ARROW_W=33; IMAGE_ARROW_NW=34
+    IMAGE_GO_RIGHT=35; IMAGE_GO_LEFT=36; IMAGE_GO_UP=37; IMAGE_GO_DOWN=38
+    IMAGE_TRIANGLE=39; IMAGE_TRIANGLE_LEFT=40; IMAGE_CHESSBOARD=41
+    IMAGE_DIAMOND=42; IMAGE_DIAMOND_SMALL=43; IMAGE_SQUARE=44; IMAGE_SQUARE_SMALL=45
+    IMAGE_RABBIT=46; IMAGE_COW=47
+    IMAGE_MUSIC_CROTCHET=48; IMAGE_MUSIC_QUAVER=49; IMAGE_MUSIC_QUAVERS=50
+    IMAGE_PITCHFORK=51; IMAGE_XMAS=52; IMAGE_PACMAN=53; IMAGE_TARGET=54
+    IMAGE_TSHIRT=55; IMAGE_ROLLERSKATE=56; IMAGE_DUCK=57; IMAGE_HOUSE=58
+    IMAGE_TORTOISE=59; IMAGE_BUTTERFLY=60; IMAGE_STICKFIGURE=61
+    IMAGE_GHOST=62; IMAGE_SWORD=63; IMAGE_GIRAFFE=64; IMAGE_SKULL=65
+    IMAGE_UMBRELLA=66; IMAGE_SNAKE=67
+
     def write(self, text, intensity=100, time_per_character=500):
         return _bridge_call({'type': 'hub_display', 'text': str(text)})
 
@@ -283,8 +322,17 @@ class _LightMatrix:
 
 
 class _Speaker:
+    # Channel + waveform constants (match official docs).
+    ANY              = -2
+    DEFAULT          = -1
+    WAVEFORM_SINE    = 1
+    WAVEFORM_SQUARE  = 2
+    WAVEFORM_SAWTOOTH = 3
+    WAVEFORM_TRIANGLE = 1   # docs publish 1; simulator ignores it
+
     def beep(self, freq=440, duration=500, volume=100, *,
-             attack=0, decay=0, sustain=100, release=0, transition=10):
+             attack=0, decay=0, sustain=100, release=0, transition=10,
+             waveform=1, channel=-1):
         # Convert Hz → MIDI note for the simulator's audio engine
         note = round(69 + 12 * math.log2(freq / 440)) if freq > 0 else 69
         return _bridge_call({'type': 'beep', 'note': note, 'duration': duration / 1000.0})
@@ -337,11 +385,14 @@ class _Light:
 class _Hub:
     def __init__(self):
         self.light_matrix  = _LightMatrix()
-        self.speaker       = _Speaker()
-        self.sound         = self.speaker   # alias
+        self.sound         = _Speaker()
+        # `hub.speaker` is a simulator-only alias kept for older student code;
+        # the official LEGO API only documents `hub.sound`.
+        self.speaker       = self.sound
         self.motion_sensor = _MotionSensor()
         self.button        = _Button()
         self.light         = _Light()
+        self.port          = port
 
     def device_uuid(self): return 'simulator'
     def hardware_id(self): return 'simulator'
@@ -443,6 +494,10 @@ class _AppSound:
 
 class _AppMusic:
     DRUM_SNARE=1; DRUM_BASS=2; DRUM_SIDE_STICK=3; DRUM_CRASH_CYMBAL=4
+    DRUM_OPEN_HI_HAT=5; DRUM_CLOSED_HI_HAT=6; DRUM_TAMBOURINE=7
+    DRUM_HAND_CLAP=8; DRUM_CLAVES=9; DRUM_WOOD_BLOCK=10; DRUM_COWBELL=11
+    DRUM_TRIANGLE=12; DRUM_BONGO=13; DRUM_CONGA=14; DRUM_CABASA=15
+    DRUM_GUIRO=16; DRUM_VIBRASLAP=17; DRUM_CUICA=18
     INSTRUMENT_PIANO=1; INSTRUMENT_ELECTRIC_PIANO=2; INSTRUMENT_ORGAN=3
     INSTRUMENT_GUITAR=4; INSTRUMENT_ELECTRIC_GUITAR=5; INSTRUMENT_BASS=6
     INSTRUMENT_PIZZICATO=7; INSTRUMENT_CELLO=8; INSTRUMENT_TROMBONE=9
@@ -458,10 +513,11 @@ class _AppMusic:
 
 
 class _AppDisplay:
-    IMAGE_ROBOT_1=1; IMAGE_ROBOT_2=2; IMAGE_ROBOT_3=3; IMAGE_ROBOT_4=4
-    IMAGE_ROBOT_5=5; IMAGE_AMUSEMENT_PARK=6; IMAGE_BEACH=7
-    IMAGE_HAUNTED_HOUSE=8; IMAGE_MOON=9; IMAGE_RAINBOW=10
-    IMAGE_EMPTY=11; IMAGE_RANDOM=21
+    IMAGE_ROBOT_1=1; IMAGE_ROBOT_2=2; IMAGE_ROBOT_3=3; IMAGE_ROBOT_4=4; IMAGE_ROBOT_5=5
+    IMAGE_HUB_1=6; IMAGE_HUB_2=7; IMAGE_HUB_3=8; IMAGE_HUB_4=9
+    IMAGE_AMUSEMENT_PARK=10; IMAGE_BEACH=11; IMAGE_HAUNTED_HOUSE=12; IMAGE_CARNIVAL=13
+    IMAGE_BOOKSHELF=14; IMAGE_PLAYGROUND=15; IMAGE_MOON=16; IMAGE_CAVE=17
+    IMAGE_OCEAN=18; IMAGE_POLAR_BEAR=19; IMAGE_PARK=20; IMAGE_RANDOM=21
 
     @staticmethod
     def show(fullscreen=False): pass

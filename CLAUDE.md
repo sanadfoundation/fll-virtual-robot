@@ -1,85 +1,43 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## Development
 
 ```bash
-# Serve locally — PyScript requires HTTP, file:// will not work
-python3 -m http.server 8787
-# Open http://localhost:8787
+python3 -m http.server 8787   # PyScript needs HTTP, not file://
 ```
 
-No build step, no package manager, no bundler. All dependencies are loaded from CDN at runtime.
+No build step, no package manager. Dependencies load from CDN.
 
-## Architecture
+## Constraints (things you'd otherwise get wrong)
 
-### Execution model
+- **Don't reintroduce SharedArrayBuffer / `Atomics.wait` / COOP-COEP.** That path was tried and abandoned. The current postMessage round-trip is the design.
+- **Python → JS must use `js.bridgeSend(...)`, not `js.postMessage(...)`.** Polyscript intercepts the latter and fires `runEvent` errors on every reply.
+- **Blockly bypasses the worker.** Generators emit JS that calls `window.sim._animateTank` / `_animateSingleMotor` directly via `AsyncFunction`. Set `sim.isRunning = true` before Blockly code runs (`js/main.js:runBlockly`).
+- **`port.A..F = 0..5` (int, matches docs).** `_port_id()` in the bridge translates ints or `'A'..'F'` strings to wire letters. The simulator's `pairMap` and `motors` state are keyed on `'A'..'F'` strings; Blockly generators emit those same strings. Don't unify these — the boundary translation is intentional.
+- **Steering: `> 0` is a right turn = left wheel faster.** `lv = spd × (1 + steer)`, `rv = spd × (1 - steer)`. Same convention in `_execCmd('move')`, Blockly generators, and the `motor_pair.move` docstring.
+- **Canvas Y increases downward**, so `_animateTank` has a sign flip on the heading update. Don't "fix" it.
+- **Blockly 10 API:** `Blockly.utils.xml.textToDom` (the old `Blockly.Xml.textToDom` was removed).
+- **MicroPython has no `traceback` module.** Errors surface as `ExcType: message`.
 
-Python runs in a **Web Worker** (via `<script type="mpy" worker>`). Main thread and worker communicate via plain `postMessage`, with one round-trip per Spike API call. Animation happens in real-time as commands arrive, not post-hoc.
+## Field
 
-1. Page load → PyScript boots MicroPython worker
-2. Worker injects a small JS shim into its globalThis (`bridgeSend`, `signalReady`, `signalDone`, `signalError`) and sends `{type:'ready'}` → Run button unlocks
-3. User clicks Run → main sends `{type:'run', code}` to the worker
-4. Worker `exec`s the user script. Every API call returns a `_PromiseAwaitable` whose `_inner()` does `await js.bridgeSend(json.dumps(cmd))`:
-   - `bridgeSend` posts `{type:'cmd', id, cmd}` to main and returns a Promise
-   - Main's worker listener calls `await sim.executeCommand(cmd)` and posts `{type:'cmd_result', id, result}` back
-   - The shim resolves the pending Promise with the JSON; the awaiting Python coroutine resumes and updates `_state`
-5. After the user coroutine finishes, the worker calls `js.signalDone()` (or `js.signalError(msg)` on exception)
+2362 × 1143 mm. Robot spawn `(350, 980)` heading `-90°` (north). Heading: `0° = east`, `90° = south`.
 
-`js.bridgeSend(...)` is a JS function (not `js.postMessage` from Python) — this dodges polyscript's RPC interception that would otherwise raise a `runEvent` console error on every reply.
+## Key files
 
-### Why no SharedArrayBuffer?
+- `py/spike_bridge.py` — Spike Prime v3 API as MicroPython classes. Each call returns the coroutine from `_await_and_update(js.bridgeSend(...))`; user code must `await` for sensor state to track animation.
+- `js/simulator.js` — `RobotSimulator`. Physics in `_animateTank(leftV, rightV, refDistMM)` (normalized `-1..1` velocities, ref distance = the faster wheel). `_execCmd()` dispatches commands.
+- `js/monaco_config.js` — Monaco language services. The `SPIKE_API` table (members + constants) feeds completion / signature help / hover.
+- `js/blockly_config.js` — `SPIKE_BLOCKS` definitions + `registerGenerators()`. Turn arc formula: `(deg/360) × π × 112` (half track-width circumference).
 
-An earlier iteration used SAB + `Atomics.wait` for synchronous Python-side blocking. It worked but required cross-origin isolation (`coi-serviceworker.min.js`, COOP/COEP headers) and per-byte `Atomics.store` workarounds for MicroPython's TypedArray quirks. The postMessage model achieves the same observable behavior — Python pauses on each `await` until animation finishes — without any of that overhead.
+## Adding a Spike API method
 
-### Data flow
+1. Add the method to the right class in `py/spike_bridge.py`, returning `_bridge_call({'type': 'your_type', ...})`.
+2. If it's a new command type, add a `case` in `_execCmd()` (`js/simulator.js`).
+3. Add an entry to `SPIKE_API` (`js/monaco_config.js`) with `sig`, `doc`, `params`.
 
-```
-py/spike_bridge.py  →  self.postMessage  →  worker.onmessage in main.js
-  _bridge_call()      {type:'cmd',id,cmd}    sim.executeCommand(cmd)
-  await Promise   ←   {type:'cmd_result'}  ←  _execCmd → _animateTank
-```
+## Adding a Blockly block
 
-Blockly bypasses the worker entirely — generated JS calls `window.sim._animateTank()` directly via `AsyncFunction`. This is why `sim.isRunning = true` must be set before Blockly code runs (`js/main.js:runBlockly()`).
-
-### Coordinate system
-
-- Field: 2362 × 1143 mm (actual FLL mat dimensions)
-- Heading: `0° = east`, `90° = south (down)`, `-90° = north (up)`
-- Robot starts at `(350mm, 980mm)`, heading `-90°` (facing up, in the home area)
-- Canvas Y increases downward — this inverts the standard turning formula:
-  `heading -= (rightDist - leftDist) / TRACK_W × (180/π)`  ← note the minus sign
-- Drawing offset: `ctx.rotate((heading + 90) * π/180)` — the `+90` aligns the robot body (drawn pointing local-up) with the heading convention
-
-### Key files
-
-**`js/simulator.js`** — `RobotSimulator` class. The physics live in `_animateTank(leftV, rightV, refDistMM)`: normalized velocities (`-1..1`), reference distance is what the *faster* wheel travels. `_amountToMM()` converts `degrees/rotations/cm/inches` to mm. `_execCmd()` dispatches the command queue.
-
-**`py/spike_bridge.py`** — Entire Spike Prime v3 API as MicroPython classes. Loaded via `<script type="mpy" worker src="py/spike_bridge.py">`. Each API call returns the coroutine produced by `_await_and_update(js.bridgeSend(...))` — user code must `await` motion calls for sensor state to stay in sync with animation. `runloop.run(coro)` stores the user coroutine; `_handle_run` (driven by `asyncio.create_task` from the `'run'` message handler) awaits it. No `import traceback` — MicroPython doesn't include it; errors surface as `ExcType: message`.
-
-**`js/autocomplete.js`** — CodeMirror 5 hint function (`window.spikeHint`). Dot-completion resolves multi-level paths (`hub.light_matrix` → its methods). Triggered automatically on `.` and manually on `Ctrl+Space`.
-
-**`js/blockly_config.js`** — Custom block definitions (`SPIKE_BLOCKS`) and JS code generators (`registerGenerators`). Turn arc formula: `(deg/360) × π × 112` (half track-width circumference). Steering: `lv = speed × (1 + steering)`, `rv = speed × (1 - steering)`. Uses `Blockly.utils.xml.textToDom` — not `Blockly.Xml.textToDom`, which was removed in Blockly 10.
-
-### Steering convention
-
-`steering > 0` = right turn = left wheel faster:
-- `leftV  = spd × (1 + steer)`
-- `rightV = spd × (1 - steer)`
-
-This is consistent across `_execCmd('move')`, `blockly_config.js` generators, and `js/autocomplete.js` member tables.
-
-## Extending the API
-
-To add a new Spike Prime API method:
-
-1. Add the method to the appropriate class in `py/spike_bridge.py` — `return _bridge_call({'type': 'your_type', ...})`
-2. If it's a new command type, add a `case` in `_execCmd()` in `js/simulator.js`
-3. Add the method name to the relevant entry in `SPIKE_MEMBERS` in `js/autocomplete.js`
-
-To add a new Blockly block:
-
-1. Add a JSON block definition to `SPIKE_BLOCKS` in `js/blockly_config.js`
-2. Add a generator function in `registerGenerators()` that returns an `await window.sim._animateTank(...)` string
-3. Add the block to the appropriate category in `TOOLBOX_XML`
+1. Add a JSON definition to `SPIKE_BLOCKS`.
+2. Add a generator in `registerGenerators()` returning `await window.sim._animateTank(...)` (or `_animateSingleMotor`).
+3. Place the block in the appropriate `TOOLBOX_XML` category.

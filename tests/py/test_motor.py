@@ -69,11 +69,19 @@ class TestMotorCommands(unittest.TestCase):
         sb.motor.reset_relative_position('A', 0)
         self.assertEqual(mock_js.bridge_mock.all(), [])
 
-    def test_port_object_converted_to_str(self):
+    def test_int_port_constant_translates_to_letter(self):
+        # port.A = 0 (matches docs); bridge translates to wire letter 'A'.
         sb.motor.run_for_degrees(sb.port.A, 360)
         cmd = mock_js.bridge_mock.all()[0]
-        self.assertIsInstance(cmd['port'], str)
         self.assertEqual(cmd['port'], 'A')
+
+    def test_int_port_literal_translates_to_letter(self):
+        sb.motor.run_for_degrees(2, 360)  # 2 == port.C
+        self.assertEqual(mock_js.bridge_mock.all()[0]['port'], 'C')
+
+    def test_letter_port_passes_through(self):
+        sb.motor.run_for_degrees('B', 360)
+        self.assertEqual(mock_js.bridge_mock.all()[0]['port'], 'B')
 
     def test_motor_constants(self):
         self.assertEqual(sb.motor.BRAKE,            1)
@@ -82,6 +90,15 @@ class TestMotorCommands(unittest.TestCase):
         self.assertEqual(sb.motor.CLOCKWISE,        0)
         self.assertEqual(sb.motor.COUNTERCLOCKWISE, 1)
         self.assertEqual(sb.motor.SHORTEST_PATH,    2)
+
+    def test_port_constants_are_ints(self):
+        # Match the official LEGO SPIKE Prime v3 docs (port.A..F = 0..5).
+        self.assertEqual(sb.port.A, 0)
+        self.assertEqual(sb.port.B, 1)
+        self.assertEqual(sb.port.C, 2)
+        self.assertEqual(sb.port.D, 3)
+        self.assertEqual(sb.port.E, 4)
+        self.assertEqual(sb.port.F, 5)
 
     def test_multiple_commands_accumulate(self):
         sb.motor.run_for_degrees('A', 90)

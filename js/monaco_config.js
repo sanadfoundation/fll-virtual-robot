@@ -107,9 +107,19 @@ window.registerSpikeCompletions = function(monaco) {
           doc: 'Move for the given duration.\n\n**duration** — time in ms\n**steering** — –100 to 100\n**velocity** — deg/sec',
           params: ['pair', 'duration', 'steering', 'velocity', 'stop', 'acceleration', 'deceleration'],
         },
+        move_tank: {
+          sig: 'motor_pair.move_tank(pair, left_velocity, right_velocity, *, acceleration=1000) -> None',
+          doc: 'Move continuously with independent wheel speeds.\n\n**left_velocity** — left wheel deg/sec\n**right_velocity** — right wheel deg/sec',
+          params: ['pair', 'left_velocity', 'right_velocity', 'acceleration'],
+        },
+        move_tank_for_degrees: {
+          sig: 'motor_pair.move_tank_for_degrees(pair, degrees, left_velocity, right_velocity, *, stop=motor.BRAKE, acceleration=1000, deceleration=1000)',
+          doc: 'Move until motors rotate by the given degrees, with independent wheel speeds.\n\n**degrees** — wheel rotation\n**left_velocity**, **right_velocity** — deg/sec',
+          params: ['pair', 'degrees', 'left_velocity', 'right_velocity', 'stop', 'acceleration', 'deceleration'],
+        },
         move_tank_for_time: {
           sig: 'motor_pair.move_tank_for_time(pair, left_velocity, right_velocity, duration, *, stop=motor.BRAKE, acceleration=1000, deceleration=1000)',
-          doc: 'Move with independent wheel speeds for a duration.\n\n**left_velocity** — left wheel deg/sec\n**right_velocity** — right wheel deg/sec\n**duration** — ms',
+          doc: 'Move with independent wheel speeds for a duration.\n\n**left_velocity**, **right_velocity** — deg/sec\n**duration** — ms',
           params: ['pair', 'left_velocity', 'right_velocity', 'duration', 'stop', 'acceleration', 'deceleration'],
         },
         stop: {
@@ -217,6 +227,27 @@ window.registerSpikeCompletions = function(monaco) {
 
     'hub.light_matrix': {
       doc: '5×5 LED matrix on the hub.',
+      constants: {
+        IMAGE_HEART: '1', IMAGE_HEART_SMALL: '2', IMAGE_HAPPY: '3', IMAGE_SMILE: '4',
+        IMAGE_SAD: '5', IMAGE_CONFUSED: '6', IMAGE_ANGRY: '7', IMAGE_ASLEEP: '8',
+        IMAGE_SURPRISED: '9', IMAGE_SILLY: '10', IMAGE_FABULOUS: '11', IMAGE_MEH: '12',
+        IMAGE_YES: '13', IMAGE_NO: '14',
+        IMAGE_CLOCK12: '15', IMAGE_CLOCK1: '16', IMAGE_CLOCK2: '17', IMAGE_CLOCK3: '18',
+        IMAGE_CLOCK4: '19', IMAGE_CLOCK5: '20', IMAGE_CLOCK6: '21', IMAGE_CLOCK7: '22',
+        IMAGE_CLOCK8: '23', IMAGE_CLOCK9: '24', IMAGE_CLOCK10: '25', IMAGE_CLOCK11: '26',
+        IMAGE_ARROW_N: '27', IMAGE_ARROW_NE: '28', IMAGE_ARROW_E: '29', IMAGE_ARROW_SE: '30',
+        IMAGE_ARROW_S: '31', IMAGE_ARROW_SW: '32', IMAGE_ARROW_W: '33', IMAGE_ARROW_NW: '34',
+        IMAGE_GO_RIGHT: '35', IMAGE_GO_LEFT: '36', IMAGE_GO_UP: '37', IMAGE_GO_DOWN: '38',
+        IMAGE_TRIANGLE: '39', IMAGE_TRIANGLE_LEFT: '40', IMAGE_CHESSBOARD: '41',
+        IMAGE_DIAMOND: '42', IMAGE_DIAMOND_SMALL: '43', IMAGE_SQUARE: '44', IMAGE_SQUARE_SMALL: '45',
+        IMAGE_RABBIT: '46', IMAGE_COW: '47',
+        IMAGE_MUSIC_CROTCHET: '48', IMAGE_MUSIC_QUAVER: '49', IMAGE_MUSIC_QUAVERS: '50',
+        IMAGE_PITCHFORK: '51', IMAGE_XMAS: '52', IMAGE_PACMAN: '53', IMAGE_TARGET: '54',
+        IMAGE_TSHIRT: '55', IMAGE_ROLLERSKATE: '56', IMAGE_DUCK: '57', IMAGE_HOUSE: '58',
+        IMAGE_TORTOISE: '59', IMAGE_BUTTERFLY: '60', IMAGE_STICKFIGURE: '61',
+        IMAGE_GHOST: '62', IMAGE_SWORD: '63', IMAGE_GIRAFFE: '64', IMAGE_SKULL: '65',
+        IMAGE_UMBRELLA: '66', IMAGE_SNAKE: '67',
+      },
       members: {
         write: {
           sig: 'hub.light_matrix.write(text, intensity=100, time_per_character=500) -> Awaitable',
@@ -270,9 +301,9 @@ window.registerSpikeCompletions = function(monaco) {
       doc: 'Play sounds through the hub speaker.',
       members: {
         beep: {
-          sig: 'hub.sound.beep(freq=440, duration=500, volume=100, *, attack=0, decay=0, sustain=100, release=0, transition=10)',
-          doc: 'Play a beep.\n\n**freq** — frequency in Hz (440 = A4)\n**duration** — ms\n**volume** — 0–100',
-          params: ['freq', 'duration', 'volume', 'attack', 'decay', 'sustain', 'release', 'transition'],
+          sig: 'hub.sound.beep(freq=440, duration=500, volume=100, *, attack=0, decay=0, sustain=100, release=0, transition=10, waveform=WAVEFORM_SINE, channel=DEFAULT)',
+          doc: 'Play a beep.\n\n**freq** — frequency in Hz (440 = A4)\n**duration** — ms\n**volume** — 0–100\n**waveform** — `hub.sound.WAVEFORM_*`\n**channel** — `hub.sound.ANY`, `DEFAULT`, or 0–N',
+          params: ['freq', 'duration', 'volume', 'attack', 'decay', 'sustain', 'release', 'transition', 'waveform', 'channel'],
         },
         stop: {
           sig: 'hub.sound.stop() -> None',
@@ -284,6 +315,11 @@ window.registerSpikeCompletions = function(monaco) {
           doc: 'Set the speaker volume (0–100).',
           params: ['volume'],
         },
+      },
+      constants: {
+        ANY: '-2', DEFAULT: '-1',
+        WAVEFORM_SINE: '1', WAVEFORM_SQUARE: '2',
+        WAVEFORM_SAWTOOTH: '3', WAVEFORM_TRIANGLE: '1',
       },
     },
 
@@ -325,6 +361,31 @@ window.registerSpikeCompletions = function(monaco) {
           doc: 'Return which hub face points up.',
           params: [],
         },
+        quaternion: {
+          sig: 'hub.motion_sensor.quaternion() -> tuple[float, float, float, float]',
+          doc: 'Return the orientation quaternion (w, x, y, z).',
+          params: [],
+        },
+        tap_count: {
+          sig: 'hub.motion_sensor.tap_count() -> int',
+          doc: 'Return the number of taps detected since the last reset.',
+          params: [],
+        },
+        reset_tap_count: {
+          sig: 'hub.motion_sensor.reset_tap_count() -> None',
+          doc: 'Reset the tap counter to zero.',
+          params: [],
+        },
+        get_yaw_face: {
+          sig: 'hub.motion_sensor.get_yaw_face() -> int',
+          doc: 'Return the hub face currently used as the yaw reference.',
+          params: [],
+        },
+        set_yaw_face: {
+          sig: 'hub.motion_sensor.set_yaw_face(up) -> bool',
+          doc: 'Set the hub face used as the yaw reference.\n\n**up** — `hub.motion_sensor.TOP`, `FRONT`, `RIGHT`, `BOTTOM`, `BACK`, or `LEFT`.',
+          params: ['up'],
+        },
       },
       constants: {
         TAPPED: '0', DOUBLE_TAPPED: '1', SHAKEN: '2', FALLING: '3', UNKNOWN: '-1',
@@ -359,6 +420,12 @@ window.registerSpikeCompletions = function(monaco) {
         },
       },
       constants: { POWER: '0', CONNECT: '1' },
+    },
+
+    'hub.port': {
+      doc: 'Port constants for the hub. Aliases `hub.port.A`–`F` to the same integer values as the top-level `port` module.',
+      members: {},
+      constants: { A: '0', B: '1', C: '2', D: '3', E: '4', F: '5' },
     },
 
     runloop: {
@@ -437,9 +504,17 @@ window.registerSpikeCompletions = function(monaco) {
       },
       constants: {
         DRUM_SNARE: '1', DRUM_BASS: '2', DRUM_SIDE_STICK: '3', DRUM_CRASH_CYMBAL: '4',
+        DRUM_OPEN_HI_HAT: '5', DRUM_CLOSED_HI_HAT: '6', DRUM_TAMBOURINE: '7',
+        DRUM_HAND_CLAP: '8', DRUM_CLAVES: '9', DRUM_WOOD_BLOCK: '10', DRUM_COWBELL: '11',
+        DRUM_TRIANGLE: '12', DRUM_BONGO: '13', DRUM_CONGA: '14', DRUM_CABASA: '15',
+        DRUM_GUIRO: '16', DRUM_VIBRASLAP: '17', DRUM_CUICA: '18',
         INSTRUMENT_PIANO: '1', INSTRUMENT_ELECTRIC_PIANO: '2', INSTRUMENT_ORGAN: '3',
         INSTRUMENT_GUITAR: '4', INSTRUMENT_ELECTRIC_GUITAR: '5', INSTRUMENT_BASS: '6',
-        INSTRUMENT_FLUTE: '12', INSTRUMENT_VIBRAPHONE: '16', INSTRUMENT_SYNTH_LEAD: '20',
+        INSTRUMENT_PIZZICATO: '7', INSTRUMENT_CELLO: '8', INSTRUMENT_TROMBONE: '9',
+        INSTRUMENT_CLARINET: '10', INSTRUMENT_SAXOPHONE: '11', INSTRUMENT_FLUTE: '12',
+        INSTRUMENT_WOODEN_FLUTE: '13', INSTRUMENT_BASSOON: '14', INSTRUMENT_CHOIR: '15',
+        INSTRUMENT_VIBRAPHONE: '16', INSTRUMENT_MUSIC_BOX: '17', INSTRUMENT_STEEL_DRUM: '18',
+        INSTRUMENT_MARIMBA: '19', INSTRUMENT_SYNTH_LEAD: '20', INSTRUMENT_SYNTH_PAD: '21',
       },
     },
 
@@ -453,7 +528,14 @@ window.registerSpikeCompletions = function(monaco) {
       },
       constants: {
         IMAGE_ROBOT_1: '1', IMAGE_ROBOT_2: '2', IMAGE_ROBOT_3: '3',
-        IMAGE_BEACH: '7', IMAGE_MOON: '9', IMAGE_RAINBOW: '10', IMAGE_RANDOM: '21',
+        IMAGE_ROBOT_4: '4', IMAGE_ROBOT_5: '5',
+        IMAGE_HUB_1: '6', IMAGE_HUB_2: '7', IMAGE_HUB_3: '8', IMAGE_HUB_4: '9',
+        IMAGE_AMUSEMENT_PARK: '10', IMAGE_BEACH: '11',
+        IMAGE_HAUNTED_HOUSE: '12', IMAGE_CARNIVAL: '13',
+        IMAGE_BOOKSHELF: '14', IMAGE_PLAYGROUND: '15',
+        IMAGE_MOON: '16', IMAGE_CAVE: '17',
+        IMAGE_OCEAN: '18', IMAGE_POLAR_BEAR: '19',
+        IMAGE_PARK: '20', IMAGE_RANDOM: '21',
       },
     },
 
