@@ -62,6 +62,9 @@ function lsGet(key) {
 function lsSet(key, value) {
   try { localStorage.setItem(key, value); } catch (e) { /* storage unavailable */ }
 }
+function lsRemove(key) {
+  try { localStorage.removeItem(key); } catch (e) { /* storage unavailable */ }
+}
 
 // ── Theme ────────────────────────────────────────────────────────────────────
 
@@ -119,17 +122,11 @@ function initEditor() {
   require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs' } });
   require(['vs/editor/editor.main'], () => {
     window.registerSpikeCompletions(monaco);
+    // Storage holds the user's edits, not the default — absence means
+    // "show the current DEFAULT_PYTHON_CODE." The save handler below keeps it
+    // that way: it deletes the key when the editor matches the default.
     const stored = lsGet(PYCODE_KEY);
-    // When the shipped default changes, users who never edited their starter
-    // are stuck on the old one (it was saved verbatim to localStorage). Detect
-    // that by matching against PRIOR_DEFAULT_PYTHON_CODES — every superseded
-    // default goes in there, and stored code matching any of them is upgraded
-    // to the current default. Customized code never matches, so it's safe.
-    const isStaleDefault = stored !== null && PRIOR_DEFAULT_PYTHON_CODES.some(
-      d => d.replace(/\r\n/g, '\n').trim() === stored.replace(/\r\n/g, '\n').trim()
-    );
-    const initialCode = (stored === null || isStaleDefault) ? DEFAULT_PYTHON_CODE : stored;
-    if (isStaleDefault) lsSet(PYCODE_KEY, DEFAULT_PYTHON_CODE);
+    const initialCode = (stored !== null) ? stored : DEFAULT_PYTHON_CODE;
     editor = monaco.editor.create(document.getElementById('py-editor'), {
       value: initialCode,
       language: 'python',
@@ -150,7 +147,11 @@ function initEditor() {
     let pySaveTimer = null;
     editor.onDidChangeModelContent(() => {
       clearTimeout(pySaveTimer);
-      pySaveTimer = setTimeout(() => lsSet(PYCODE_KEY, editor.getValue()), 250);
+      pySaveTimer = setTimeout(() => {
+        const value = editor.getValue();
+        if (value === DEFAULT_PYTHON_CODE) lsRemove(PYCODE_KEY);
+        else lsSet(PYCODE_KEY, value);
+      }, 250);
     });
   });
 }
@@ -333,9 +334,11 @@ function handleDefaults() {
   if (slider) slider.value = String(DEFAULT_SPEED);
   updateSpeed(DEFAULT_SPEED);
 
-  // Python code
+  // Python code — drop any stored override so future default changes flow
+  // through automatically. The setValue() also fires the save handler, which
+  // re-removes the key (idempotent) since the editor now matches the default.
+  lsRemove(PYCODE_KEY);
   if (editor) editor.setValue(DEFAULT_PYTHON_CODE);
-  lsSet(PYCODE_KEY, DEFAULT_PYTHON_CODE);
 
   // Blockly XML — replace live workspace if mounted, otherwise stage for next mount.
   const defaultXml = window.DEFAULT_BLOCKLY_XML || '';
@@ -433,34 +436,6 @@ function initResizeHandle() {
 }
 
 // ── Default Python code ───────────────────────────────────────────────────────
-
-// Every superseded DEFAULT_PYTHON_CODE goes here so we can recognize an
-// untouched starter in localStorage and upgrade it. Append, never edit, the
-// existing entries — match is whitespace/CRLF-tolerant but exact otherwise.
-const PRIOR_DEFAULT_PYTHON_CODES = [
-  // Pre-2026-05 default (the simple forward/turn/forward demo)
-  `# FLL Virtual Robot — SPIKE Prime v3 Python API
-from hub import port
-import motor_pair, runloop
-
-async def main():
-    # Pair the drive motors (left = port.A, right = port.B)
-    motor_pair.pair(motor_pair.PAIR_1, port.A, port.B)
-
-    # Move forward for 2 seconds at 360 deg/sec
-    await motor_pair.move_for_time(motor_pair.PAIR_1, 2000, 0, velocity=360)
-
-    # Turn right (left wheel forward, right wheel back)
-    await motor_pair.move_tank_for_time(motor_pair.PAIR_1, 360, -360, 800)
-
-    # Move forward again
-    await motor_pair.move_for_time(motor_pair.PAIR_1, 1000, 0, velocity=360)
-
-    print('Mission complete!')
-
-runloop.run(main())
-`,
-];
 
 const DEFAULT_PYTHON_CODE = `# FLL Virtual Robot — Mission: drive over yellow and stop at green
 from hub import port
