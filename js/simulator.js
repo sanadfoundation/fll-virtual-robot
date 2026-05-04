@@ -104,6 +104,16 @@ class RobotSimulator {
     this._offX  = 0;
     this._offY  = 0;
 
+    // Trail is rendered into its own offscreen canvas and blitted each frame,
+    // so we never re-stroke the full polyline. _trailArc is cumulative pixel
+    // arc length, used as lineDashOffset to keep dash pattern continuous
+    // across appended segments.
+    this._trailCanvas = document.createElement('canvas');
+    this._trailCtx    = this._trailCanvas.getContext('2d');
+    this._trailArc    = 0;
+
+    this._dirty = true;
+
     this._resize();
     window.addEventListener('resize', () => this._resize());
 
@@ -131,6 +141,13 @@ class RobotSimulator {
     this._offY = (H - fh) / 2;
     this.canvas.style.marginLeft = this._offX + 'px';
     this.canvas.style.marginTop  = this._offY + 'px';
+
+    // Trail canvas tracks main canvas pixel size; re-render at new scale.
+    this._trailCanvas.width  = fw;
+    this._trailCanvas.height = fh;
+    this._redrawTrailCanvas();
+
+    this._dirty = true;
   }
 
   // ── Coordinate helpers ──────────────────────────────────────────────────────
@@ -140,7 +157,10 @@ class RobotSimulator {
   // ── Drawing loop ────────────────────────────────────────────────────────────
 
   _drawLoop() {
-    this._draw();
+    if (this._dirty) {
+      this._draw();
+      this._dirty = false;
+    }
     this._raf = requestAnimationFrame(() => this._drawLoop());
   }
 
@@ -152,7 +172,7 @@ class RobotSimulator {
 
     ctx.clearRect(0, 0, W, H);
     this._drawField(ctx, W, H, s);
-    this._drawTrail(ctx, s);
+    this._drawTrail(ctx);
     this._drawRobot(ctx, s);
     this._updateSensorPanel();
   }
@@ -215,22 +235,58 @@ class RobotSimulator {
     ctx.strokeRect(0, 0, W, H);
   }
 
-  _drawTrail(ctx, s) {
+  _drawTrail(ctx) {
     if (this.trail.length < 2) return;
-    ctx.save();
-    ctx.strokeStyle = 'rgba(124,106,247,0.45)';
-    ctx.lineWidth = 2.5 * s;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.setLineDash([4*s, 4*s]);
-    ctx.beginPath();
-    ctx.moveTo(this.trail[0].x * s, this.trail[0].y * s);
+    ctx.drawImage(this._trailCanvas, 0, 0);
+  }
+
+  _trailStrokeStyle(tctx, s) {
+    tctx.strokeStyle = 'rgba(124,106,247,0.45)';
+    tctx.lineWidth = 2.5 * s;
+    tctx.lineCap = 'round';
+    tctx.lineJoin = 'round';
+    tctx.setLineDash([4*s, 4*s]);
+  }
+
+  // Re-render the entire trail polyline into the offscreen canvas. Called on
+  // resize (scale changed) and reset (clear). Keeps _trailArc in sync.
+  _redrawTrailCanvas() {
+    const tctx = this._trailCtx;
+    const s = this._scale;
+    tctx.clearRect(0, 0, this._trailCanvas.width, this._trailCanvas.height);
+    this._trailArc = 0;
+    if (this.trail.length < 2) return;
+    tctx.save();
+    this._trailStrokeStyle(tctx, s);
+    tctx.beginPath();
+    tctx.moveTo(this.trail[0].x * s, this.trail[0].y * s);
     for (let i = 1; i < this.trail.length; i++) {
-      ctx.lineTo(this.trail[i].x * s, this.trail[i].y * s);
+      tctx.lineTo(this.trail[i].x * s, this.trail[i].y * s);
+      const dx = (this.trail[i].x - this.trail[i-1].x) * s;
+      const dy = (this.trail[i].y - this.trail[i-1].y) * s;
+      this._trailArc += Math.hypot(dx, dy);
     }
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.restore();
+    tctx.stroke();
+    tctx.restore();
+  }
+
+  // Append a single segment from (prevX,prevY) to (x,y) (mm coords). Uses
+  // lineDashOffset = -arcSoFar so the dash pattern stays continuous across
+  // segment boundaries (matches the polyline rendering in _redrawTrailCanvas).
+  _appendTrailSegment(prevX, prevY, x, y) {
+    const tctx = this._trailCtx;
+    const s = this._scale;
+    tctx.save();
+    this._trailStrokeStyle(tctx, s);
+    tctx.lineDashOffset = -this._trailArc;
+    tctx.beginPath();
+    tctx.moveTo(prevX * s, prevY * s);
+    tctx.lineTo(x * s, y * s);
+    tctx.stroke();
+    tctx.restore();
+    const dx = (x - prevX) * s;
+    const dy = (y - prevY) * s;
+    this._trailArc += Math.hypot(dx, dy);
   }
 
   _drawRobot(ctx, s) {
@@ -366,6 +422,9 @@ class RobotSimulator {
     this.trail   = [{ x: this.robot.x, y: this.robot.y }];
     this.pairMap = {};
     this._stopRequested = false;
+    this._trailCtx.clearRect(0, 0, this._trailCanvas.width, this._trailCanvas.height);
+    this._trailArc = 0;
+    this._dirty = true;
     this._setStatus('ready');
   }
 
@@ -445,15 +504,19 @@ class RobotSimulator {
 
       case 'hub_display':
         this._showText(cmd.text);
+        this._dirty = true;
         break;
 
       case 'hub_display_off':
         this.robot.display = Array(25).fill(0);
+        this._dirty = true;
         break;
 
       case 'hub_pixel':
-        if (cmd.x >= 0 && cmd.x < 5 && cmd.y >= 0 && cmd.y < 5)
+        if (cmd.x >= 0 && cmd.x < 5 && cmd.y >= 0 && cmd.y < 5) {
           this.robot.display[cmd.y * 5 + cmd.x] = cmd.brightness;
+          this._dirty = true;
+        }
         break;
 
       case 'beep':
@@ -518,12 +581,14 @@ class RobotSimulator {
         }
       }
 
+      this._appendTrailSegment(prevX, prevY, this.robot.x, this.robot.y);
       this.trail.push({ x: this.robot.x, y: this.robot.y });
       this._clampRobot();
 
       const sp = this._sensorPosition(this.robot);
       this.robot.sensors.colorValue = this._colorAtPosition(sp.x, sp.y);
 
+      this._dirty = true;
       await this._sleep(dt);
     }
   }
