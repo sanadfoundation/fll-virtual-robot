@@ -1797,12 +1797,12 @@ const TOOLBOX_XML = `
     </block>
   </category>
 
-  <!-- EXTENSIONS_PLACEHOLDER -->
-
   <sep></sep>
 
   <category name="VARIABLES" colour="${C_VARS}" custom="VARIABLE"></category>
   <category name="MY BLOCKS"  colour="${C_MYBLOCKS}" custom="PROCEDURE"></category>
+
+  <!-- EXTENSIONS_PLACEHOLDER -->
 
 </xml>`;
 
