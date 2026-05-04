@@ -99,6 +99,69 @@ class TestPortConfig(unittest.TestCase):
         cmds = mock_js.bridge_mock.all()
         self.assertEqual(len(cmds), 2)
 
+    # ── Color sensor ────────────────────────────────────────────
+    def test_color_sensor_color_on_motor_port_raises(self):
+        with self.assertRaises(RuntimeError) as cx:
+            sb.color_sensor.color('A')
+        self.assertIn('port A has no color sensor', str(cx.exception))
+        self.assertIn('configured: motor', str(cx.exception))
+
+    def test_color_sensor_reflection_on_distance_port_raises(self):
+        with self.assertRaises(RuntimeError):
+            sb.color_sensor.reflection('F')
+
+    def test_color_sensor_rgbi_on_empty_port_raises(self):
+        with self.assertRaises(RuntimeError):
+            sb.color_sensor.rgbi('C')
+
+    def test_color_sensor_color_on_color_port_succeeds(self):
+        sb._state['color'] = 'red'
+        self.assertEqual(sb.color_sensor.color('E'), 9)  # red == 9 in _COLOR_INT_MAP
+
+    # ── Distance sensor ─────────────────────────────────────────
+    def test_distance_sensor_distance_on_color_port_raises(self):
+        with self.assertRaises(RuntimeError) as cx:
+            sb.distance_sensor.distance('E')
+        self.assertIn('configured: color_sensor', str(cx.exception))
+
+    def test_distance_sensor_distance_on_motor_port_raises(self):
+        with self.assertRaises(RuntimeError):
+            sb.distance_sensor.distance('B')
+
+    def test_distance_sensor_distance_on_distance_port_succeeds(self):
+        sb._state['distance_mm'] = 250
+        self.assertEqual(sb.distance_sensor.distance('F'), 250)
+
+    def test_distance_sensor_get_pixel_validates(self):
+        with self.assertRaises(RuntimeError):
+            sb.distance_sensor.get_pixel('A', 0, 0)
+
+    def test_distance_sensor_set_pixel_validates(self):
+        with self.assertRaises(RuntimeError):
+            sb.distance_sensor.set_pixel('E', 0, 0, 50)
+
+    def test_distance_sensor_show_validates(self):
+        with self.assertRaises(RuntimeError):
+            sb.distance_sensor.show('C', [0]*16)
+
+    def test_distance_sensor_clear_validates(self):
+        with self.assertRaises(RuntimeError):
+            sb.distance_sensor.clear('A')
+
+    # ── Force sensor (no force sensor in default config) ────────
+    def test_force_sensor_force_always_raises(self):
+        for p in ('A', 'B', 'C', 'D', 'E', 'F'):
+            with self.assertRaises(RuntimeError):
+                sb.force_sensor.force(p)
+
+    def test_force_sensor_pressed_always_raises(self):
+        with self.assertRaises(RuntimeError):
+            sb.force_sensor.pressed('A')
+
+    def test_force_sensor_raw_always_raises(self):
+        with self.assertRaises(RuntimeError):
+            sb.force_sensor.raw('B')
+
 
 if __name__ == '__main__':
     unittest.main()

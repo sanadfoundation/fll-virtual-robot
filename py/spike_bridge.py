@@ -266,14 +266,17 @@ class motor_pair:
 class color_sensor:
     @staticmethod
     def color(port):
+        _require(port, 'color_sensor', 'color_sensor.color')
         return int(_COLOR_INT_MAP.get(str(_state.get('color', 'none')), -1))
 
     @staticmethod
     def reflection(port):
+        _require(port, 'color_sensor', 'color_sensor.reflection')
         return int(_state.get('reflection', 50))
 
     @staticmethod
     def rgbi(port):
+        _require(port, 'color_sensor', 'color_sensor.rgbi')
         raw = _state.get('rgb', [128, 128, 128])
         return (int(raw[0]), int(raw[1]), int(raw[2]), 0)
 
@@ -281,35 +284,43 @@ class color_sensor:
 class distance_sensor:
     @staticmethod
     def distance(port):
+        _require(port, 'distance_sensor', 'distance_sensor.distance')
         v = int(_state.get('distance_mm', 300))
         return v if v < 9999 else -1
 
     @staticmethod
     def clear(port):
-        pass
+        _require(port, 'distance_sensor', 'distance_sensor.clear')
 
     @staticmethod
     def get_pixel(port, x, y):
+        _require(port, 'distance_sensor', 'distance_sensor.get_pixel')
         return 0
 
     @staticmethod
     def set_pixel(port, x, y, intensity):
-        pass
+        _require(port, 'distance_sensor', 'distance_sensor.set_pixel')
 
     @staticmethod
     def show(port, pixels):
-        pass
+        _require(port, 'distance_sensor', 'distance_sensor.show')
 
 
 class force_sensor:
     @staticmethod
-    def force(port):   return 0
+    def force(port):
+        _require(port, 'force_sensor', 'force_sensor.force')
+        return 0
 
     @staticmethod
-    def pressed(port): return False
+    def pressed(port):
+        _require(port, 'force_sensor', 'force_sensor.pressed')
+        return False
 
     @staticmethod
-    def raw(port):     return 0
+    def raw(port):
+        _require(port, 'force_sensor', 'force_sensor.raw')
+        return 0
 
 
 class _LightMatrix:
