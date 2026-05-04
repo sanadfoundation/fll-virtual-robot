@@ -99,8 +99,8 @@ module.exports = [
     async fn(createSim, assert) {
       const sim = createSim();
       sim.isRunning = true;
-      // No pair map → non-drive motor path; robot position stays put
-      await sim._execCmd({ type: 'motor_degrees', port: 'C', degrees: 360, velocity: 500 });
+      // No pair map for port A → non-drive motor path; robot position stays put
+      await sim._execCmd({ type: 'motor_degrees', port: 'A', degrees: 360, velocity: 500 });
       // Position unchanged (non-drive motor only waits)
       assert.strictEqual(sim.robot.x, 350);
       assert.strictEqual(sim.robot.y, 980);

@@ -30,6 +30,27 @@ const ROBOT_BODY_W  = 160;  // body width without wheels
 const ROBOT_BODY_H  = 200;  // body front-to-back
 const MM_PER_MS_100 = 0.9;  // robot speed at 100% (mm per ms)
 
+// ── Port configuration ──────────────────────────────────────────────────────
+// Mirror of py/spike_bridge.py _PORT_CONFIG. Customization will replace this
+// constant with mutable per-instance state and a config-update worker message.
+const PORT_CONFIG = {
+  A: { kind: 'motor',           role: 'drive-left'  },
+  B: { kind: 'motor',           role: 'drive-right' },
+  C: { kind: 'empty' },
+  D: { kind: 'empty' },
+  E: { kind: 'color_sensor' },
+  F: { kind: 'distance_sensor' },
+};
+
+// Maps a command type to the port `kind` it requires. Only motor commands
+// route through _execCmd; sensor reads are direct getters and validate Python-side.
+const PORT_KIND_FOR_CMD = {
+  motor_degrees: 'motor',
+  motor_time:    'motor',
+  motor_run:     'motor',
+  motor_stop:    'motor',
+};
+
 // ── Color utilities ──────────────────────────────────────────────────────────
 
 const COLOR_MAP = {
@@ -96,6 +117,7 @@ class RobotSimulator {
     this.isRunning = false;
     this.speedMult = 1.0;
     this.pairMap   = {};  // pair_id → { left, right }
+    this._portConfig = PORT_CONFIG;
 
     this._missionBoxes   = [];
     this._stopRequested  = false;
@@ -431,6 +453,18 @@ class RobotSimulator {
   // ── Command execution ───────────────────────────────────────────────────────
 
   async _execCmd(cmd) {
+    const requiredKind = PORT_KIND_FOR_CMD[cmd.type];
+    if (requiredKind && cmd.port !== undefined) {
+      const cfg = PORT_CONFIG[cmd.port];
+      const actualKind = cfg ? cfg.kind : 'empty';
+      if (actualKind !== requiredKind) {
+        throw new Error(
+          `port ${cmd.port} has no ${requiredKind} ` +
+          `(configured: ${actualKind})`
+        );
+      }
+    }
+
     switch (cmd.type) {
 
       case 'pair':
