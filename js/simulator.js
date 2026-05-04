@@ -466,17 +466,23 @@ class RobotSimulator {
 
   // ── Command execution ───────────────────────────────────────────────────────
 
+  // Port-kind validator. Mirrors py/spike_bridge.py _require so worker-routed
+  // and direct-from-JS callers (Blockly) get the same error format.
+  _assertPortKind(port, expectedKind) {
+    const cfg = this._portConfig[port];
+    const actualKind = cfg ? cfg.kind : 'empty';
+    if (actualKind !== expectedKind) {
+      const readable = expectedKind.replace(/_/g, ' ');
+      throw new Error(
+        `port ${port} has no ${readable} (configured: ${actualKind})`
+      );
+    }
+  }
+
   async _execCmd(cmd) {
     const requiredKind = PORT_KIND_FOR_CMD[cmd.type];
     if (requiredKind && cmd.port !== undefined) {
-      const cfg = this._portConfig[cmd.port];
-      const actualKind = cfg ? cfg.kind : 'empty';
-      if (actualKind !== requiredKind) {
-        throw new Error(
-          `port ${cmd.port} has no ${requiredKind} ` +
-          `(configured: ${actualKind})`
-        );
-      }
+      this._assertPortKind(cmd.port, requiredKind);
     }
 
     switch (cmd.type) {
@@ -642,6 +648,10 @@ class RobotSimulator {
   }
 
   async _animateSingleMotor(port, velocity, distMM) {
+    // Defends Blockly's direct calls into window.sim — Blockly bypasses the
+    // worker, so without this check a hand-edited XML or future block could
+    // drive a wrong-port motor command past the Python validator.
+    this._assertPortKind(port, 'motor');
     // Determine if this is a drive motor based on pair configuration
     const pair = this._findPairForPort(port);
     if (pair) {

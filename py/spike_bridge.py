@@ -309,6 +309,9 @@ class distance_sensor:
 
 
 class force_sensor:
+    """Force sensor API. The default robot config has no force sensor, so every
+    method here raises RuntimeError. Customization can later add one to a port."""
+
     @staticmethod
     def force(port):
         _require(port, 'force_sensor', 'force_sensor.force')

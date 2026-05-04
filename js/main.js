@@ -391,8 +391,16 @@ function _pollForWorker() {
     if (!data || !data.type) return;
 
     if (data.type === 'cmd') {
-      const result = await sim.executeCommand(data.cmd);
-      worker.postMessage({ type: 'cmd_result', id: data.id, result });
+      try {
+        const result = await sim.executeCommand(data.cmd);
+        worker.postMessage({ type: 'cmd_result', id: data.id, result });
+      } catch (e) {
+        // Surface JS-side throws (e.g. _assertPortKind from Blockly direct
+        // calls) and tell Python to stop, otherwise its awaited Promise hangs.
+        appendOutput('[Error] ' + (e && e.message ? e.message : e), 'error');
+        setButtons(false);
+        worker.postMessage({ type: 'cmd_result', id: data.id, result: { stopped: true } });
+      }
     } else if (data.type === 'done') {
       appendOutput('[Done] Simulation complete.', 'info');
       setButtons(false);
