@@ -153,18 +153,20 @@ const _ICON_FOR_TYPE = {
   flippermoresensors_motion:                 'Hub.svg',
 };
 
-// Append a field_image to message0/args0 of every block that has an emblem.
+// Prepend a field_image to message0/args0 of every block that has an emblem.
+// LEGO's SPIKE word blocks place the category icon on the LEFT edge of every
+// block (hat, stack, reporter, boolean alike). To make room, every existing
+// %N placeholder in message0 is shifted by 1 and the icon takes %1.
 function _withEmblem(block) {
   const icon = _ICON_FOR_TYPE[block.type];
   if (!icon) return block;
-  const argsLen = (block.args0 || []).length;
-  const slot    = argsLen + 1;
+  const shifted = (block.message0 || '').replace(/%(\d+)/g, (_, n) => `%${parseInt(n, 10) + 1}`);
   return {
     ...block,
-    message0: (block.message0 || '') + ` %${slot}`,
+    message0: `%1 ${shifted}`,
     args0: [
-      ...(block.args0 || []),
       { type: 'field_image', src: 'static/icons/' + icon, width: 24, height: 24, alt: '' },
+      ...(block.args0 || []),
     ],
   };
 }
