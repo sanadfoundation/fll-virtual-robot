@@ -162,6 +162,36 @@ class TestPortConfig(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             sb.force_sensor.raw('B')
 
+    # ── motor_pair ──────────────────────────────────────────────
+    def test_motor_pair_pair_with_two_motors_succeeds(self):
+        sb.motor_pair.pair(sb.motor_pair.PAIR_1, 'A', 'B')
+        cmds = mock_js.bridge_mock.all()
+        self.assertEqual(len(cmds), 1)
+        self.assertEqual(cmds[0]['type'], 'pair')
+        self.assertEqual(cmds[0]['left'], 'A')
+        self.assertEqual(cmds[0]['right'], 'B')
+
+    def test_motor_pair_pair_with_sensor_port_left_raises(self):
+        with self.assertRaises(RuntimeError) as cx:
+            sb.motor_pair.pair(sb.motor_pair.PAIR_1, 'E', 'B')
+        self.assertIn('port E has no motor', str(cx.exception))
+
+    def test_motor_pair_pair_with_sensor_port_right_raises(self):
+        with self.assertRaises(RuntimeError) as cx:
+            sb.motor_pair.pair(sb.motor_pair.PAIR_1, 'A', 'F')
+        self.assertIn('port F has no motor', str(cx.exception))
+
+    def test_motor_pair_pair_with_empty_port_raises(self):
+        with self.assertRaises(RuntimeError):
+            sb.motor_pair.pair(sb.motor_pair.PAIR_1, 'C', 'D')
+
+    def test_motor_pair_pair_int_ports(self):
+        # port.A=0, port.B=1
+        sb.motor_pair.pair(sb.motor_pair.PAIR_1, 0, 1)
+        cmd = mock_js.bridge_mock.all()[0]
+        self.assertEqual(cmd['left'], 'A')
+        self.assertEqual(cmd['right'], 'B')
+
 
 if __name__ == '__main__':
     unittest.main()

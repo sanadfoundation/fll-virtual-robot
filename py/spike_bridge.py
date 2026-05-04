@@ -215,8 +215,10 @@ class motor_pair:
 
     @staticmethod
     def pair(pair, left_motor, right_motor):
+        left_letter  = _require(left_motor,  'motor', 'motor_pair.pair (left)')
+        right_letter = _require(right_motor, 'motor', 'motor_pair.pair (right)')
         return _bridge_call({'type': 'pair', 'pair_id': pair,
-                             'left': _port_id(left_motor), 'right': _port_id(right_motor)})
+                             'left': left_letter, 'right': right_letter})
 
     @staticmethod
     def unpair(pair):
