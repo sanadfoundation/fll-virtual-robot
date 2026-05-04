@@ -151,50 +151,62 @@ class motor:
 
     @staticmethod
     def run_for_degrees(port, degrees, velocity=360, *, stop=1, acceleration=1000, deceleration=1000):
-        return _bridge_call({'type': 'motor_degrees', 'port': _port_id(port), 'degrees': degrees, 'velocity': velocity})
+        letter = _require(port, 'motor', 'motor.run_for_degrees')
+        return _bridge_call({'type': 'motor_degrees', 'port': letter, 'degrees': degrees, 'velocity': velocity})
 
     @staticmethod
     def run_for_time(port, duration, velocity=360, *, stop=1, acceleration=1000, deceleration=1000):
-        return _bridge_call({'type': 'motor_time', 'port': _port_id(port), 'time_ms': duration, 'velocity': velocity})
+        letter = _require(port, 'motor', 'motor.run_for_time')
+        return _bridge_call({'type': 'motor_time', 'port': letter, 'time_ms': duration, 'velocity': velocity})
 
     @staticmethod
     def run_to_absolute_position(port, position, velocity=360, *, direction=2, stop=1, acceleration=1000, deceleration=1000):
-        return _bridge_call({'type': 'motor_degrees', 'port': _port_id(port), 'degrees': int(position), 'velocity': velocity})
+        letter = _require(port, 'motor', 'motor.run_to_absolute_position')
+        return _bridge_call({'type': 'motor_degrees', 'port': letter, 'degrees': int(position), 'velocity': velocity})
 
     @staticmethod
     def run_to_relative_position(port, position, velocity=360, *, stop=1, acceleration=1000, deceleration=1000):
-        return _bridge_call({'type': 'motor_degrees', 'port': _port_id(port), 'degrees': int(position), 'velocity': velocity})
+        letter = _require(port, 'motor', 'motor.run_to_relative_position')
+        return _bridge_call({'type': 'motor_degrees', 'port': letter, 'degrees': int(position), 'velocity': velocity})
 
     @staticmethod
     def run(port, velocity=360, *, acceleration=1000):
-        return _bridge_call({'type': 'motor_run', 'port': _port_id(port), 'velocity': velocity})
+        letter = _require(port, 'motor', 'motor.run')
+        return _bridge_call({'type': 'motor_run', 'port': letter, 'velocity': velocity})
 
     @staticmethod
     def stop(port, *, stop=1):
-        return _bridge_call({'type': 'motor_stop', 'port': _port_id(port)})
+        letter = _require(port, 'motor', 'motor.stop')
+        return _bridge_call({'type': 'motor_stop', 'port': letter})
 
     @staticmethod
     def velocity(port):
+        _require(port, 'motor', 'motor.velocity')
         return 0
 
     @staticmethod
     def absolute_position(port):
-        return int((_state.get('motors') or {}).get(_port_id(port), 0))
+        letter = _require(port, 'motor', 'motor.absolute_position')
+        return int((_state.get('motors') or {}).get(letter, 0))
 
     @staticmethod
     def relative_position(port):
-        return int((_state.get('motors') or {}).get(_port_id(port), 0))
+        letter = _require(port, 'motor', 'motor.relative_position')
+        return int((_state.get('motors') or {}).get(letter, 0))
 
     @staticmethod
     def reset_relative_position(port, position=0):
+        _require(port, 'motor', 'motor.reset_relative_position')
         return _NoopAwaitable()
 
     @staticmethod
     def get_duty_cycle(port):
+        _require(port, 'motor', 'motor.get_duty_cycle')
         return 0
 
     @staticmethod
     def set_duty_cycle(port, pwm):
+        _require(port, 'motor', 'motor.set_duty_cycle')
         return _NoopAwaitable()
 
 

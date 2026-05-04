@@ -40,6 +40,65 @@ class TestPortConfig(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             sb._require(4, 'motor', 'motor.run')
 
+    def test_motor_run_for_degrees_on_empty_port_raises(self):
+        with self.assertRaises(RuntimeError) as cx:
+            sb.motor.run_for_degrees('C', 360)
+        self.assertIn('port C has no motor', str(cx.exception))
+
+    def test_motor_run_on_sensor_port_raises(self):
+        with self.assertRaises(RuntimeError) as cx:
+            sb.motor.run('E', velocity=500)
+        self.assertIn('port E has no motor', str(cx.exception))
+        self.assertIn('configured: color_sensor', str(cx.exception))
+
+    def test_motor_stop_on_empty_port_raises(self):
+        with self.assertRaises(RuntimeError):
+            sb.motor.stop('D')
+
+    def test_motor_run_for_time_on_distance_port_raises(self):
+        with self.assertRaises(RuntimeError) as cx:
+            sb.motor.run_for_time('F', 1000)
+        self.assertIn('configured: distance_sensor', str(cx.exception))
+
+    def test_motor_run_to_absolute_position_validates(self):
+        with self.assertRaises(RuntimeError):
+            sb.motor.run_to_absolute_position('C', 90)
+
+    def test_motor_run_to_relative_position_validates(self):
+        with self.assertRaises(RuntimeError):
+            sb.motor.run_to_relative_position('E', 90)
+
+    def test_motor_absolute_position_on_empty_port_raises(self):
+        with self.assertRaises(RuntimeError):
+            sb.motor.absolute_position('C')
+
+    def test_motor_relative_position_on_sensor_port_raises(self):
+        with self.assertRaises(RuntimeError):
+            sb.motor.relative_position('E')
+
+    def test_motor_velocity_on_empty_port_raises(self):
+        with self.assertRaises(RuntimeError):
+            sb.motor.velocity('D')
+
+    def test_motor_reset_relative_position_validates(self):
+        with self.assertRaises(RuntimeError):
+            sb.motor.reset_relative_position('F', 0)
+
+    def test_motor_set_duty_cycle_validates(self):
+        with self.assertRaises(RuntimeError):
+            sb.motor.set_duty_cycle('C', 50)
+
+    def test_motor_get_duty_cycle_validates(self):
+        with self.assertRaises(RuntimeError):
+            sb.motor.get_duty_cycle('E')
+
+    def test_motor_run_on_motor_port_succeeds(self):
+        # Sanity check: valid calls still work.
+        sb.motor.run_for_degrees('A', 360)
+        sb.motor.run_for_degrees('B', 180)
+        cmds = mock_js.bridge_mock.all()
+        self.assertEqual(len(cmds), 2)
+
 
 if __name__ == '__main__':
     unittest.main()
