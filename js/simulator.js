@@ -96,10 +96,8 @@ function makeRobotState() {
     heading: -90,    // degrees, -90 = facing up (north)
     motors: { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 },
     sensors: {
-      colorPort:    'E',
-      distancePort: 'F',
-      colorValue:   'none',
-      distanceMM:   300,
+      colorValue: 'none',
+      distanceMM: 300,
     },
     display: Array(25).fill(0), // 5×5 matrix brightness
   };
@@ -413,24 +411,40 @@ class RobotSimulator {
   }
 
   _updateSensorPanel() {
-    const s = this.robot.sensors;
-    const el = id => document.getElementById(id);
     const r = this.robot;
-    const panel = el('sensor-panel');
-    if (!panel) return;
-
+    const s = r.sensors;
+    const el = id => document.getElementById(id);
     const set = (elId, val) => { const e = el(elId); if (e) e.textContent = val; };
-    const deg = r.heading % 360;
+
+    if (!el('sensor-panel')) return;
+
+    // Pose section
+    const deg = (((r.heading % 360) + 360) % 360);
     set('sp-x',       (r.x / 10).toFixed(1) + ' cm');
     set('sp-y',       (r.y / 10).toFixed(1) + ' cm');
-    set('sp-heading', (((deg % 360) + 360) % 360).toFixed(0) + '°');
-    set('sp-color',   s.colorValue || 'none');
-    set('sp-dist',    (s.distanceMM / 10).toFixed(1) + ' cm');
+    set('sp-heading', deg.toFixed(0) + '°');
+
+    // Port rows. PORT_CONFIG is module-scope; use this._portConfig.
+    for (const port of ['A', 'B', 'C', 'D', 'E', 'F']) {
+      const cfg = this._portConfig[port];
+      const valueEl = el('port-value-' + port);
+      if (!valueEl) continue;
+
+      if (cfg.kind === 'motor') {
+        valueEl.textContent = (r.motors[port] || 0).toFixed(0) + '°';
+      } else if (cfg.kind === 'color_sensor') {
+        valueEl.textContent = s.colorValue || 'none';
+      } else if (cfg.kind === 'distance_sensor') {
+        valueEl.textContent = (s.distanceMM / 10).toFixed(1) + ' cm';
+      } else {
+        valueEl.textContent = '';
+      }
+    }
 
     const swatch = el('color-swatch');
     if (swatch) {
       const c = COLOR_MAP[s.colorValue];
-      swatch.style.background = c || '#444';
+      swatch.style.background = c || 'transparent';
     }
   }
 
