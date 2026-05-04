@@ -50,9 +50,11 @@ const THEME_KEY   = 'fll-vr-theme';
 const SPEED_KEY   = 'fll-vr-speed';
 const PYCODE_KEY  = 'fll-vr-python-code';
 const BLOCKLY_KEY = 'fll-vr-blockly-xml';
+const TAB_KEY     = 'fll-vr-tab';
 
 const DEFAULT_THEME = 'light';
 const DEFAULT_SPEED = 1;
+const DEFAULT_TAB   = 'python';
 
 function lsGet(key) {
   try { return localStorage.getItem(key); } catch (e) { return null; }
@@ -177,14 +179,15 @@ function initBlocklyWorkspace() {
 
 // ── Tab switching ─────────────────────────────────────────────────────────────
 
-function switchMode(mode) {
-  currentMode = mode;
+function switchMode(mode, options) {
+  const m = mode === 'blocks' ? 'blocks' : 'python';
+  currentMode = m;
   const pyTab  = document.getElementById('tab-python');
   const blkTab = document.getElementById('tab-blocks');
   const pyWrap = document.getElementById('py-editor-wrap');
   const blkDiv = document.getElementById('blockly-div');
 
-  if (mode === 'python') {
+  if (m === 'python') {
     pyTab.classList.add('active');
     blkTab.classList.remove('active');
     pyWrap.style.display = 'block';
@@ -197,6 +200,14 @@ function switchMode(mode) {
     blkDiv.style.display = 'block';
     initBlocklyWorkspace();
   }
+
+  if (!options || options.persist !== false) lsSet(TAB_KEY, m);
+}
+
+function applyStoredTab() {
+  const stored = lsGet(TAB_KEY);
+  const tab = (stored === 'python' || stored === 'blocks') ? stored : DEFAULT_TAB;
+  switchMode(tab, { persist: false });
 }
 
 // ── Run / Stop ────────────────────────────────────────────────────────────────
@@ -333,7 +344,10 @@ function handleDefaults() {
   }
   if (defaultXml) lsSet(BLOCKLY_KEY, defaultXml);
 
-  appendOutput('[Defaults] Theme, speed, and editor contents reset.', 'info');
+  // Active tab
+  switchMode(DEFAULT_TAB);
+
+  appendOutput('[Defaults] Theme, speed, active tab, and editor contents reset.', 'info');
 }
 
 // ── PyScript worker bootstrap ─────────────────────────────────────────────────
@@ -452,6 +466,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const speedSlider = document.getElementById('speed-slider');
   if (speedSlider) speedSlider.addEventListener('input', e => updateSpeed(e.target.value));
   applyStoredSpeed();
+  applyStoredTab();
 
   // Disable run until Python is ready
   document.getElementById('btn-run').disabled = true;

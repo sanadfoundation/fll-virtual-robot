@@ -66,6 +66,7 @@ const SUITES = [
   ['state/sensor-state',        './state/sensor-state.test.js'],
   ['bridge/protocol',           './bridge/bridge-protocol.test.js'],
   ['persistence/speed',         './persistence/speed.test.js'],
+  ['persistence/tab',           './persistence/tab.test.js'],
   ['persistence/defaults',      './persistence/defaults.test.js'],
   ['persistence/blockly-xml',   './persistence/blockly-default-xml.test.js'],
 ];
