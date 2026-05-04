@@ -84,9 +84,10 @@
     <div class="canvas-wrap">
       <canvas id="robot-canvas"></canvas>
 
-      <!-- Sensor overlay -->
+      <!-- Hub panel: pose + per-port live state -->
       <div id="sensor-panel">
-        <h3>Robot State</h3>
+        <h3>Hub</h3>
+
         <div class="sensor-row">
           <span class="sensor-label">X</span>
           <span class="sensor-value" id="sp-x">—</span>
@@ -99,14 +100,38 @@
           <span class="sensor-label">Heading</span>
           <span class="sensor-value" id="sp-heading">—</span>
         </div>
-        <div class="sensor-row">
-          <span class="sensor-label">Color</span>
-          <span class="sensor-value" id="sp-color">none</span>
+
+        <h4 class="port-header">Ports</h4>
+        <div class="port-row" id="port-row-A">
+          <span class="port-letter">A</span>
+          <span class="port-device">motor (L)</span>
+          <span class="port-value" id="port-value-A">0°</span>
+        </div>
+        <div class="port-row" id="port-row-B">
+          <span class="port-letter">B</span>
+          <span class="port-device">motor (R)</span>
+          <span class="port-value" id="port-value-B">0°</span>
+        </div>
+        <div class="port-row empty" id="port-row-C">
+          <span class="port-letter">C</span>
+          <span class="port-device">—</span>
+          <span class="port-value" id="port-value-C"></span>
+        </div>
+        <div class="port-row empty" id="port-row-D">
+          <span class="port-letter">D</span>
+          <span class="port-device">—</span>
+          <span class="port-value" id="port-value-D"></span>
+        </div>
+        <div class="port-row" id="port-row-E">
+          <span class="port-letter">E</span>
+          <span class="port-device">color</span>
+          <span class="port-value" id="port-value-E">none</span>
           <span class="sensor-color-swatch" id="color-swatch"></span>
         </div>
-        <div class="sensor-row">
-          <span class="sensor-label">Distance</span>
-          <span class="sensor-value" id="sp-dist">—</span>
+        <div class="port-row" id="port-row-F">
+          <span class="port-letter">F</span>
+          <span class="port-device">distance</span>
+          <span class="port-value" id="port-value-F">—</span>
         </div>
       </div>
     </div>

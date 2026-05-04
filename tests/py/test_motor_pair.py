@@ -16,11 +16,11 @@ class TestMotorPairPair(unittest.TestCase):
         ])
 
     def test_pair_id_1(self):
-        sb.motor_pair.pair(1, 'C', 'D')
+        sb.motor_pair.pair(1, 'A', 'B')
         cmd = mock_js.bridge_mock.all()[0]
         self.assertEqual(cmd['pair_id'], 1)
-        self.assertEqual(cmd['left'],    'C')
-        self.assertEqual(cmd['right'],   'D')
+        self.assertEqual(cmd['left'],    'A')
+        self.assertEqual(cmd['right'],   'B')
 
     def test_pair_int_port_constants_translate_to_letters(self):
         # port.A = 0 (matches docs); bridge translates to wire letter 'A'.
@@ -30,10 +30,10 @@ class TestMotorPairPair(unittest.TestCase):
         self.assertEqual(cmd['right'], 'B')
 
     def test_pair_letter_strings_pass_through(self):
-        sb.motor_pair.pair(0, 'C', 'D')
+        sb.motor_pair.pair(0, 'A', 'B')
         cmd = mock_js.bridge_mock.all()[0]
-        self.assertEqual(cmd['left'],  'C')
-        self.assertEqual(cmd['right'], 'D')
+        self.assertEqual(cmd['left'],  'A')
+        self.assertEqual(cmd['right'], 'B')
 
 
 class TestMotorPairMoveForDegrees(unittest.TestCase):

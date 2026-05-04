@@ -64,6 +64,7 @@ const SUITES = [
   ['sensors/accessors',         './sensors/accessors.test.js'],
   ['state/reset',               './state/reset.test.js'],
   ['state/sensor-state',        './state/sensor-state.test.js'],
+  ['state/port-config',         './state/port-config.test.js'],
   ['bridge/protocol',           './bridge/bridge-protocol.test.js'],
   ['persistence/speed',         './persistence/speed.test.js'],
   ['persistence/tab',           './persistence/tab.test.js'],

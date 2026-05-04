@@ -22,8 +22,14 @@ const C_VARS     = '#ff9835';
 const C_MYBLOCKS = '#ff5d64';
 
 // ── Dropdown option lists (values match the reference simulator) ─────────────
-const _PORTS_SINGLE = [['A','A'],['B','B'],['C','C'],['D','D'],['E','E'],['F','F']];
-const _PORTS_MULTI  = _PORTS_SINGLE; // multi-port selectors collapse to single in standard Blockly
+// Motor port dropdown — restricted to the canonical motor wiring (A, B).
+// When customization lands, this becomes a function of the live config.
+const _PORTS_SINGLE = [['A','A'],['B','B']];
+
+// Sensor / general port dropdowns. Keeps all six ports for now; per-sensor-type
+// restriction (color → E only, distance → F only) is a known follow-up.
+// Runtime validation catches wrong-port sensor calls.
+const _PORTS_MULTI  = [['A','A'],['B','B'],['C','C'],['D','D'],['E','E'],['F','F']];
 
 // Inline-SVG → data URI so we can ship icon dropdowns without per-asset files.
 const _dataUri = (svg) =>
@@ -37,11 +43,9 @@ function _pairPillSvg(label) {
 const _pairOpt = (label, value) =>
   [{ src: _dataUri(_pairPillSvg(label)), width: 40, height: 20, alt: label }, value];
 
+// Drive pair selector — only A+B is a valid drive pair under the canonical config.
 const _PAIRS = [
-  _pairOpt('A+B','AB'), _pairOpt('C+D','CD'), _pairOpt('E+F','EF'),
-  _pairOpt('A+C','AC'), _pairOpt('A+D','AD'), _pairOpt('A+E','AE'), _pairOpt('A+F','AF'),
-  _pairOpt('B+C','BC'), _pairOpt('B+D','BD'), _pairOpt('B+E','BE'), _pairOpt('B+F','BF'),
-  _pairOpt('C+E','CE'), _pairOpt('C+F','CF'), _pairOpt('D+E','DE'), _pairOpt('D+F','DF'),
+  _pairOpt('A+B','AB'),
 ];
 
 // Direction selectors render as image-only dropdowns: a small white pill

@@ -30,6 +30,27 @@ const ROBOT_BODY_W  = 160;  // body width without wheels
 const ROBOT_BODY_H  = 200;  // body front-to-back
 const MM_PER_MS_100 = 0.9;  // robot speed at 100% (mm per ms)
 
+// ── Port configuration ──────────────────────────────────────────────────────
+// Mirror of py/spike_bridge.py _PORT_CONFIG. Customization will replace this
+// constant with mutable per-instance state and a config-update worker message.
+const PORT_CONFIG = {
+  A: { kind: 'motor',           role: 'drive-left'  },
+  B: { kind: 'motor',           role: 'drive-right' },
+  C: { kind: 'empty' },
+  D: { kind: 'empty' },
+  E: { kind: 'color_sensor' },
+  F: { kind: 'distance_sensor' },
+};
+
+// Maps a command type to the port `kind` it requires. Only motor commands
+// route through _execCmd; sensor reads are direct getters and validate Python-side.
+const PORT_KIND_FOR_CMD = {
+  motor_degrees: 'motor',
+  motor_time:    'motor',
+  motor_run:     'motor',
+  motor_stop:    'motor',
+};
+
 // ── Color utilities ──────────────────────────────────────────────────────────
 
 const COLOR_MAP = {
@@ -75,10 +96,8 @@ function makeRobotState() {
     heading: -90,    // degrees, -90 = facing up (north)
     motors: { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 },
     sensors: {
-      colorPort:    'E',
-      distancePort: 'F',
-      colorValue:   'none',
-      distanceMM:   300,
+      colorValue: 'none',
+      distanceMM: 300,
     },
     display: Array(25).fill(0), // 5×5 matrix brightness
   };
@@ -96,6 +115,7 @@ class RobotSimulator {
     this.isRunning = false;
     this.speedMult = 1.0;
     this.pairMap   = {};  // pair_id → { left, right }
+    this._portConfig = PORT_CONFIG;
 
     this._missionBoxes   = [];
     this._stopRequested  = false;
@@ -391,24 +411,40 @@ class RobotSimulator {
   }
 
   _updateSensorPanel() {
-    const s = this.robot.sensors;
-    const el = id => document.getElementById(id);
     const r = this.robot;
-    const panel = el('sensor-panel');
-    if (!panel) return;
-
+    const s = r.sensors;
+    const el = id => document.getElementById(id);
     const set = (elId, val) => { const e = el(elId); if (e) e.textContent = val; };
-    const deg = r.heading % 360;
+
+    if (!el('sensor-panel')) return;
+
+    // Pose section
+    const deg = (((r.heading % 360) + 360) % 360);
     set('sp-x',       (r.x / 10).toFixed(1) + ' cm');
     set('sp-y',       (r.y / 10).toFixed(1) + ' cm');
-    set('sp-heading', (((deg % 360) + 360) % 360).toFixed(0) + '°');
-    set('sp-color',   s.colorValue || 'none');
-    set('sp-dist',    (s.distanceMM / 10).toFixed(1) + ' cm');
+    set('sp-heading', deg.toFixed(0) + '°');
+
+    // Port rows. PORT_CONFIG is module-scope; use this._portConfig.
+    for (const port of ['A', 'B', 'C', 'D', 'E', 'F']) {
+      const cfg = this._portConfig[port];
+      const valueEl = el('port-value-' + port);
+      if (!valueEl) continue;
+
+      if (cfg.kind === 'motor') {
+        valueEl.textContent = (r.motors[port] || 0).toFixed(0) + '°';
+      } else if (cfg.kind === 'color_sensor') {
+        valueEl.textContent = s.colorValue || 'none';
+      } else if (cfg.kind === 'distance_sensor') {
+        valueEl.textContent = (s.distanceMM / 10).toFixed(1) + ' cm';
+      } else {
+        valueEl.textContent = '';
+      }
+    }
 
     const swatch = el('color-swatch');
     if (swatch) {
       const c = COLOR_MAP[s.colorValue];
-      swatch.style.background = c || '#444';
+      swatch.style.background = c || 'transparent';
     }
   }
 
@@ -430,7 +466,25 @@ class RobotSimulator {
 
   // ── Command execution ───────────────────────────────────────────────────────
 
+  // Port-kind validator. Mirrors py/spike_bridge.py _require so worker-routed
+  // and direct-from-JS callers (Blockly) get the same error format.
+  _assertPortKind(port, expectedKind) {
+    const cfg = this._portConfig[port];
+    const actualKind = cfg ? cfg.kind : 'empty';
+    if (actualKind !== expectedKind) {
+      const readable = expectedKind.replace(/_/g, ' ');
+      throw new Error(
+        `port ${port} has no ${readable} (configured: ${actualKind})`
+      );
+    }
+  }
+
   async _execCmd(cmd) {
+    const requiredKind = PORT_KIND_FOR_CMD[cmd.type];
+    if (requiredKind && cmd.port !== undefined) {
+      this._assertPortKind(cmd.port, requiredKind);
+    }
+
     switch (cmd.type) {
 
       case 'pair':
@@ -594,6 +648,10 @@ class RobotSimulator {
   }
 
   async _animateSingleMotor(port, velocity, distMM) {
+    // Defends Blockly's direct calls into window.sim — Blockly bypasses the
+    // worker, so without this check a hand-edited XML or future block could
+    // drive a wrong-port motor command past the Python validator.
+    this._assertPortKind(port, 'motor');
     // Determine if this is a drive motor based on pair configuration
     const pair = this._findPairForPort(port);
     if (pair) {

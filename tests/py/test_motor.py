@@ -20,19 +20,19 @@ class TestMotorCommands(unittest.TestCase):
         self.assertEqual(mock_js.bridge_mock.all()[0]['velocity'], 360)
 
     def test_run_for_time(self):
-        sb.motor.run_for_time('C', 1000, velocity=300)
+        sb.motor.run_for_time('A', 1000, velocity=300)
         self.assertEqual(mock_js.bridge_mock.all(), [
-            {'type': 'motor_time', 'port': 'C', 'time_ms': 1000, 'velocity': 300},
+            {'type': 'motor_time', 'port': 'A', 'time_ms': 1000, 'velocity': 300},
         ])
 
     def test_run_for_time_default_velocity(self):
-        sb.motor.run_for_time('D', 500)
+        sb.motor.run_for_time('A', 500)
         self.assertEqual(mock_js.bridge_mock.all()[0]['velocity'], 360)
 
     def test_run(self):
-        sb.motor.run('E', velocity=750)
+        sb.motor.run('A', velocity=750)
         self.assertEqual(mock_js.bridge_mock.all(), [
-            {'type': 'motor_run', 'port': 'E', 'velocity': 750},
+            {'type': 'motor_run', 'port': 'A', 'velocity': 750},
         ])
 
     def test_stop(self):
@@ -40,10 +40,10 @@ class TestMotorCommands(unittest.TestCase):
         self.assertEqual(mock_js.bridge_mock.all(), [{'type': 'motor_stop', 'port': 'A'}])
 
     def test_run_to_absolute_position(self):
-        sb.motor.run_to_absolute_position('F', 90, velocity=400)
+        sb.motor.run_to_absolute_position('A', 90, velocity=400)
         cmd = mock_js.bridge_mock.all()[0]
         self.assertEqual(cmd['type'],     'motor_degrees')
-        self.assertEqual(cmd['port'],     'F')
+        self.assertEqual(cmd['port'],     'A')
         self.assertEqual(cmd['degrees'],  90)
         self.assertEqual(cmd['velocity'], 400)
 
@@ -76,8 +76,8 @@ class TestMotorCommands(unittest.TestCase):
         self.assertEqual(cmd['port'], 'A')
 
     def test_int_port_literal_translates_to_letter(self):
-        sb.motor.run_for_degrees(2, 360)  # 2 == port.C
-        self.assertEqual(mock_js.bridge_mock.all()[0]['port'], 'C')
+        sb.motor.run_for_degrees(1, 360)  # 1 == port.B
+        self.assertEqual(mock_js.bridge_mock.all()[0]['port'], 'B')
 
     def test_letter_port_passes_through(self):
         sb.motor.run_for_degrees('B', 360)

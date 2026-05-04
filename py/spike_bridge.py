@@ -66,6 +66,19 @@ _COLOR_INT_MAP = {
     'orange': 8, 'red': 9, 'white': 10,
 }
 
+# ── Port configuration ───────────────────────────────────────────────────────
+# Canonical robot wiring. The simulator's drawn robot has 2 wheels (motors A/B)
+# plus a color sensor and distance sensor; ports C and D are unwired in the
+# default config. Customization will arrive as a separate feature.
+_PORT_CONFIG = {
+    'A': 'motor',
+    'B': 'motor',
+    'C': 'empty',
+    'D': 'empty',
+    'E': 'color_sensor',
+    'F': 'distance_sensor',
+}
+
 # ── Phase 3: Spike Prime v3 API ──────────────────────────────────────────────
 class color:
     BLACK     = 0
@@ -99,6 +112,22 @@ def _port_id(p):
         return s
     return s  # let downstream surface a useful error
 
+
+def _require(port, expected_kind, op):
+    """Validate that `port` has `expected_kind` plugged in. Raises RuntimeError otherwise.
+    `op` is the caller name (e.g. 'motor.run') reserved for future diagnostic logging.
+    Returns the wire-letter form of the port for downstream use."""
+    letter = _port_id(port)
+    actual = _PORT_CONFIG.get(letter, 'empty')
+    if actual != expected_kind:
+        readable = expected_kind.replace('_', ' ')
+        raise RuntimeError(
+            "port " + letter + " has no " + readable +
+            " (configured: " + actual + ")"
+        )
+    return letter
+
+
 class motor:
     # Stop-mode constants
     COAST       = 0
@@ -122,50 +151,62 @@ class motor:
 
     @staticmethod
     def run_for_degrees(port, degrees, velocity=360, *, stop=1, acceleration=1000, deceleration=1000):
-        return _bridge_call({'type': 'motor_degrees', 'port': _port_id(port), 'degrees': degrees, 'velocity': velocity})
+        letter = _require(port, 'motor', 'motor.run_for_degrees')
+        return _bridge_call({'type': 'motor_degrees', 'port': letter, 'degrees': degrees, 'velocity': velocity})
 
     @staticmethod
     def run_for_time(port, duration, velocity=360, *, stop=1, acceleration=1000, deceleration=1000):
-        return _bridge_call({'type': 'motor_time', 'port': _port_id(port), 'time_ms': duration, 'velocity': velocity})
+        letter = _require(port, 'motor', 'motor.run_for_time')
+        return _bridge_call({'type': 'motor_time', 'port': letter, 'time_ms': duration, 'velocity': velocity})
 
     @staticmethod
     def run_to_absolute_position(port, position, velocity=360, *, direction=2, stop=1, acceleration=1000, deceleration=1000):
-        return _bridge_call({'type': 'motor_degrees', 'port': _port_id(port), 'degrees': int(position), 'velocity': velocity})
+        letter = _require(port, 'motor', 'motor.run_to_absolute_position')
+        return _bridge_call({'type': 'motor_degrees', 'port': letter, 'degrees': int(position), 'velocity': velocity})
 
     @staticmethod
     def run_to_relative_position(port, position, velocity=360, *, stop=1, acceleration=1000, deceleration=1000):
-        return _bridge_call({'type': 'motor_degrees', 'port': _port_id(port), 'degrees': int(position), 'velocity': velocity})
+        letter = _require(port, 'motor', 'motor.run_to_relative_position')
+        return _bridge_call({'type': 'motor_degrees', 'port': letter, 'degrees': int(position), 'velocity': velocity})
 
     @staticmethod
     def run(port, velocity=360, *, acceleration=1000):
-        return _bridge_call({'type': 'motor_run', 'port': _port_id(port), 'velocity': velocity})
+        letter = _require(port, 'motor', 'motor.run')
+        return _bridge_call({'type': 'motor_run', 'port': letter, 'velocity': velocity})
 
     @staticmethod
     def stop(port, *, stop=1):
-        return _bridge_call({'type': 'motor_stop', 'port': _port_id(port)})
+        letter = _require(port, 'motor', 'motor.stop')
+        return _bridge_call({'type': 'motor_stop', 'port': letter})
 
     @staticmethod
     def velocity(port):
+        _require(port, 'motor', 'motor.velocity')
         return 0
 
     @staticmethod
     def absolute_position(port):
-        return int((_state.get('motors') or {}).get(_port_id(port), 0))
+        letter = _require(port, 'motor', 'motor.absolute_position')
+        return int((_state.get('motors') or {}).get(letter, 0))
 
     @staticmethod
     def relative_position(port):
-        return int((_state.get('motors') or {}).get(_port_id(port), 0))
+        letter = _require(port, 'motor', 'motor.relative_position')
+        return int((_state.get('motors') or {}).get(letter, 0))
 
     @staticmethod
     def reset_relative_position(port, position=0):
+        _require(port, 'motor', 'motor.reset_relative_position')
         return _NoopAwaitable()
 
     @staticmethod
     def get_duty_cycle(port):
+        _require(port, 'motor', 'motor.get_duty_cycle')
         return 0
 
     @staticmethod
     def set_duty_cycle(port, pwm):
+        _require(port, 'motor', 'motor.set_duty_cycle')
         return _NoopAwaitable()
 
 
@@ -174,8 +215,10 @@ class motor_pair:
 
     @staticmethod
     def pair(pair, left_motor, right_motor):
+        left_letter  = _require(left_motor,  'motor', 'motor_pair.pair')
+        right_letter = _require(right_motor, 'motor', 'motor_pair.pair')
         return _bridge_call({'type': 'pair', 'pair_id': pair,
-                             'left': _port_id(left_motor), 'right': _port_id(right_motor)})
+                             'left': left_letter, 'right': right_letter})
 
     @staticmethod
     def unpair(pair):
@@ -225,14 +268,17 @@ class motor_pair:
 class color_sensor:
     @staticmethod
     def color(port):
+        _require(port, 'color_sensor', 'color_sensor.color')
         return int(_COLOR_INT_MAP.get(str(_state.get('color', 'none')), -1))
 
     @staticmethod
     def reflection(port):
+        _require(port, 'color_sensor', 'color_sensor.reflection')
         return int(_state.get('reflection', 50))
 
     @staticmethod
     def rgbi(port):
+        _require(port, 'color_sensor', 'color_sensor.rgbi')
         raw = _state.get('rgb', [128, 128, 128])
         return (int(raw[0]), int(raw[1]), int(raw[2]), 0)
 
@@ -240,35 +286,46 @@ class color_sensor:
 class distance_sensor:
     @staticmethod
     def distance(port):
+        _require(port, 'distance_sensor', 'distance_sensor.distance')
         v = int(_state.get('distance_mm', 300))
         return v if v < 9999 else -1
 
     @staticmethod
     def clear(port):
-        pass
+        _require(port, 'distance_sensor', 'distance_sensor.clear')
 
     @staticmethod
     def get_pixel(port, x, y):
+        _require(port, 'distance_sensor', 'distance_sensor.get_pixel')
         return 0
 
     @staticmethod
     def set_pixel(port, x, y, intensity):
-        pass
+        _require(port, 'distance_sensor', 'distance_sensor.set_pixel')
 
     @staticmethod
     def show(port, pixels):
-        pass
+        _require(port, 'distance_sensor', 'distance_sensor.show')
 
 
 class force_sensor:
-    @staticmethod
-    def force(port):   return 0
+    """Force sensor API. The default robot config has no force sensor, so every
+    method here raises RuntimeError. Customization can later add one to a port."""
 
     @staticmethod
-    def pressed(port): return False
+    def force(port):
+        _require(port, 'force_sensor', 'force_sensor.force')
+        return 0
 
     @staticmethod
-    def raw(port):     return 0
+    def pressed(port):
+        _require(port, 'force_sensor', 'force_sensor.pressed')
+        return False
+
+    @staticmethod
+    def raw(port):
+        _require(port, 'force_sensor', 'force_sensor.raw')
+        return 0
 
 
 class _LightMatrix:

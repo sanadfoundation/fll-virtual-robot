@@ -630,6 +630,57 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
   flex-shrink: 0;
 }
 
+/* ── Hub panel: ports section ──────────────────────────── */
+.port-header {
+  font-family: var(--font-ui);
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--cyan);
+  margin: 10px 0 4px 0;
+  padding-top: 8px;
+  padding-bottom: 4px;
+  border-top: 1px solid var(--border);
+}
+
+.port-row {
+  display: grid;
+  grid-template-columns: 18px 1fr auto auto;
+  gap: 6px;
+  align-items: center;
+  padding: 2px 0;
+}
+
+.port-letter {
+  font-family: var(--font-code);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+.port-device {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.port-value {
+  font-family: var(--font-code);
+  font-size: 11px;
+  color: var(--amber);
+  text-align: right;
+}
+
+.port-row.empty .port-letter,
+.port-row.empty .port-device,
+.port-row.empty .port-value {
+  opacity: 0.35;
+}
+
 /* ── Console ───────────────────────────────────────────── */
 .console-wrap {
   height: 148px;

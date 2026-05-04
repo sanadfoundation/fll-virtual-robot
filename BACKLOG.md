@@ -29,7 +29,9 @@ The individual motor API, `motor_pair.move_for_degrees` / `_for_time`, light mat
 - **Motion sensor.** `tilt_angles()`, `acceleration()`, `angular_velocity()`, `quaternion()`, `up_face()`, `gesture()`, `tap_count()` all return frozen constants. Highest-value fix: drive `tilt_angles()` from the simulator heading so heading-locked driving works (this replaces the previously-listed `get_yaw_angle()` item, which doesn't exist in v3 — the canonical reader is `tilt_angles()`).
 - **Force sensor.** `force()` / `pressed()` / `raw()` always return 0 / False / 0. Drive `pressed()` from on-screen / keyboard input so the existing Blockly blocks become functional.
 - **Hub button.** `pressed(button)` always returns 0; needs real ms-held duration tied to keyboard or on-screen buttons.
+- **Motor angle counter never increments.** `_animateTank` and `_animateSingleMotor` advance robot pose but never tick `robot.motors[port]`. The Hub panel surfaces this — A and B both read `0°` no matter how far the robot drives. Fix: increment per-port degrees from wheel mm-per-step (drive ports in `_animateTank`, unpaired motors in `_animateSingleMotor`).
 - **Motor.** `velocity(port)` always returns 0; `absolute_position` and `relative_position` return the same counter; `reset_relative_position` is a no-op.
+- **Distance sensor never updates.** `robot.sensors.distanceMM` is initialized to 300 mm and never recomputed; the Hub panel reads `30.0 cm` constantly. Fix: cast a ray from the front-of-robot in the heading direction against field walls (and, when populated, mission AABBs); clamp to a max sensing range (~200 cm) and return `-1` beyond that.
 - **Color sensor.** `rgbi(port)` returns intensity = 0; should be the mean of R, G, B.
 
 ### Ignored kwargs
@@ -78,7 +80,7 @@ Collision against mission AABBs already stops the robot (`_robotOverlapsAABB`); 
 
 ## Debugging & Observation
 
-The live sensor panel (X / Y / heading / color / distance) already updates each frame. Remaining:
+The Hub panel (X / Y / heading + per-port live readings for A–F) already updates each frame. Remaining:
 
 - **Step-through execution** — pause/step controls that advance one API call at a time.
 - **Variable watch panel** — show user Python variables per frame, derived from command-queue metadata.
