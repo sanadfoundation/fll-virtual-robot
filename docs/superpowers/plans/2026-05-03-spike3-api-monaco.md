@@ -129,7 +129,7 @@ Append to `tests/js/sensors/accessors.test.js` (before the closing `];`):
 - [ ] **Step 4: Run JS tests**
 
 ```bash
-node tests/js/run.js
+node --test
 ```
 
 Expected: all tests pass including the 4 new ones.
@@ -2058,7 +2058,7 @@ git commit -m "feat: add Monaco completion/signature/hover providers for SPIKE3 
 - [ ] **Step 1: Run JS tests**
 
 ```bash
-node tests/js/run.js
+node --test
 ```
 
 Expected: all pass.

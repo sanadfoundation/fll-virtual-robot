@@ -1,128 +1,93 @@
 'use strict';
 
-// Characterize sensor accessor stubs — they return hardcoded values and correct types.
+const test   = require('node:test');
+const assert = require('node:assert');
+const { createSim } = require('../sim-helper');
 
-module.exports = [
-  {
-    name: 'getColorSensorColor: returns robot.sensors.colorValue (default "none")',
-    fn(createSim, assert) {
-      const sim = createSim();
-      assert.strictEqual(sim.getColorSensorColor(), 'none');
-    },
-  },
-  {
-    name: 'getColorSensorColor: reflects robot.sensors.colorValue',
-    fn(createSim, assert) {
-      const sim = createSim();
-      sim.robot.sensors.colorValue = 'black';
-      assert.strictEqual(sim.getColorSensorColor(), 'black');
-    },
-  },
-  {
-    name: 'getColorSensorReflection: returns 50 (hardcoded stub)',
-    fn(createSim, assert) {
-      assert.strictEqual(createSim().getColorSensorReflection(), 50);
-    },
-  },
-  {
-    name: 'getColorSensorAmbient: returns 30 (hardcoded stub)',
-    fn(createSim, assert) {
-      assert.strictEqual(createSim().getColorSensorAmbient(), 30);
-    },
-  },
-  {
-    name: 'getColorSensorRGB: returns [128, 128, 128]',
-    fn(createSim, assert) {
-      const rgb = createSim().getColorSensorRGB();
-      assert.strictEqual(rgb[0], 128);
-      assert.strictEqual(rgb[1], 128);
-      assert.strictEqual(rgb[2], 128);
-      assert.strictEqual(rgb.length, 3);
-    },
-  },
-  {
-    name: 'getDistanceSensorValue: returns robot.sensors.distanceMM (default 300)',
-    fn(createSim, assert) {
-      assert.strictEqual(createSim().getDistanceSensorValue(), 300);
-    },
-  },
-  {
-    name: 'getDistanceSensorValue: reflects updated distanceMM',
-    fn(createSim, assert) {
-      const sim = createSim();
-      sim.robot.sensors.distanceMM = 50;
-      assert.strictEqual(sim.getDistanceSensorValue(), 50);
-    },
-  },
-  {
-    name: 'getDistanceSensorPresence: false when distanceMM >= 100',
-    fn(createSim, assert) {
-      const sim = createSim(); // default 300mm
-      assert.strictEqual(sim.getDistanceSensorPresence(), false);
-    },
-  },
-  {
-    name: 'getDistanceSensorPresence: true when distanceMM < 100',
-    fn(createSim, assert) {
-      const sim = createSim();
-      sim.robot.sensors.distanceMM = 99;
-      assert.strictEqual(sim.getDistanceSensorPresence(), true);
-    },
-  },
-  {
-    name: 'getForceSensorValue: returns 0',
-    fn(createSim, assert) {
-      assert.strictEqual(createSim().getForceSensorValue(), 0);
-    },
-  },
-  {
-    name: 'getForceSensorPressed: returns false',
-    fn(createSim, assert) {
-      assert.strictEqual(createSim().getForceSensorPressed(), false);
-    },
-  },
-  {
-    name: 'getMotorSpeed: returns 0 for any port',
-    fn(createSim, assert) {
-      const sim = createSim();
-      assert.strictEqual(sim.getMotorSpeed('A'), 0);
-      assert.strictEqual(sim.getMotorSpeed('F'), 0);
-    },
-  },
-  {
-    name: 'getMotorPosition: returns 0 for unpaired port',
-    fn(createSim, assert) {
-      assert.strictEqual(createSim().getMotorPosition('A'), 0);
-    },
-  },
-  {
-    name: 'getColorSensorColorInt: returns -1 for "none" (default)',
-    fn(createSim, assert) {
-      assert.strictEqual(createSim().getColorSensorColorInt(), -1);
-    },
-  },
-  {
-    name: 'getColorSensorColorInt: returns 0 for "black"',
-    fn(createSim, assert) {
-      const sim = createSim();
-      sim.robot.sensors.colorValue = 'black';
-      assert.strictEqual(sim.getColorSensorColorInt(), 0);
-    },
-  },
-  {
-    name: 'getColorSensorColorInt: returns 9 for "red"',
-    fn(createSim, assert) {
-      const sim = createSim();
-      sim.robot.sensors.colorValue = 'red';
-      assert.strictEqual(sim.getColorSensorColorInt(), 9);
-    },
-  },
-  {
-    name: 'getColorSensorColorInt: returns 6 for "green"',
-    fn(createSim, assert) {
-      const sim = createSim();
-      sim.robot.sensors.colorValue = 'green';
-      assert.strictEqual(sim.getColorSensorColorInt(), 6);
-    },
-  },
-];
+test('getColorSensorColor: returns robot.sensors.colorValue (default "none")', () => {
+  const sim = createSim();
+  assert.strictEqual(sim.getColorSensorColor(), 'none');
+});
+
+test('getColorSensorColor: reflects robot.sensors.colorValue', () => {
+  const sim = createSim();
+  sim.robot.sensors.colorValue = 'black';
+  assert.strictEqual(sim.getColorSensorColor(), 'black');
+});
+
+test('getColorSensorReflection: returns 50 (hardcoded stub)', () => {
+  assert.strictEqual(createSim().getColorSensorReflection(), 50);
+});
+
+test('getColorSensorAmbient: returns 30 (hardcoded stub)', () => {
+  assert.strictEqual(createSim().getColorSensorAmbient(), 30);
+});
+
+test('getColorSensorRGB: returns [128, 128, 128]', () => {
+  const rgb = createSim().getColorSensorRGB();
+  assert.strictEqual(rgb[0], 128);
+  assert.strictEqual(rgb[1], 128);
+  assert.strictEqual(rgb[2], 128);
+  assert.strictEqual(rgb.length, 3);
+});
+
+test('getDistanceSensorValue: returns robot.sensors.distanceMM (default 300)', () => {
+  assert.strictEqual(createSim().getDistanceSensorValue(), 300);
+});
+
+test('getDistanceSensorValue: reflects updated distanceMM', () => {
+  const sim = createSim();
+  sim.robot.sensors.distanceMM = 50;
+  assert.strictEqual(sim.getDistanceSensorValue(), 50);
+});
+
+test('getDistanceSensorPresence: false when distanceMM >= 100', () => {
+  const sim = createSim();
+  assert.strictEqual(sim.getDistanceSensorPresence(), false);
+});
+
+test('getDistanceSensorPresence: true when distanceMM < 100', () => {
+  const sim = createSim();
+  sim.robot.sensors.distanceMM = 99;
+  assert.strictEqual(sim.getDistanceSensorPresence(), true);
+});
+
+test('getForceSensorValue: returns 0', () => {
+  assert.strictEqual(createSim().getForceSensorValue(), 0);
+});
+
+test('getForceSensorPressed: returns false', () => {
+  assert.strictEqual(createSim().getForceSensorPressed(), false);
+});
+
+test('getMotorSpeed: returns 0 for any port', () => {
+  const sim = createSim();
+  assert.strictEqual(sim.getMotorSpeed('A'), 0);
+  assert.strictEqual(sim.getMotorSpeed('F'), 0);
+});
+
+test('getMotorPosition: returns 0 for unpaired port', () => {
+  assert.strictEqual(createSim().getMotorPosition('A'), 0);
+});
+
+test('getColorSensorColorInt: returns -1 for "none" (default)', () => {
+  assert.strictEqual(createSim().getColorSensorColorInt(), -1);
+});
+
+test('getColorSensorColorInt: returns 0 for "black"', () => {
+  const sim = createSim();
+  sim.robot.sensors.colorValue = 'black';
+  assert.strictEqual(sim.getColorSensorColorInt(), 0);
+});
+
+test('getColorSensorColorInt: returns 9 for "red"', () => {
+  const sim = createSim();
+  sim.robot.sensors.colorValue = 'red';
+  assert.strictEqual(sim.getColorSensorColorInt(), 9);
+});
+
+test('getColorSensorColorInt: returns 6 for "green"', () => {
+  const sim = createSim();
+  sim.robot.sensors.colorValue = 'green';
+  assert.strictEqual(sim.getColorSensorColorInt(), 6);
+});

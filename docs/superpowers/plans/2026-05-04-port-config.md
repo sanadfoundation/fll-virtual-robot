@@ -6,7 +6,7 @@
 
 **Architecture:** Both runtimes (Python in `py/spike_bridge.py` and JavaScript in `js/simulator.js`) hold an identical hardcoded `PORT_CONFIG` map. A Python-side `_require(port, kind, op)` helper raises `RuntimeError` whenever an API call targets a port whose configured device kind doesn't match. The right-side panel is restructured into a Hub panel showing each port's device and live reading.
 
-**Tech Stack:** MicroPython (PyScript worker), vanilla JavaScript, HTML/CSS, Blockly 10. Tests are CPython `unittest` (`tests/py/run.py`) and Node.js (`tests/js/run.js`).
+**Tech Stack:** MicroPython (PyScript worker), vanilla JavaScript, HTML/CSS, Blockly 10. Tests are CPython `unittest` (`tests/py/run.py`) and Node.js (`node --test`; this plan was authored against the historical hand-rolled `tests/js/run.js` runner — instructions below referring to that file or to a `SUITES` array are no longer applicable, but are preserved as historical record).
 
 **Spec:** [docs/superpowers/specs/2026-05-04-port-config-design.md](../specs/2026-05-04-port-config-design.md)
 
@@ -700,7 +700,7 @@ Insert into `SUITES` array at `tests/js/run.js:65` (after `state/sensor-state`):
 
 - [ ] **Step 3: Run tests to verify they fail**
 
-Run: `node tests/js/run.js`
+Run: `node --test`
 Expected: All 5 new `state/port-config` tests fail — `_portConfig` undefined; throws missing.
 
 - [ ] **Step 4: Add `PORT_CONFIG` constant in `js/simulator.js`**
@@ -758,13 +758,13 @@ Insert at the very top of `async _execCmd(cmd) {` body (`js/simulator.js:434`, b
 
 - [ ] **Step 7: Run tests to verify all pass**
 
-Run: `node tests/js/run.js`
+Run: `node --test`
 Expected: All `state/port-config` tests pass; existing suites unaffected.
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add js/simulator.js tests/js/state/port-config.test.js tests/js/run.js tests/js/mocks/window.js
+git add js/simulator.js tests/js/state/port-config.test.js tests/js/mocks/window.js
 git commit -m "feat: mirror port config in simulator.js and guard _execCmd"
 ```
 
@@ -931,7 +931,7 @@ Replace the method at `js/simulator.js:393-413`:
 
 - [ ] **Step 3: Run JS tests to verify nothing regressed**
 
-Run: `node tests/js/run.js`
+Run: `node --test`
 Expected: All tests pass. (`sp-color` and `sp-dist` were only read inside `simulator.js`; no tests reference them, so removing those `set()` calls in the rewrite is safe.)
 
 - [ ] **Step 4: Manual UI verification**
@@ -1112,7 +1112,7 @@ End-to-end check that the feature works as designed.
 
 ```bash
 python3 tests/py/run.py
-node tests/js/run.js
+node --test
 ```
 
 Expected: both green, no failures.
