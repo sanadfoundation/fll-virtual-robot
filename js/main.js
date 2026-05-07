@@ -138,6 +138,7 @@ function initEditor() {
       insertSpaces: true,
       scrollBeyondLastLine: false,
       wordWrap: 'off',
+      wordBasedSuggestions: 'off',
     });
     editor.addCommand(
       monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
