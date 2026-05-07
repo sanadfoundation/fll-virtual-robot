@@ -116,6 +116,10 @@ function makeMainEnv(opts = {}) {
     require: requireFn,
     console,
     Promise,
+    // main.js's initSim() does `new RobotSimulator(...)` as a bare reference.
+    // In the browser the class is hoisted across <script> tags via the shared
+    // realm lexical scope; in vm we must expose it explicitly.
+    RobotSimulator: window.RobotSimulator,
   });
 
   const MAIN_CODE = fs.readFileSync(
