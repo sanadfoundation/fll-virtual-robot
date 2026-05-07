@@ -4,3 +4,6 @@
 
 # Git worktrees
 .worktrees/
+
+# Claude
+.superpowers
