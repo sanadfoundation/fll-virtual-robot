@@ -21,10 +21,12 @@ import test_wait
 import test_print
 import test_validation
 import test_gaps
+import test_motor_sensor_gaps
 
 loader = unittest.TestLoader()
 suite  = unittest.TestSuite()
-for mod in [test_motor_pair, test_motor, test_hub, test_wait, test_print, test_validation, test_gaps]:
+for mod in [test_motor_pair, test_motor, test_hub, test_wait, test_print,
+            test_validation, test_gaps, test_motor_sensor_gaps]:
     suite.addTests(loader.loadTestsFromModule(mod))
 
 runner = unittest.TextTestRunner(verbosity=2)

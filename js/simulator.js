@@ -479,6 +479,18 @@ class RobotSimulator {
     }
   }
 
+  // Throw if no port is configured with the given sensor kind. Used by Blockly
+  // generators for blocks that don't take an explicit port (e.g. the
+  // force-sensor word blocks). Mirrors how Python's force_sensor.* methods
+  // raise when no port is configured 'force_sensor' in the canonical wiring.
+  _assertSensorAvailable(kind) {
+    for (const cfg of Object.values(this._portConfig)) {
+      if (cfg && cfg.kind === kind) return;
+    }
+    const readable = kind.replace(/_/g, ' ');
+    throw new Error(`no ${readable} configured on any port`);
+  }
+
   async _execCmd(cmd) {
     const requiredKind = PORT_KIND_FOR_CMD[cmd.type];
     if (requiredKind && cmd.port !== undefined) {

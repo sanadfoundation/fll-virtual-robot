@@ -22,14 +22,13 @@ const C_VARS     = '#ff9835';
 const C_MYBLOCKS = '#ff5d64';
 
 // ── Dropdown option lists (values match the reference simulator) ─────────────
-// Motor port dropdown — restricted to the canonical motor wiring (A, B).
-// When customization lands, this becomes a function of the live config.
+// All motor-action and sensor-read blocks use this single list — restricted
+// to A, B to match the canonical motor wiring. Per-sensor-type restriction
+// (color → E only, distance → F only) is a known follow-up; runtime
+// validation in the simulator catches wrong-port calls in the meantime.
+// When per-instance port customization lands, this becomes a function of
+// the live config.
 const _PORTS_SINGLE = [['A','A'],['B','B']];
-
-// Sensor / general port dropdowns. Keeps all six ports for now; per-sensor-type
-// restriction (color → E only, distance → F only) is a known follow-up.
-// Runtime validation catches wrong-port sensor calls.
-const _PORTS_MULTI  = [['A','A'],['B','B'],['C','C'],['D','D'],['E','E'],['F','F']];
 
 // Inline-SVG → data URI so we can ship icon dropdowns without per-asset files.
 const _dataUri = (svg) =>
@@ -86,15 +85,19 @@ const _DIST_UNITS   = [['cm','cm'],['inches','inches']];
 const _DIST_RANGE   = [['%','%'],['cm','cm'],['inches','inches']];
 const _FORCE_UNITS  = [['newton','newton'],['%','%']];
 
+// Word-block enum (`(0) Black (1) Violet (3) Blue (4) Light Blue (6) Green
+// (7) Yellow (9) Red (10) White (-1) no color`) — matches Python's
+// `color` module (where Violet=MAGENTA=1 and Light Blue=AZURE=4 are aliases).
+// Values 2 (Purple), 5 (Turquoise), 8 (Orange) are not exposed in word blocks.
 const _COLORS = [
   [_swatch('#fff',     'no color', true), '-1'],
   [_swatch('#000000',  'black'),           '0'],
-  [_swatch('#d6005c',  'magenta'),         '1'],
-  [_swatch('#6e3aaa',  'violet'),          '3'],
-  [_swatch('#1d6dd1',  'blue'),            '4'],
-  [_swatch('#25b9d8',  'cyan'),            '5'],
-  [_swatch('#1a9c4a',  'green'),           '7'],
-  [_swatch('#f7c911',  'yellow'),          '9'],
+  [_swatch('#d6005c',  'violet'),          '1'],
+  [_swatch('#1d6dd1',  'blue'),            '3'],
+  [_swatch('#6db3e6',  'light blue'),      '4'],
+  [_swatch('#1a9c4a',  'green'),           '6'],
+  [_swatch('#f7c911',  'yellow'),          '7'],
+  [_swatch('#d12a2a',  'red'),             '9'],
   [_swatch('#ffffff',  'white'),          '10'],
 ];
 
@@ -285,7 +288,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippermotor_motorTurnForDirection',
     message0: '%1 run %2 for %3 %4',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',      options: _PORTS_MULTI },
+      { type: 'field_dropdown', name: 'PORT',      options: _PORTS_SINGLE },
       { type: 'field_dropdown', name: 'DIRECTION', options: _DIR_CW_CCW },
       { type: 'input_value',    name: 'VALUE',     check: ['Number','String'] },
       { type: 'field_dropdown', name: 'UNIT',      options: _MOTOR_UNITS },
@@ -297,7 +300,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippermotor_motorGoDirectionToPosition',
     message0: '%1 go %3 to position %2',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',      options: _PORTS_MULTI },
+      { type: 'field_dropdown', name: 'PORT',      options: _PORTS_SINGLE },
       { type: 'input_value',    name: 'POSITION',  check: ['Number','String'] },
       { type: 'field_dropdown', name: 'DIRECTION', options: _SHORTEST },
     ],
@@ -308,7 +311,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippermotor_motorStartDirection',
     message0: '%1 start motor %2',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',      options: _PORTS_MULTI },
+      { type: 'field_dropdown', name: 'PORT',      options: _PORTS_SINGLE },
       { type: 'field_dropdown', name: 'DIRECTION', options: _DIR_CW_CCW },
     ],
     inputsInline: true, previousStatement: null, nextStatement: null,
@@ -317,7 +320,7 @@ const SPIKE_BLOCKS = [
 
   { type: 'flippermotor_motorStop',
     message0: '%1 stop motor',
-    args0: [{ type: 'field_dropdown', name: 'PORT', options: _PORTS_MULTI }],
+    args0: [{ type: 'field_dropdown', name: 'PORT', options: _PORTS_SINGLE }],
     inputsInline: true, previousStatement: null, nextStatement: null,
     colour: C_MOTOR, tooltip: 'Stop a motor.',
   },
@@ -325,7 +328,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippermotor_motorSetSpeed',
     message0: '%1 set speed to %2 %%',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',  options: _PORTS_MULTI },
+      { type: 'field_dropdown', name: 'PORT',  options: _PORTS_SINGLE },
       { type: 'input_value',    name: 'SPEED', check: ['Number','String'] },
     ],
     inputsInline: true, previousStatement: null, nextStatement: null,
@@ -1061,7 +1064,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippermoremotor_motorGoToRelativePosition',
     message0: 'go motor %1 to relative position %2 at %3 %% speed',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',     options: _PORTS_MULTI },
+      { type: 'field_dropdown', name: 'PORT',     options: _PORTS_SINGLE },
       { type: 'input_value',    name: 'POSITION', check: ['Number','String'] },
       { type: 'input_value',    name: 'SPEED',    check: ['Number','String'] },
     ],
@@ -1072,7 +1075,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippermoremotor_motorStartPower',
     message0: 'start motor %1 at %2 %% power',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',  options: _PORTS_MULTI },
+      { type: 'field_dropdown', name: 'PORT',  options: _PORTS_SINGLE },
       { type: 'input_value',    name: 'POWER', check: ['Number','String'] },
     ],
     inputsInline: true, previousStatement: null, nextStatement: null,
@@ -1082,7 +1085,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippermoremotor_motorSetStopMethod',
     message0: 'set motor %1 to %2 at stop',
     args0: [
-      { type: 'field_dropdown', name: 'PORT', options: _PORTS_MULTI },
+      { type: 'field_dropdown', name: 'PORT', options: _PORTS_SINGLE },
       { type: 'field_dropdown', name: 'STOP', options: _STOP_METHOD },
     ],
     inputsInline: true, previousStatement: null, nextStatement: null,
@@ -1092,7 +1095,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippermoremotor_motorSetAcceleration',
     message0: 'set motor %1 acceleration to %2',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',         options: _PORTS_MULTI },
+      { type: 'field_dropdown', name: 'PORT',         options: _PORTS_SINGLE },
       { type: 'field_dropdown', name: 'ACCELERATION', options: _ACCEL },
     ],
     inputsInline: true, previousStatement: null, nextStatement: null,
@@ -1102,7 +1105,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippermoremotor_motorSetDegreeCounted',
     message0: 'set motor %1 relative position to %2',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',  options: _PORTS_MULTI },
+      { type: 'field_dropdown', name: 'PORT',  options: _PORTS_SINGLE },
       { type: 'input_value',    name: 'VALUE', check: ['Number','String'] },
     ],
     inputsInline: true, previousStatement: null, nextStatement: null,
@@ -1173,16 +1176,18 @@ const _SOUND_NOTES = { cat: 69, dog: 57, tada: 72, motor: 50, beep: 65 };
 const _WHEEL_CIRC_MM = Math.PI * 56;
 const _MM_PER_MS_AT_100 = 0.9;
 
-// Map LEGO colour index → simulator colour name.
+// Map LEGO word-block colour index → simulator colour token. The simulator
+// emits 'magenta' / 'cyan' / 'red' etc. from `_colorAtPosition`, so the LEGO
+// "Violet" (1) maps to sim 'magenta' and "Light Blue" (4) maps to sim 'cyan'.
 const _COLOR_INDEX_TO_NAME = {
   '-1': 'none',
   '0':  'black',
-  '1':  'violet',
+  '1':  'magenta',
   '3':  'blue',
   '4':  'cyan',
-  '5':  'cyan',
-  '7':  'green',
-  '9':  'yellow',
+  '6':  'green',
+  '7':  'yellow',
+  '9':  'red',
   '10': 'white',
 };
 
@@ -1464,8 +1469,8 @@ function registerGenerators(Blockly) {
   };
 
   js['flippersensors_color'] = (_b) => {
-    // Convert simulator color name back to a numeric LEGO index.
-    return [`(({black:0,violet:1,blue:3,cyan:5,green:7,yellow:9,red:9,white:10,none:-1})[window.sim.getColorSensorColor()] ?? -1)`, ORDER_ATOMIC];
+    // Inverse of _COLOR_INDEX_TO_NAME: simulator token → LEGO word-block index.
+    return [`(({black:0,magenta:1,blue:3,cyan:4,green:6,yellow:7,red:9,white:10,none:-1})[window.sim.getColorSensorColor()] ?? -1)`, ORDER_ATOMIC];
   };
 
   js['flippersensors_isReflectivity'] = (block) => {
@@ -1479,15 +1484,19 @@ function registerGenerators(Blockly) {
 
   js['flippersensors_isPressed'] = (block) => {
     const opt = block.getFieldValue('OPTION');
-    if (opt === 'released') return [`(!window.sim.getForceSensorPressed())`, ORDER_ATOMIC];
-    if (opt === 'hard-pressed') return [`(window.sim.getForceSensorValue() > 70)`, ORDER_ATOMIC];
-    return [`window.sim.getForceSensorPressed()`, ORDER_ATOMIC];
+    // Mirror py/spike_bridge.py force_sensor.*: raise if no force sensor
+    // is configured anywhere. Comma-operator preserves the boolean value.
+    const guard = `window.sim._assertSensorAvailable('force_sensor')`;
+    if (opt === 'released') return [`(${guard}, !window.sim.getForceSensorPressed())`, ORDER_ATOMIC];
+    if (opt === 'hard-pressed') return [`(${guard}, window.sim.getForceSensorValue() > 70)`, ORDER_ATOMIC];
+    return [`(${guard}, window.sim.getForceSensorPressed())`, ORDER_ATOMIC];
   };
 
   js['flippersensors_force'] = (block) => {
     const unit = block.getFieldValue('UNIT');
-    if (unit === 'newton') return [`(window.sim.getForceSensorValue() / 10)`, ORDER_ATOMIC];
-    return [`window.sim.getForceSensorValue()`, ORDER_ATOMIC];
+    const guard = `window.sim._assertSensorAvailable('force_sensor')`;
+    if (unit === 'newton') return [`(${guard}, window.sim.getForceSensorValue() / 10)`, ORDER_ATOMIC];
+    return [`(${guard}, window.sim.getForceSensorValue())`, ORDER_ATOMIC];
   };
 
   js['flippersensors_isDistance'] = (block) => {

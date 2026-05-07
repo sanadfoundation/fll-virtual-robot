@@ -103,6 +103,12 @@ Port = port
 
 _PORT_LETTERS = ('A', 'B', 'C', 'D', 'E', 'F')
 
+# Last-commanded velocity per motor port (deg/sec). Updated when user code
+# issues motor.run_for_* / run / run_to_* / stop, read by motor.velocity().
+# Without a real dynamics model the honest answer to "current velocity" is
+# whatever was last commanded; motor.stop resets to 0.
+_motor_velocities = {p: 0 for p in _PORT_LETTERS}
+
 def _port_id(p):
     """Normalize a user-supplied port (int 0–5 or string 'A'–'F') to its wire letter."""
     if isinstance(p, int) and 0 <= p < len(_PORT_LETTERS):
@@ -152,37 +158,48 @@ class motor:
     @staticmethod
     def run_for_degrees(port, degrees, velocity=360, *, stop=1, acceleration=1000, deceleration=1000):
         letter = _require(port, 'motor', 'motor.run_for_degrees')
+        _motor_velocities[letter] = int(velocity)
         return _bridge_call({'type': 'motor_degrees', 'port': letter, 'degrees': degrees, 'velocity': velocity})
 
     @staticmethod
     def run_for_time(port, duration, velocity=360, *, stop=1, acceleration=1000, deceleration=1000):
         letter = _require(port, 'motor', 'motor.run_for_time')
+        _motor_velocities[letter] = int(velocity)
         return _bridge_call({'type': 'motor_time', 'port': letter, 'time_ms': duration, 'velocity': velocity})
 
     @staticmethod
     def run_to_absolute_position(port, position, velocity=360, *, direction=2, stop=1, acceleration=1000, deceleration=1000):
         letter = _require(port, 'motor', 'motor.run_to_absolute_position')
-        return _bridge_call({'type': 'motor_degrees', 'port': letter, 'degrees': int(position), 'velocity': velocity})
+        _motor_velocities[letter] = int(velocity)
+        # Forward `direction` so the simulator (or a future test) can branch on
+        # CLOCKWISE / COUNTERCLOCKWISE / SHORTEST_PATH / LONGEST_PATH. Today
+        # _execCmd ignores it; the value is still recorded on the wire.
+        return _bridge_call({'type': 'motor_degrees', 'port': letter,
+                             'degrees': int(position), 'velocity': velocity,
+                             'direction': int(direction)})
 
     @staticmethod
     def run_to_relative_position(port, position, velocity=360, *, stop=1, acceleration=1000, deceleration=1000):
         letter = _require(port, 'motor', 'motor.run_to_relative_position')
+        _motor_velocities[letter] = int(velocity)
         return _bridge_call({'type': 'motor_degrees', 'port': letter, 'degrees': int(position), 'velocity': velocity})
 
     @staticmethod
     def run(port, velocity=360, *, acceleration=1000):
         letter = _require(port, 'motor', 'motor.run')
+        _motor_velocities[letter] = int(velocity)
         return _bridge_call({'type': 'motor_run', 'port': letter, 'velocity': velocity})
 
     @staticmethod
     def stop(port, *, stop=1):
         letter = _require(port, 'motor', 'motor.stop')
+        _motor_velocities[letter] = 0
         return _bridge_call({'type': 'motor_stop', 'port': letter})
 
     @staticmethod
     def velocity(port):
-        _require(port, 'motor', 'motor.velocity')
-        return 0
+        letter = _require(port, 'motor', 'motor.velocity')
+        return int(_motor_velocities.get(letter, 0))
 
     @staticmethod
     def absolute_position(port):
