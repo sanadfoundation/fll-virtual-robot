@@ -112,6 +112,17 @@ Now that the step-interleaved execution model is in place, the 3D view can be bu
 - Renderer: Three.js r168+ with `LDrawLoader` via importmap; no build step.
 - Collision / distance sensing: shadow robot does AABB + forward raycast against mission geometry.
 
+## Obstacle Courses
+
+- Leveraging a physics engine, we're able to model collisions
+- Able to change canvas maps, where each map has a start-to-finish goal, but having obstacles to avoid in-between
+- Possibility of random map generation if possible
+
+## Random Noise Events
+
+- Like poking the robot away from its course and having it get back on track again
+- Or canvas friction increase or decrease in certain areas
+
 ---
 
 ## Appendix
