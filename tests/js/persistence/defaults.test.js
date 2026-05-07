@@ -58,15 +58,20 @@ test('handleDefaults: when confirmed, resets speed to 1 in storage, slider, and 
   assert.strictEqual(elementsById['speed-label'].textContent, '1x');
 });
 
-test('handleDefaults: when confirmed, writes the default Python code to storage', () => {
+test('handleDefaults: when confirmed, removes the Python code key', () => {
+  // The default Python code is implicit — main.js's load path treats an
+  // absent PYCODE_KEY as "use DEFAULT_PYTHON_CODE". handleDefaults restores
+  // that implicit-default state by removing the key, not by writing the
+  // literal default text to storage. (The editor's visible text is updated
+  // via editor.setValue(DEFAULT_PYTHON_CODE), which is a UI side effect we
+  // don't observe in this test because Monaco isn't loaded.)
   const { context, storage } = makeMainEnv({
     confirm: true,
     storage: { ...SEED },
   });
   context.handleDefaults();
-  const code = storage.get(PYCODE_KEY);
-  assert.ok(typeof code === 'string' && code.startsWith('# FLL Virtual Robot'),
-    'expected default Python code in storage');
+  assert.strictEqual(storage.has(PYCODE_KEY), false,
+    'expected PYCODE_KEY to be removed (implicit default on next load)');
 });
 
 test('handleDefaults: writes window.DEFAULT_BLOCKLY_XML to storage', () => {
