@@ -2,8 +2,11 @@
 
 (function (root) {
   // Pure helpers (filled in by Tasks 2 and 3).
-  function shouldShowBanner(/* latestSha, baselineSha, dismissedSha */) {
-    throw new Error('not implemented');
+  function shouldShowBanner(latestSha, baselineSha, dismissedSha) {
+    if (!latestSha || !baselineSha) return false;
+    if (latestSha === baselineSha)  return false;
+    if (latestSha === dismissedSha) return false;
+    return true;
   }
   function parseVersionPayload(/* text */) {
     throw new Error('not implemented');
