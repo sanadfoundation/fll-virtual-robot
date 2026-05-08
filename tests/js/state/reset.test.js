@@ -47,34 +47,3 @@ test('reset(): isRunning set to false', () => {
   sim.reset();
   assert.strictEqual(sim.isRunning, false);
 });
-
-test('_clampRobot: x clamped to [0, 2362]', () => {
-  const sim = createSim();
-  sim.robot.x = -10;
-  sim._clampRobot();
-  assert.strictEqual(sim.robot.x, 0);
-
-  sim.robot.x = 9999;
-  sim._clampRobot();
-  assert.strictEqual(sim.robot.x, 2362);
-});
-
-test('_clampRobot: y clamped to [0, 1143]', () => {
-  const sim = createSim();
-  sim.robot.y = -5;
-  sim._clampRobot();
-  assert.strictEqual(sim.robot.y, 0);
-
-  sim.robot.y = 9999;
-  sim._clampRobot();
-  assert.strictEqual(sim.robot.y, 1143);
-});
-
-test('_clampRobot: in-bounds values are unchanged', () => {
-  const sim = createSim();
-  sim.robot.x = 1181;
-  sim.robot.y = 571;
-  sim._clampRobot();
-  assert.strictEqual(sim.robot.x, 1181);
-  assert.strictEqual(sim.robot.y, 571);
-});

@@ -483,7 +483,7 @@ function initResizeHandle() {
 
 // ── Default Python code ───────────────────────────────────────────────────────
 
-const DEFAULT_PYTHON_CODE = `# FLL Virtual Robot — Mission: drive over yellow and stop at green
+const DEFAULT_PYTHON_CODE = `# FLL Virtual Robot — Mission: hit obstacle '1' on green, then obstacle '2' on red
 from hub import port
 import motor_pair, runloop
 
@@ -497,8 +497,20 @@ async def main():
     # Turn right 90° (now heading east)
     await motor_pair.move_tank_for_time(motor_pair.PAIR_1, 360, -360, 500)
 
-    # Drive 1350 mm east — passes through yellow (x≈1000) and stops in green (x≈1700)
+    # Drive 1350 mm east — through yellow (x≈1000), slams obstacle '1' on green (x≈1700)
     await motor_pair.move_for_degrees(motor_pair.PAIR_1, 2762, 0, velocity=720)
+
+    # Turn right 90° (now heading south)
+    await motor_pair.move_tank_for_time(motor_pair.PAIR_1, 360, -360, 500)
+
+    # Drive 600 mm south — line up with the red mission row (y≈800)
+    await motor_pair.move_for_degrees(motor_pair.PAIR_1, 1228, 0, velocity=720)
+
+    # Turn left 90° (now heading east)
+    await motor_pair.move_tank_for_time(motor_pair.PAIR_1, -360, 360, 500)
+
+    # Drive 300 mm east — slams obstacle '2' on red (x≈2000)
+    await motor_pair.move_for_degrees(motor_pair.PAIR_1, 614, 0, velocity=720)
 
     print('Mission complete!')
 
