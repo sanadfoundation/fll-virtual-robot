@@ -1,7 +1,6 @@
 'use strict';
 
 (function (root) {
-  // Pure helpers (filled in by Tasks 2 and 3).
   function shouldShowBanner(latestSha, baselineSha, dismissedSha) {
     if (!latestSha || !baselineSha) return false;
     if (latestSha === baselineSha)  return false;
@@ -58,6 +57,7 @@
     const el = doc.createElement('div');
     el.id = 'version-banner';
     el.className = 'version-banner';
+    el.setAttribute('role', 'status');
     el.hidden = true;
 
     const msg = doc.createElement('span');
@@ -159,7 +159,6 @@
     }
   }
 
-  // Runtime entry point (Task 6 will start polling from here).
   function init() {
     bootstrap();
   }
