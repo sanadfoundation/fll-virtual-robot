@@ -76,6 +76,17 @@ Click the **Blocks** tab to switch to drag-and-drop programming. Available block
 | **Reset** button | Reset robot to start position |
 | Speed slider | Adjust simulation speed (0.25× – 4×) |
 
+### Save / Load
+
+Use **📂 Open** and **💾 Save** in the header to round-trip projects with the
+official LEGO Spike Prime app. Both Python and Word-Blocks `.llsp3` files are
+supported.
+
+- The active tab determines what gets saved (Python tab → Python `.llsp3`,
+  Blocks tab → Word-Blocks `.llsp3`).
+- Loading a file auto-switches to the matching tab.
+- The project-name input sets the download filename.
+
 ## API Reference
 
 All Spike Prime v3 modules are available as globals:
@@ -178,6 +189,11 @@ This means sensor reads (`color_sensor.color()`, `distance_sensor.distance()`) r
 | Fonts | Exo 2 + JetBrains Mono (Google Fonts) |
 | Audio | Web Audio API |
 | Build tooling | None |
+
+### Tests
+
+- JavaScript: `find tests/js -name '*.test.js' -print0 | xargs -0 node --test`
+- Python:     `python3 tests/py/run.py`
 
 ## License
 
