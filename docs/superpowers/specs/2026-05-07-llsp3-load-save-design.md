@@ -192,8 +192,10 @@ Where the table has no entry for a `(blockOpcode, inputName)` pair, fall back to
 ### Header layout (additions only)
 
 ```
-[🤖 logo]  📝[ project name ___________ ]  [🐍 Python] [🧱 Blocks]   ...   [📂 Open] [💾 Save] [⟲ Defaults] [↺ Reset] [■ Stop] [▶ Run]
+[🤖 logo]  📝[ project name ___________ ]  [🐍 Python] [🧱 Blocks] [📂 Open] [💾 Save]   ...   [⟲ Defaults] [↺ Reset] [■ Stop] [▶ Run]
 ```
+
+The Open/Save buttons sit immediately to the right of the tab group, sharing the left cluster with the project name and tab toggles. Rationale: file-management (what you're working on, which mode it's in) groups left; run-control (what you're doing with it) groups right. The right cluster stays focused on execution.
 
 - **Project-name input.** Inline, always visible. Default `"Untitled"`. Used as the download filename. Reflects `manifest.name` after Load. Persisted to localStorage like the editor contents.
 - **Open button.** Opens browser-native file picker (`accept=".llsp3"`).
