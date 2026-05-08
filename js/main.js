@@ -21,6 +21,9 @@ let pendingBlocklyXml   = null;   // Saved XML to restore after a re-inject (the
 let sim                 = null;   // RobotSimulator instance
 let currentMode         = 'python'; // 'python' | 'blocks'
 let pyReady             = false;
+let projectName         = 'Untitled';
+let dirty               = false;
+let loadedManifest      = null;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -51,10 +54,13 @@ const SPEED_KEY   = 'fll-vr-speed';
 const PYCODE_KEY  = 'fll-vr-python-code';
 const BLOCKLY_KEY = 'fll-vr-blockly-xml';
 const TAB_KEY     = 'fll-vr-tab';
+const NAME_KEY    = 'fll-vr-project-name';
+const DIRTY_KEY   = 'fll-vr-dirty';
 
 const DEFAULT_THEME = 'light';
 const DEFAULT_SPEED = 1;
 const DEFAULT_TAB   = 'python';
+const DEFAULT_NAME  = 'Untitled';
 
 function lsGet(key) {
   try { return localStorage.getItem(key); } catch (e) { return null; }
@@ -65,6 +71,20 @@ function lsSet(key, value) {
 function lsRemove(key) {
   try { localStorage.removeItem(key); } catch (e) { /* storage unavailable */ }
 }
+
+// ── Project state helpers (used by llsp3_ui hooks) ───────────────────────────
+
+function setDirty(v) {
+  dirty = !!v;
+  if (dirty) lsSet(DIRTY_KEY, '1'); else lsRemove(DIRTY_KEY);
+}
+function isDirty() { return dirty; }
+function getProjectName() { return projectName; }
+function setProjectName(name) {
+  projectName = name || DEFAULT_NAME;
+  lsSet(NAME_KEY, projectName);
+}
+function setLoadedManifest(m) { loadedManifest = m; }
 
 // ── Theme ────────────────────────────────────────────────────────────────────
 
@@ -147,6 +167,7 @@ function initEditor() {
 
     let pySaveTimer = null;
     editor.onDidChangeModelContent(() => {
+      setDirty(true);
       clearTimeout(pySaveTimer);
       pySaveTimer = setTimeout(() => {
         const value = editor.getValue();
@@ -176,6 +197,7 @@ function initBlocklyWorkspace() {
       blocklyWs.addChangeListener((e) => {
         // Skip UI-only events (clicks, scrolls) — they don't change the program.
         if (e && e.isUiEvent) return;
+        setDirty(true);
         try {
           const xml = Blockly.Xml.domToText(Blockly.Xml.workspaceToDom(blocklyWs));
           lsSet(BLOCKLY_KEY, xml);
@@ -360,6 +382,10 @@ function handleDefaults() {
   // Active tab
   switchMode(DEFAULT_TAB);
 
+  setProjectName(DEFAULT_NAME);
+  loadedManifest = null;
+  setDirty(false);
+
   appendOutput('[Defaults] Theme, speed, active tab, and editor contents reset.', 'info');
 }
 
@@ -468,9 +494,34 @@ async def main():
 runloop.run(main())
 `;
 
+// ── llsp3_ui hooks ────────────────────────────────────────────────────────────
+
+function getActiveMode()    { return currentMode; }
+function getPythonSource()  { return editor ? editor.getValue() : ''; }
+function setPythonSource(t) { if (editor) editor.setValue(t); else lsSet(PYCODE_KEY, t); }
+
+function getBlocklyState() {
+  if (!blocklyWs || typeof Blockly === 'undefined') return { blocks: { languageVersion: 0, blocks: [] } };
+  return Blockly.serialization.workspaces.save(blocklyWs);
+}
+function setBlocklyState(state) {
+  if (!blocklyWs) initBlocklyWorkspace();
+  if (!blocklyWs || typeof Blockly === 'undefined') return;
+  blocklyWs.clear();
+  try { Blockly.serialization.workspaces.load(state, blocklyWs); }
+  catch (e) { console.error('Blockly load failed:', e); appendOutput('[load] Blockly load failed: ' + e.message, 'error'); }
+  try {
+    const xml = Blockly.Xml.domToText(Blockly.Xml.workspaceToDom(blocklyWs));
+    lsSet(BLOCKLY_KEY, xml);
+  } catch (e) {}
+}
+
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
+  projectName = lsGet(NAME_KEY) || DEFAULT_NAME;
+  dirty       = lsGet(DIRTY_KEY) === '1';
+
   initEditor();
   initSim();
   _pollForWorker();
@@ -488,6 +539,19 @@ document.addEventListener('DOMContentLoaded', () => {
   if (speedSlider) speedSlider.addEventListener('input', e => updateSpeed(e.target.value));
   applyStoredSpeed();
   applyStoredTab();
+
+  if (window.LLSP3 && window.LLSP3.ui && typeof window.LLSP3.ui.init === 'function') {
+    window.LLSP3.ui.init({
+      getActiveMode, getPythonSource, setPythonSource,
+      getBlocklyState, setBlocklyState,
+      switchTab: switchMode,
+      isDirty, setDirty,
+      getProjectName, setProjectName,
+      get loadedManifest() { return loadedManifest; },
+      setLoadedManifest,
+      appendOutput,
+    });
+  }
 
   // Disable run until Python is ready
   document.getElementById('btn-run').disabled = true;
