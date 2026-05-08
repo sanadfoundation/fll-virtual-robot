@@ -79,7 +79,6 @@ Collision against mission AABBs already stops the robot (`_robotOverlapsAABB`); 
 
 The Hub panel (X / Y / heading + per-port live readings for A–F) already updates each frame. Remaining:
 
-- **Field rulers** — render mm tick marks along the X and Y axes of the canvas so users can read robot position visually without checking the Hub panel.
 - **Step-through execution** — pause/step controls that advance one API call at a time.
 - **Variable watch panel** — show user Python variables per frame, derived from command-queue metadata.
 
