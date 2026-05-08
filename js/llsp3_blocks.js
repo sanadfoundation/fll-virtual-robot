@@ -252,5 +252,104 @@
     return null;
   }
 
-  LLSP3.blocks = { shadowFor, genSb3Id, blocklyStateToSb3Blocks, sb3BlocksToBlocklyState, SHADOW_CONTRACT };
+  // ── sb3 envelope ─────────────────────────────────────────────────────────
+  const META = {
+    semver: '3.0.0',
+    vm: '0.2.0-prerelease.20200512204241',
+    agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)',
+  };
+
+  function defaultStage() {
+    return {
+      isStage: true, name: 'Stage', variables: {}, lists: {}, broadcasts: {},
+      blocks: {}, comments: {}, currentCostume: 0,
+      costumes: [{
+        assetId: 'd41d8cd98f00b204e9800998ecf8427e',
+        name: 'backdrop1',
+        bitmapResolution: 1,
+        md5ext: 'd41d8cd98f00b204e9800998ecf8427e.svg',
+        dataFormat: 'svg',
+        rotationCenterX: 47, rotationCenterY: 55,
+      }],
+      sounds: [], volume: 0, tempo: 60,
+      videoTransparency: 50, videoState: 'on', textToSpeechLanguage: null,
+    };
+  }
+
+  function defaultSpriteName() {
+    let n = '';
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+    for (let i = 0; i < 20; i++) n += alphabet[Math.floor(Math.random() * alphabet.length)];
+    return n;
+  }
+
+  function defaultSprite(blocks) {
+    return {
+      isStage: false, name: defaultSpriteName(),
+      variables: {}, lists: {}, broadcasts: {},
+      blocks, comments: {}, currentCostume: 0,
+      costumes: [{
+        assetId: 'd41d8cd98f00b204e9800998ecf8427e',
+        name: defaultSpriteName(),
+        bitmapResolution: 1,
+        md5ext: 'd41d8cd98f00b204e9800998ecf8427e.svg',
+        dataFormat: 'svg',
+        rotationCenterX: 240, rotationCenterY: 180,
+      }],
+      sounds: [{
+        assetId: '1b8b032b06360a6cf7c31d86bddd144b',
+        name: 'Cat Meow 1',
+        dataFormat: 'wav',
+        rate: 48000, sampleCount: 60000,
+        md5ext: '1b8b032b06360a6cf7c31d86bddd144b.wav',
+      }],
+      volume: 100, visible: true, x: 0, y: 0, size: 100, direction: 90,
+      draggable: false, rotationStyle: 'all around',
+    };
+  }
+
+  function deriveExtensions(blocks) {
+    const set = new Set();
+    for (const b of Object.values(blocks)) {
+      const m = /^([a-z]+)_/.exec(b.opcode || '');
+      if (m && m[1].startsWith('flipper')) set.add(m[1]);
+    }
+    return Array.from(set).sort();
+  }
+
+  async function writeSb3(blocks, extensionsOverride) {
+    const project = {
+      targets: [defaultStage(), defaultSprite(blocks)],
+      monitors: [],
+      extensions: extensionsOverride || deriveExtensions(blocks),
+      meta: META,
+    };
+    const zip = new (global.JSZip)();
+    zip.file('project.json', JSON.stringify(project));
+    zip.file(LLSP3.assets.SOUND_CAT_MEOW_1_FILENAME,
+             LLSP3.assets.base64ToUint8(LLSP3.assets.SOUND_CAT_MEOW_1_BASE64));
+    zip.file(LLSP3.assets.EMPTY_SVG_FILENAME, LLSP3.assets.EMPTY_SVG);
+    return await zip.generateAsync({ type: 'uint8array' });
+  }
+
+  async function readSb3(bytes) {
+    const zip = await (global.JSZip).loadAsync(bytes);
+    const projectEntry = zip.file('project.json');
+    if (!projectEntry) throw new Error('scratch.sb3 missing project.json');
+    const project = JSON.parse(await projectEntry.async('string'));
+
+    const allBlocks = {};
+    for (const t of project.targets || []) {
+      if (t.isStage) continue;
+      Object.assign(allBlocks, t.blocks || {});
+    }
+    return { blocks: allBlocks, extensions: project.extensions || [] };
+  }
+
+  LLSP3.blocks = {
+    shadowFor, genSb3Id,
+    blocklyStateToSb3Blocks, sb3BlocksToBlocklyState,
+    writeSb3, readSb3, deriveExtensions,
+    SHADOW_CONTRACT,
+  };
 })(typeof window !== 'undefined' ? window : globalThis);
