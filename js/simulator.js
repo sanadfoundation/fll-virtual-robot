@@ -242,6 +242,7 @@ class RobotSimulator {
 
     ctx.clearRect(0, 0, W, H);
     this._drawField(ctx, W, H, s);
+    this._drawRuler(ctx, s);
     this._drawTrail(ctx);
     this._drawObstacles(ctx, s);
     this._drawRobot(ctx, s);
@@ -340,6 +341,55 @@ class RobotSimulator {
     ctx.strokeStyle = '#444';
     ctx.lineWidth = 3;
     ctx.strokeRect(0, 0, W, H);
+  }
+
+  // Ruler: ticks along the top and left inside edges of the field. Labels
+  // and origin marker live in the same method (added in the next task).
+  _drawRuler(ctx, s) {
+    const ruler = window.ruler;
+    const xTicks = ruler.tickPositions(FIELD_W_MM, 200, 100);
+    const yTicks = ruler.tickPositions(FIELD_H_MM, 200, 100);
+
+    ctx.save();
+    ctx.lineWidth = 1;
+
+    // Top edge — minors first (so majors paint over any overlap), then majors
+    ctx.strokeStyle = '#555';
+    for (const mm of xTicks.minor) {
+      const px = mm * s;
+      ctx.beginPath();
+      ctx.moveTo(px, 0);
+      ctx.lineTo(px, 5);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = '#333';
+    for (const mm of xTicks.major) {
+      const px = mm * s;
+      ctx.beginPath();
+      ctx.moveTo(px, 0);
+      ctx.lineTo(px, 9);
+      ctx.stroke();
+    }
+
+    // Left edge
+    ctx.strokeStyle = '#555';
+    for (const mm of yTicks.minor) {
+      const px = mm * s;
+      ctx.beginPath();
+      ctx.moveTo(0, px);
+      ctx.lineTo(5, px);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = '#333';
+    for (const mm of yTicks.major) {
+      const px = mm * s;
+      ctx.beginPath();
+      ctx.moveTo(0, px);
+      ctx.lineTo(9, px);
+      ctx.stroke();
+    }
+
+    ctx.restore();
   }
 
   _drawTrail(ctx) {
