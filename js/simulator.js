@@ -154,6 +154,12 @@ class RobotSimulator {
     this._resize();
     window.addEventListener('resize', () => this._resize());
 
+    this._hoverEl = document.getElementById('canvas-hover');
+    if (this._hoverEl) {
+      this.canvas.addEventListener('mousemove', e => this._handleHover(e));
+      this.canvas.addEventListener('mouseleave', () => { this._hoverEl.hidden = true; });
+    }
+
     this._raf = null;
     this._drawLoop();
   }
@@ -623,6 +629,27 @@ class RobotSimulator {
       const c = COLOR_MAP[s.colorValue];
       swatch.style.background = c || 'transparent';
     }
+  }
+
+  _handleHover(event) {
+    const rect = this.canvas.getBoundingClientRect();
+    const { x, y } = window.ruler.clientToMM(event.clientX, event.clientY, rect, this._scale);
+    const cursorX = event.clientX - rect.left;
+    const cursorY = event.clientY - rect.top;
+
+    this._hoverEl.textContent = `x=${Math.round(x)} mm  y=${Math.round(y)} mm`;
+    this._hoverEl.hidden = false;
+
+    // Read overlay dimensions after textContent set so size reflects content
+    const ow = this._hoverEl.offsetWidth;
+    const oh = this._hoverEl.offsetHeight;
+    const { left, top } = window.ruler.placeHoverOverlay(
+      cursorX, cursorY, this.canvas.width, this.canvas.height, ow, oh, 12,
+    );
+    // The canvas is centered inside .canvas-wrap with margin offsets; add
+    // those so the overlay's top/left line up with the cursor inside the wrap.
+    this._hoverEl.style.left = (left + this._offX) + 'px';
+    this._hoverEl.style.top  = (top  + this._offY) + 'px';
   }
 
   stop() {

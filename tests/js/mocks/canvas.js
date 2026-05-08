@@ -27,6 +27,7 @@ function makeCanvas() {
     width: 2362, height: 1143,
     style: { marginLeft: '', marginTop: '' },
     parentElement: { clientWidth: 2364, clientHeight: 1145 },
+    addEventListener: () => {},
   };
 }
 
