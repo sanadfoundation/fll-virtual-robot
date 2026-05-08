@@ -129,3 +129,49 @@ test('blocklyStateToSb3Blocks: inline math_number shadow becomes [1, math_number
   assert.strictEqual(out[shadowId].opcode, 'math_number');
   assert.deepStrictEqual(out[shadowId].fields.NUM, ['10', null]);
 });
+
+test('sb3BlocksToBlocklyState: round-trips a chain through forward+inverse converters', () => {
+  const ctx = env();
+  const original = {
+    blocks: {
+      languageVersion: 0,
+      blocks: [
+        {
+          type: 'flipperevents_whenProgramStarts',
+          id: 'TOP',
+          x: 100, y: 200,
+          next: {
+            block: {
+              type: 'flippermove_move',
+              id: 'MOV',
+              fields: { UNIT: 'rotations' },
+              inputs: {
+                DIRECTION: { shadow: { type: 'flippermove_custom-icon-direction', id: 'DIR',
+                  fields: { 'field_flippermove_custom-icon-direction': 'forward' } } },
+                VALUE: { shadow: { type: 'math_number', id: 'NUM',
+                  fields: { NUM: '5' } } },
+              },
+            },
+          },
+        },
+      ],
+    },
+  };
+
+  const sb3Blocks = ctx.LLSP3.blocks.blocklyStateToSb3Blocks(original);
+  const back = ctx.LLSP3.blocks.sb3BlocksToBlocklyState(sb3Blocks);
+
+  const top = back.blocks.blocks[0];
+  assert.strictEqual(top.type, 'flipperevents_whenProgramStarts');
+  assert.strictEqual(top.x, 100);
+  assert.strictEqual(top.y, 200);
+  assert.ok(top.next);
+
+  const mov = top.next.block;
+  assert.strictEqual(mov.type, 'flippermove_move');
+  assert.strictEqual(mov.fields.UNIT, 'rotations');
+  assert.strictEqual(mov.inputs.DIRECTION.shadow.type, 'flippermove_custom-icon-direction');
+  assert.strictEqual(mov.inputs.DIRECTION.shadow.fields['field_flippermove_custom-icon-direction'], 'forward');
+  assert.strictEqual(mov.inputs.VALUE.shadow.type, 'math_number');
+  assert.strictEqual(mov.inputs.VALUE.shadow.fields.NUM, '5');
+});

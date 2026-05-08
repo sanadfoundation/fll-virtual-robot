@@ -181,5 +181,76 @@
     return [1, synthId];
   }
 
-  LLSP3.blocks = { shadowFor, genSb3Id, blocklyStateToSb3Blocks, SHADOW_CONTRACT };
+  // ── sb3 blocks → Blockly serialization ───────────────────────────────────
+  function sb3BlocksToBlocklyState(sb3Blocks) {
+    const tops = Object.entries(sb3Blocks)
+      .filter(([_, b]) => b.topLevel === true)
+      .map(([id, _]) => buildBlocklyBlock(sb3Blocks, id));
+    return { blocks: { languageVersion: 0, blocks: tops } };
+  }
+
+  function buildBlocklyBlock(sb3, id) {
+    const sb = sb3[id];
+    const blkly = {
+      type: sb.opcode,
+      id,
+    };
+    if (sb.topLevel) {
+      blkly.x = sb.x || 0;
+      blkly.y = sb.y || 0;
+    }
+
+    const fields = {};
+    for (const [k, v] of Object.entries(sb.fields || {})) fields[k] = v[0];
+    if (Object.keys(fields).length) blkly.fields = fields;
+
+    const inputs = {};
+    for (const [name, value] of Object.entries(sb.inputs || {})) {
+      const built = decodeInput(sb3, value);
+      if (built) inputs[name] = built;
+    }
+    if (Object.keys(inputs).length) blkly.inputs = inputs;
+
+    if (sb.next) {
+      blkly.next = { block: buildBlocklyBlock(sb3, sb.next) };
+      delete blkly.next.block.x;
+      delete blkly.next.block.y;
+    }
+    return blkly;
+  }
+
+  function decodeInput(sb3, value) {
+    // value is one of:
+    //   [1, idOrPrimitive]       — shadow only
+    //   [2, blockId]             — block only
+    //   [3, blockId, shadowId]   — block-with-shadow
+    const tag = value[0];
+    const a = value[1];
+    const b = value[2];
+
+    function decodeShadowSlot(slot) {
+      if (Array.isArray(slot)) {
+        // Inline primitive: [4, "10"] etc.
+        const ptype = slot[0];
+        const pval  = slot[1];
+        if (ptype === 4 || ptype === 5 || ptype === 6 || ptype === 7 || ptype === 8) {
+          return { type: 'math_number', fields: { NUM: pval } };
+        }
+        if (ptype === 9)  return { type: 'colour_picker', fields: { COLOUR: pval } };
+        if (ptype === 10) return { type: 'text', fields: { TEXT: pval } };
+        if (ptype === 11) return { type: 'event_broadcast_menu', fields: { BROADCAST_OPTION: pval } };
+        return { type: 'math_number', fields: { NUM: String(pval) } };
+      }
+      const blk = buildBlocklyBlock(sb3, slot);
+      delete blk.x; delete blk.y;
+      return blk;
+    }
+
+    if (tag === 1) return { shadow: decodeShadowSlot(a) };
+    if (tag === 2) return { block: decodeShadowSlot(a) };
+    if (tag === 3) return { block: decodeShadowSlot(a), shadow: decodeShadowSlot(b) };
+    return null;
+  }
+
+  LLSP3.blocks = { shadowFor, genSb3Id, blocklyStateToSb3Blocks, sb3BlocksToBlocklyState, SHADOW_CONTRACT };
 })(typeof window !== 'undefined' ? window : globalThis);
