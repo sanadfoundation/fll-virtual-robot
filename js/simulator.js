@@ -646,10 +646,13 @@ class RobotSimulator {
     const { left, top } = window.ruler.placeHoverOverlay(
       cursorX, cursorY, this.canvas.width, this.canvas.height, ow, oh, 12,
     );
-    // The canvas is centered inside .canvas-wrap with margin offsets; add
-    // those so the overlay's top/left line up with the cursor inside the wrap.
-    this._hoverEl.style.left = (left + this._offX) + 'px';
-    this._hoverEl.style.top  = (top  + this._offY) + 'px';
+    // The overlay is absolutely positioned inside .canvas-wrap; the canvas
+    // sits at some offset within that wrap (combination of flex centering and
+    // marginLeft/Top from _resize). Read the offset directly from the rects
+    // so the overlay tracks the canvas regardless of how it was centered.
+    const wrapRect = this.canvas.parentElement.getBoundingClientRect();
+    this._hoverEl.style.left = (left + rect.left - wrapRect.left) + 'px';
+    this._hoverEl.style.top  = (top  + rect.top  - wrapRect.top)  + 'px';
   }
 
   stop() {
