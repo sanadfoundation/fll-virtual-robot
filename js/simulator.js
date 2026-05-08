@@ -87,6 +87,17 @@ const FIELD_OBJECTS = [
   { type: 'line', x1: 0,    y1: 1000, x2: 680, y2: 1000, stroke: '#222', lw: 3, sensorColor: 'black' },
 ];
 
+// ── Mission obstacles ────────────────────────────────────────────────────────
+// Dynamic bodies in the Box2D world. The robot pushes them on contact.
+// `x, y` are spawn coordinates (mm); `w, h` are footprint (mm).
+
+// Spawn coordinates picked to centre each obstacle on the matching coloured
+// mission zone in FIELD_OBJECTS: '1' on the green sensor zone, '2' on the red.
+const OBSTACLES = [
+  { x: 1700, y: 200, w: 100, h: 100, fill: '#9b59b6', stroke: '#5e2c79', label: '1' },
+  { x: 2000, y: 800, w: 120, h: 120, fill: '#e67e22', stroke: '#a04d10', label: '2' },
+];
+
 // ── Robot state ──────────────────────────────────────────────────────────────
 
 function makeRobotState() {
@@ -117,8 +128,14 @@ class RobotSimulator {
     this.pairMap   = {};  // pair_id → { left, right }
     this._portConfig = PORT_CONFIG;
 
-    this._missionBoxes   = [];
     this._stopRequested  = false;
+
+    // Box2D physics — initialised asynchronously. Spike commands and reset()
+    // both await `_physicsReady` before touching the world.
+    this.physics      = null;
+    this.robotBody    = null;
+    this._obstacles   = [];
+    this._physicsReady = this._initPhysics();
 
     this._scale = 1;
     this._offX  = 0;
@@ -139,6 +156,39 @@ class RobotSimulator {
 
     this._raf = null;
     this._drawLoop();
+  }
+
+  // ── Physics init ───────────────────────────────────────────────────────────
+
+  async _initPhysics() {
+    let World2D;
+    try {
+      ({ World2D } = await import('./world_2d.js'));
+    } catch (err) {
+      // Node's test-runner vm.createContext doesn't wire dynamic import; the
+      // browser does. Pure-function tests don't need physics, so swallow.
+      return;
+    }
+    this.physics = new World2D();
+    await this.physics.init();
+
+    this.physics.addWalls(FIELD_W_MM, FIELD_H_MM);
+
+    // Robot collider in body-local frame: hx along forward (X-local) = half of
+    // body length (front-to-back); hy along lateral (Y-local) = half of width.
+    this.robotBody = this.physics.addRobot(
+      ROBOT_BODY_H / 2,
+      ROBOT_BODY_W / 2,
+      { x: this.robot.x, y: this.robot.y },
+      this.robot.heading * Math.PI / 180,
+    );
+
+    this._obstacles = OBSTACLES.map(cfg => ({
+      cfg,
+      body: this.physics.addObstacleBox(cfg.w / 2, cfg.h / 2, { x: cfg.x, y: cfg.y }),
+    }));
+
+    this._dirty = true;
   }
 
   // ── Resize ─────────────────────────────────────────────────────────────────
@@ -193,8 +243,45 @@ class RobotSimulator {
     ctx.clearRect(0, 0, W, H);
     this._drawField(ctx, W, H, s);
     this._drawTrail(ctx);
+    this._drawObstacles(ctx, s);
     this._drawRobot(ctx, s);
     this._updateSensorPanel();
+  }
+
+  _drawObstacles(ctx, s) {
+    if (!this.physics || !this._obstacles.length) return;
+    for (const o of this._obstacles) {
+      const pose = this.physics.readPose(o.body);
+      ctx.save();
+      ctx.translate(pose.x * s, pose.y * s);
+      ctx.rotate(pose.angle);
+
+      ctx.shadowColor   = 'rgba(0,0,0,0.25)';
+      ctx.shadowBlur    = 6 * s;
+      ctx.shadowOffsetY = 3 * s;
+
+      ctx.fillStyle   = o.cfg.fill;
+      ctx.strokeStyle = o.cfg.stroke;
+      ctx.lineWidth   = 2 * s;
+      ctx.beginPath();
+      ctx.roundRect(-o.cfg.w / 2 * s, -o.cfg.h / 2 * s, o.cfg.w * s, o.cfg.h * s, 6 * s);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
+
+      if (o.cfg.label) {
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.font = `bold ${Math.round(o.cfg.h * 0.45 * s)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(o.cfg.label, 0, 0);
+      }
+
+      ctx.restore();
+    }
   }
 
   _drawField(ctx, W, H, s) {
@@ -452,7 +539,7 @@ class RobotSimulator {
     this.isRunning = false;
   }
 
-  reset() {
+  async reset() {
     this.stop();
     this.robot   = makeRobotState();
     this.trail   = [{ x: this.robot.x, y: this.robot.y }];
@@ -462,6 +549,20 @@ class RobotSimulator {
     this._trailArc = 0;
     this._dirty = true;
     this._setStatus('ready');
+
+    await this._physicsReady;
+    if (!this.physics) return; // headless test harness — no engine to reset.
+    this.physics.setKinematicPose(
+      this.robotBody,
+      this.robot.x,
+      this.robot.y,
+      this.robot.heading * Math.PI / 180,
+    );
+    this.physics.setKinematicVelocity(this.robotBody, 0, 0, 0);
+    for (const o of this._obstacles) {
+      this.physics.setDynamicPose(o.body, o.cfg.x, o.cfg.y, 0);
+    }
+    this._dirty = true;
   }
 
   // ── Command execution ───────────────────────────────────────────────────────
@@ -506,11 +607,9 @@ class RobotSimulator {
       case 'move': {
         // steering: -100 (full left) → 0 (straight) → +100 (full right)
         const distMM = this._amountToMM(cmd.amount, cmd.unit);
-        const spd    = cmd.speed / 1000;  // normalize -1..1
-        const steer  = (cmd.steering || 0) / 100;  // -1..1
-        // steering > 0 = right: left wheel faster, right wheel slower/reversed
-        const leftV  = spd * (1 + steer);
-        const rightV = spd * (1 - steer);
+        const spd    = cmd.speed / 1000;            // normalize -1..1
+        const steer  = (cmd.steering || 0) / 100;   // -1..1
+        const { leftV, rightV } = window.kinematics.steeringToWheels(spd, steer);
         await this._animateTank(leftV, rightV, distMM);
         break;
       }
@@ -607,56 +706,56 @@ class RobotSimulator {
   }
 
   async _animateTank(leftV, rightV, refDistMM) {
+    await this._physicsReady;
+    if (!this.physics) return; // headless test harness — no engine to drive.
+
     // leftV/rightV: normalized speed ratio (-1 to 1); refDistMM is the
     // distance the *faster* wheel should travel (used for duration + scaling).
     const maxV = Math.max(Math.abs(leftV), Math.abs(rightV), 0.01);
     const totalMM = Math.abs(refDistMM);
     if (totalMM < 0.1) return;
 
-    // Duration: how long at 100% speed would refDist take, scaled by maxV
-    const durationMs = (totalMM / (maxV * MM_PER_MS_100)) / this.speedMult;
-    const FPS   = 60;
-    const steps = Math.max(1, Math.round(durationMs * FPS / 1000));
-    const dt    = durationMs / steps;
+    const SPEED_MM_S = MM_PER_MS_100 * 1000;
+    const durationMs = window.kinematics.computeMoveDuration(
+      totalMM, maxV, this.speedMult, MM_PER_MS_100,
+    );
+    const wallStepMs = 1000 / 60;
+    const totalSteps = Math.max(1, Math.round(durationMs / wallStepMs));
+    const physDt_s   = (wallStepMs / 1000) * this.speedMult;
 
-    // Each wheel's actual distance per step, scaled proportionally to refDist
-    const scale = totalMM / maxV;
-    const leftMmPerStep  = (leftV  / steps) * scale;
-    const rightMmPerStep = (rightV / steps) * scale;
-
-    for (let i = 0; i < steps; i++) {
+    for (let i = 0; i < totalSteps; i++) {
       if (!this.isRunning) break;
 
-      const avg  = (leftMmPerStep + rightMmPerStep) / 2;
-      const diff = rightMmPerStep - leftMmPerStep;
+      // Body angle is read each step because angVel rotates the body and the
+      // forward direction has to follow — kinematics.wheelsToBodyVelocity
+      // bakes the steering sign-flip in for us.
+      const angle = this.robotBody.GetAngle();
+      const v = window.kinematics.wheelsToBodyVelocity(
+        leftV, rightV, angle, SPEED_MM_S, TRACK_W_MM,
+      );
 
-      // Canvas Y is inverted vs math convention, so clockwise (right turn) requires negating
-      this.robot.heading -= (diff / TRACK_W_MM) * (180 / Math.PI);
+      this.physics.setKinematicVelocity(this.robotBody, v.vx, v.vy, v.angVel);
+      this.physics.step(physDt_s);
 
-      const headRad = this.robot.heading * Math.PI / 180;
+      const pose = this.physics.readPose(this.robotBody);
       const prevX = this.robot.x;
       const prevY = this.robot.y;
-      this.robot.x += Math.cos(headRad) * avg;
-      this.robot.y += Math.sin(headRad) * avg;
-
-      for (const box of this._missionBoxes) {
-        if (this._robotOverlapsAABB(this.robot, box)) {
-          this.robot.x = prevX;
-          this.robot.y = prevY;
-          return;
-        }
-      }
+      this.robot.x = pose.x;
+      this.robot.y = pose.y;
+      this.robot.heading = pose.angle * 180 / Math.PI;
 
       this._appendTrailSegment(prevX, prevY, this.robot.x, this.robot.y);
       this.trail.push({ x: this.robot.x, y: this.robot.y });
-      this._clampRobot();
 
       const sp = this._sensorPosition(this.robot);
       this.robot.sensors.colorValue = this._colorAtPosition(sp.x, sp.y);
 
       this._dirty = true;
-      await this._sleep(dt);
+      await this._sleep(wallStepMs);
     }
+
+    // Halt motion when the command finishes so obstacles stop being shoved.
+    this.physics.setKinematicVelocity(this.robotBody, 0, 0, 0);
   }
 
   async _animateSingleMotor(port, velocity, distMM) {
@@ -685,11 +784,6 @@ class RobotSimulator {
     return null;
   }
 
-  _clampRobot() {
-    this.robot.x = Math.max(0, Math.min(FIELD_W_MM, this.robot.x));
-    this.robot.y = Math.max(0, Math.min(FIELD_H_MM, this.robot.y));
-  }
-
   // ── SAB sensor snapshot ──────────────────────────────────────────────────────
 
   _sensorState() {
@@ -716,17 +810,6 @@ class RobotSimulator {
     await this._execCmd(cmd);
     this.isRunning = false;
     return this._sensorState();
-  }
-
-  // ── AABB collision ───────────────────────────────────────────────────────────
-  // Treats robot as circle radius 90mm. box = {x,y,w,h} in mm (x/y = top-left).
-
-  _robotOverlapsAABB(robot, box) {
-    const closestX = Math.max(box.x, Math.min(robot.x, box.x + box.w));
-    const closestY = Math.max(box.y, Math.min(robot.y, box.y + box.h));
-    const dx = robot.x - closestX;
-    const dy = robot.y - closestY;
-    return (dx * dx + dy * dy) <= (90 * 90);
   }
 
   _sensorPosition(robot) {

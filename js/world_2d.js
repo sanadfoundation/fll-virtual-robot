@@ -1,0 +1,186 @@
+// Box2D-WASM 2D physics world for the simulator. Public API is in millimetres
+// and radians; the engine runs in metres so its tolerances (b2_linearSlop = 5
+// mm, b2_maxTranslation = 2 m / step, sleep thresholds, etc.) operate in the
+// units they were calibrated for.
+
+const PKG = 'https://cdn.jsdelivr.net/npm/box2d-wasm@7.0.0';
+const ENTRY_URL = `${PKG}/dist/es/entry.js`;
+
+const M_PER_MM = 0.001;
+const MM_PER_M = 1000;
+
+const MAX_PHYS_STEP_S = 1 / 60; // sub-step beyond this for stability under speedMult.
+
+let box2d = null;
+let initPromise = null;
+
+function ensureInit() {
+  if (initPromise) return initPromise;
+  initPromise = (async () => {
+    const mod = await import(ENTRY_URL);
+    const factory = mod.default || mod.Box2DFactory;
+    box2d = await factory({
+      locateFile: (path) => `${PKG}/dist/es/${path}`,
+    });
+  })();
+  return initPromise;
+}
+
+export class World2D {
+  // `injectedBox2d` lets tests pass a stub module; production leaves it
+  // undefined and the CDN dynamic import runs as normal.
+  async init(injectedBox2d) {
+    if (injectedBox2d) {
+      box2d = injectedBox2d;
+    } else {
+      await ensureInit();
+    }
+    // Top-down: zero gravity. Bodies move only when the kinematic robot
+    // pushes them; damping settles them after release.
+    const gravity = new box2d.b2Vec2(0, 0);
+    this.world = new box2d.b2World(gravity);
+    box2d.destroy(gravity);
+  }
+
+  // Static perimeter so dynamic bodies (and the robot, on contact) can't
+  // escape the field. Walls sit just outside the field rectangle.
+  addWalls(width_mm, height_mm) {
+    const W = width_mm  * M_PER_MM;
+    const H = height_mm * M_PER_MM;
+    const T = 0.05; // 50 mm wall thickness
+
+    const make = (cx, cy, hx, hy) => {
+      const bd = new box2d.b2BodyDef();
+      const pos = new box2d.b2Vec2(cx, cy);
+      bd.set_position(pos);
+      const body = this.world.CreateBody(bd);
+      box2d.destroy(bd);
+      box2d.destroy(pos);
+
+      const shape = new box2d.b2PolygonShape();
+      shape.SetAsBox(hx, hy);
+      const fd = new box2d.b2FixtureDef();
+      fd.set_shape(shape);
+      fd.set_friction(0.3);
+      body.CreateFixture(fd);
+      box2d.destroy(shape);
+      box2d.destroy(fd);
+    };
+
+    // top, bottom, left, right
+    make(W / 2,     -T / 2,         W / 2 + T, T / 2);
+    make(W / 2,     H + T / 2,      W / 2 + T, T / 2);
+    make(-T / 2,    H / 2,          T / 2,     H / 2 + T);
+    make(W + T / 2, H / 2,          T / 2,     H / 2 + T);
+  }
+
+  // Robot: kinematic body, velocity-driven. Box collider in body-local frame
+  // with hx along forward (body-local +X) and hy along lateral (+Y). Body angle
+  // 0 ⇒ forward = world +X, matching the simulator's heading=0 convention.
+  addRobot(hx_mm, hy_mm, position_mm, angle = 0) {
+    const bd = new box2d.b2BodyDef();
+    bd.set_type(box2d.b2_kinematicBody);
+    const pos = new box2d.b2Vec2(position_mm.x * M_PER_MM, position_mm.y * M_PER_MM);
+    bd.set_position(pos);
+    bd.set_angle(angle);
+    const body = this.world.CreateBody(bd);
+    box2d.destroy(bd);
+    box2d.destroy(pos);
+
+    const shape = new box2d.b2PolygonShape();
+    shape.SetAsBox(hx_mm * M_PER_MM, hy_mm * M_PER_MM);
+    const fd = new box2d.b2FixtureDef();
+    fd.set_shape(shape);
+    fd.set_density(1);
+    fd.set_friction(0.5);
+    body.CreateFixture(fd);
+    box2d.destroy(shape);
+    box2d.destroy(fd);
+
+    return body;
+  }
+
+  // Obstacle: dynamic body. Density in kg/m² (Box2D 2D convention) — 50 gives
+  // an 80 mm × 80 mm × 80 mm-equivalent brick a mass of ~0.32 kg, in the right
+  // ballpark for a 3D-printed mission piece.
+  addObstacleBox(hx_mm, hy_mm, position_mm) {
+    const bd = new box2d.b2BodyDef();
+    bd.set_type(box2d.b2_dynamicBody);
+    bd.set_linearDamping(2.5);
+    bd.set_angularDamping(3.0);
+    const pos = new box2d.b2Vec2(position_mm.x * M_PER_MM, position_mm.y * M_PER_MM);
+    bd.set_position(pos);
+    const body = this.world.CreateBody(bd);
+    box2d.destroy(bd);
+    box2d.destroy(pos);
+
+    const shape = new box2d.b2PolygonShape();
+    shape.SetAsBox(hx_mm * M_PER_MM, hy_mm * M_PER_MM);
+    const fd = new box2d.b2FixtureDef();
+    fd.set_shape(shape);
+    fd.set_density(50);
+    fd.set_friction(0.5);
+    fd.set_restitution(0.05);
+    body.CreateFixture(fd);
+    box2d.destroy(shape);
+    box2d.destroy(fd);
+
+    return body;
+  }
+
+  // Public-API methods take/return millimetres.
+
+  setKinematicPose(body, x_mm, y_mm, angle) {
+    const pos = new box2d.b2Vec2(x_mm * M_PER_MM, y_mm * M_PER_MM);
+    body.SetTransform(pos, angle);
+    box2d.destroy(pos);
+  }
+
+  // Kinematic motion in Box2D MUST go through velocity (not SetTransform) for
+  // the contact solver to impart impulses on dynamic bodies. SetTransform
+  // teleports without contact response.
+  setKinematicVelocity(body, vx_mm_s, vy_mm_s, omega) {
+    const v = new box2d.b2Vec2(vx_mm_s * M_PER_MM, vy_mm_s * M_PER_MM);
+    body.SetLinearVelocity(v);
+    body.SetAngularVelocity(omega);
+    box2d.destroy(v);
+  }
+
+  // Teleport a dynamic body and clear residual motion (used for reset).
+  setDynamicPose(body, x_mm, y_mm, angle) {
+    const pos = new box2d.b2Vec2(x_mm * M_PER_MM, y_mm * M_PER_MM);
+    body.SetTransform(pos, angle);
+    const zero = new box2d.b2Vec2(0, 0);
+    body.SetLinearVelocity(zero);
+    body.SetAngularVelocity(0);
+    body.SetAwake(true);
+    box2d.destroy(pos);
+    box2d.destroy(zero);
+  }
+
+  readPose(body) {
+    const p = body.GetPosition();
+    return {
+      x: p.get_x() * MM_PER_M,
+      y: p.get_y() * MM_PER_M,
+      angle: body.GetAngle(),
+    };
+  }
+
+  // Box2D becomes unstable above ~16 ms per step. Sub-step when the caller
+  // hands us a larger dt (which happens at speedMult > 1).
+  step(dt_s) {
+    const subSteps = computeSubSteps(dt_s, MAX_PHYS_STEP_S);
+    const sub = dt_s / subSteps;
+    for (let i = 0; i < subSteps; i++) {
+      this.world.Step(sub, 8, 3);
+    }
+  }
+}
+
+// Inlined here so world_2d.js stays a single ES module loadable from CDN-style
+// dynamic import; the browser also gets the same function via window.kinematics
+// for the rest of the simulator.
+function computeSubSteps(dtSeconds, maxStepSeconds) {
+  return Math.max(1, Math.ceil(dtSeconds / maxStepSeconds));
+}
