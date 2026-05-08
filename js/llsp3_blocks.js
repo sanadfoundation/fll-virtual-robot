@@ -232,22 +232,45 @@
     }
     out[id] = node;
 
-    // Fields: promote those matching SHADOW_CONTRACT to inputs, keep the rest.
-    for (const [fieldName, fieldValue] of Object.entries(blkly.fields || {})) {
-      const contract = SHADOW_CONTRACT[`${blkly.type}|${fieldName}`];
-      if (contract) {
-        const synthId = genSb3Id();
-        out[synthId] = {
-          opcode: contract.opcode,
-          next: null, parent: id,
-          inputs: {},
-          fields: { [contract.fieldName]: [fieldValue, null] },
-          shadow: true, topLevel: false,
-        };
-        node.inputs[fieldName] = [1, synthId];
-      } else {
-        node.fields[fieldName] = [fieldValue, null];
-      }
+    const blklyFields = blkly.fields || {};
+    const blklyInputs = blkly.inputs || {};
+    const handledFieldNames = new Set();
+
+    // (1) For every SHADOW_CONTRACT entry whose parent opcode matches this
+    //     block, emit a promoted input. Use the serialized field value when
+    //     present, otherwise the contract default. (Blockly omits default-
+    //     valued fields from serialization, so always-emit is necessary.)
+    for (const key of Object.keys(SHADOW_CONTRACT)) {
+      const sep = key.indexOf('|');
+      if (sep < 0) continue;
+      if (key.slice(0, sep) !== blkly.type) continue;
+      const fieldName = key.slice(sep + 1);
+
+      // Don't clobber an explicitly provided input.
+      if (blklyInputs[fieldName] !== undefined) continue;
+
+      const contract = SHADOW_CONTRACT[key];
+      const value = blklyFields[fieldName] !== undefined
+        ? blklyFields[fieldName]
+        : contract.defaultValue;
+
+      const synthId = genSb3Id();
+      out[synthId] = {
+        opcode: contract.opcode,
+        next: null, parent: id,
+        inputs: {},
+        fields: { [contract.fieldName]: [value, null] },
+        shadow: true, topLevel: false,
+      };
+      node.inputs[fieldName] = [1, synthId];
+      handledFieldNames.add(fieldName);
+    }
+
+    // (2) Remaining Blockly fields → emit as sb3 fields (these are real
+    //     field_dropdown values that Spike also stores as fields).
+    for (const [fieldName, fieldValue] of Object.entries(blklyFields)) {
+      if (handledFieldNames.has(fieldName)) continue;
+      node.fields[fieldName] = [fieldValue, null];
     }
 
     // Inputs: process any explicit Blockly inputs (these may include

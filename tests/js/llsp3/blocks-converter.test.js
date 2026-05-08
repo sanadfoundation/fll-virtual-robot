@@ -231,3 +231,88 @@ test('sb3BlocksToBlocklyState: demotes contract-matching inputs back to Blockly 
   // VALUE has no SHADOW_CONTRACT entry — stays as input
   assert.ok(top.inputs.VALUE, 'VALUE remains as input (no contract match)');
 });
+
+test('blocklyStateToSb3Blocks: emits promoted shadows even when the field is omitted from serialization (Blockly drops default values)', () => {
+  const ctx = env();
+  const state = {
+    blocks: { languageVersion: 0, blocks: [{
+      type: 'flippermove_move',
+      id: 'M',
+      x: 0, y: 0,
+      // No fields at all — Blockly omitted DIRECTION because it was at the default.
+      // (UNIT is also missing here for simplicity, even though the real bug
+      // has UNIT present because the user changed it.)
+    }] }
+  };
+
+  const out = ctx.LLSP3.blocks.blocklyStateToSb3Blocks(state);
+  const move = Object.values(out).find(b => b.opcode === 'flippermove_move');
+  assert.ok(move);
+
+  // DIRECTION must be emitted as an input with the contract default ('forward')
+  assert.ok(move.inputs.DIRECTION, 'DIRECTION emitted even though field was missing from serialization');
+  const dirShadowId = move.inputs.DIRECTION[1];
+  assert.strictEqual(out[dirShadowId].opcode, 'flippermove_custom-icon-direction');
+  assert.deepStrictEqual(out[dirShadowId].fields['field_flippermove_custom-icon-direction'], ['forward', null]);
+});
+
+test('blocklyStateToSb3Blocks: motorStartDirection emits both PORT and DIRECTION shadows when fields are omitted', () => {
+  const ctx = env();
+  const state = {
+    blocks: { languageVersion: 0, blocks: [{
+      type: 'flippermotor_motorStartDirection',
+      id: 'MS',
+      x: 0, y: 0,
+    }] }
+  };
+
+  const out = ctx.LLSP3.blocks.blocklyStateToSb3Blocks(state);
+  const ms = Object.values(out).find(b => b.opcode === 'flippermotor_motorStartDirection');
+  assert.ok(ms);
+
+  assert.ok(ms.inputs.PORT, 'PORT input emitted');
+  assert.strictEqual(out[ms.inputs.PORT[1]].opcode, 'flippermotor_multiple-port-selector');
+  assert.deepStrictEqual(
+    out[ms.inputs.PORT[1]].fields['field_flippermotor_multiple-port-selector'],
+    ['A', null]
+  );
+
+  assert.ok(ms.inputs.DIRECTION, 'DIRECTION input emitted');
+  assert.strictEqual(out[ms.inputs.DIRECTION[1]].opcode, 'flippermotor_custom-icon-direction');
+  assert.deepStrictEqual(
+    out[ms.inputs.DIRECTION[1]].fields['field_flippermotor_custom-icon-direction'],
+    ['clockwise', null]
+  );
+});
+
+test('blocklyStateToSb3Blocks: explicit input wins over auto-promote (no double-emit)', () => {
+  const ctx = env();
+  const state = {
+    blocks: { languageVersion: 0, blocks: [{
+      type: 'flippermove_setMovementPair',
+      id: 'SP',
+      x: 0, y: 0,
+      // PAIR provided as an explicit input — the auto-promoter should skip it.
+      inputs: {
+        PAIR: { shadow: { type: 'flippermove_movement-port-selector', id: 'shad',
+          fields: { 'field_flippermove_movement-port-selector': 'CD' } } },
+      },
+    }] }
+  };
+
+  const out = ctx.LLSP3.blocks.blocklyStateToSb3Blocks(state);
+  const sp = Object.values(out).find(b => b.opcode === 'flippermove_setMovementPair');
+  assert.ok(sp);
+
+  assert.ok(sp.inputs.PAIR);
+  const shadowId = sp.inputs.PAIR[1];
+  // The shadow's value should be 'CD' from the explicit input, NOT 'AB' from the contract default.
+  assert.deepStrictEqual(
+    out[shadowId].fields['field_flippermove_movement-port-selector'],
+    ['CD', null]
+  );
+
+  // Only one PAIR shadow should exist — count flippermove_movement-port-selector blocks.
+  const shadowCount = Object.values(out).filter(b => b.opcode === 'flippermove_movement-port-selector').length;
+  assert.strictEqual(shadowCount, 1, 'no double-emit');
+});
