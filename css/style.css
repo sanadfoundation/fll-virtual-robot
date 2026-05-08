@@ -245,6 +245,50 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
 :root[data-theme="light"] .btn-theme .icon-sun  { display: inline; }
 :root[data-theme="light"] .btn-theme .icon-moon { display: none; }
 
+/* ── Project name input ────────────────────────────────────────────────── */
+.project-name-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 14px;
+}
+.project-name-icon {
+  font-size: 16px;
+  opacity: 0.7;
+}
+.project-name-input {
+  background: var(--surface-2, transparent);
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 13px;
+  color: var(--text-strong);
+  min-width: 160px;
+  max-width: 220px;
+}
+.project-name-input:focus {
+  outline: none;
+  border-color: var(--accent, #3b82f6);
+}
+
+/* ── File-controls cluster (Open + Save) ───────────────────────────────── */
+.file-controls {
+  display: flex;
+  gap: 6px;
+  margin-left: 8px;
+}
+.btn-file {
+  background: var(--surface-2, transparent);
+  border: 1px solid var(--border, #cbd5e1);
+  color: var(--text-strong);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.btn-file:hover { background: var(--surface-3, rgba(0,0,0,0.05)); }
+.btn-file:active { transform: translateY(1px); }
+
 .btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
 
 /* ── Speed control ─────────────────────────────────────── */
