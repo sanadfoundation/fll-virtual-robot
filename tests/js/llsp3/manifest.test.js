@@ -44,3 +44,47 @@ test('defaultManifest: rejects unknown types', () => {
   assert.throws(() => ctx.LLSP3.manifest.defaultManifest('icon-blocks', {}),
     /Unknown manifest type/);
 });
+
+test('mergeForSave: preserves unknown fields from the loaded manifest', () => {
+  const ctx = freshEnv();
+  const loaded = {
+    type: 'python',
+    appType: 'llsp3',
+    name: 'Old name',
+    id: 'preservedid12',
+    created: '2025-01-01T00:00:00.000Z',
+    lastsaved: '2025-01-01T00:00:00.000Z',
+    autoDelete: false,
+    size: 0,
+    slotIndex: 2,
+    workspaceX: -155, workspaceY: 0, zoomLevel: 0.5,
+    hardware: { python: { name: 'My Hub', type: 'flipper', connectionState: 2 } },
+    state: { canvasDrawerOpen: true, hasMonitors: false, playMode: 'download', knowledgeBaseSection: 'spm-help' },
+    extraFiles: [],
+    lastConnectedHubType: 'flipper',
+    futureField: 'preserve-me',
+  };
+
+  const merged = ctx.LLSP3.manifest.mergeForSave(loaded, { name: 'New name' });
+
+  assert.strictEqual(merged.name, 'New name');                          // overridden
+  assert.strictEqual(merged.id, 'preservedid12');                       // preserved
+  assert.strictEqual(merged.created, '2025-01-01T00:00:00.000Z');       // preserved
+  assert.notStrictEqual(merged.lastsaved, '2025-01-01T00:00:00.000Z');  // bumped
+  assert.match(merged.lastsaved, /^\d{4}-\d{2}-\d{2}T/);
+  assert.strictEqual(merged.slotIndex, 2);                              // preserved
+  assert.deepStrictEqual(merged.hardware, loaded.hardware);             // preserved
+  assert.deepStrictEqual(merged.state, loaded.state);                   // preserved
+  assert.strictEqual(merged.futureField, 'preserve-me');                // preserved
+});
+
+test('mergeForSave: word-blocks updates extensions when given', () => {
+  const ctx = freshEnv();
+  const loaded = ctx.LLSP3.manifest.defaultManifest('word-blocks', { name: 'X' });
+  const merged = ctx.LLSP3.manifest.mergeForSave(loaded, {
+    name: 'Y',
+    extensions: ['flipperevents', 'flippermove'],
+  });
+  assert.strictEqual(merged.name, 'Y');
+  assert.deepStrictEqual(merged.extensions, ['flipperevents', 'flippermove']);
+});

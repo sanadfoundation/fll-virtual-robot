@@ -61,5 +61,16 @@
     throw new Error(`Unknown manifest type: ${type}`);
   }
 
-  LLSP3.manifest = { defaultManifest, genId };
+  function mergeForSave(loaded, opts = {}) {
+    const merged = { ...loaded };
+    if (opts.name !== undefined)       merged.name = opts.name;
+    if (opts.extensions !== undefined) merged.extensions = opts.extensions.slice();
+    if (opts.workspaceX !== undefined) merged.workspaceX = opts.workspaceX;
+    if (opts.workspaceY !== undefined) merged.workspaceY = opts.workspaceY;
+    if (opts.zoomLevel !== undefined)  merged.zoomLevel = opts.zoomLevel;
+    merged.lastsaved = new Date().toISOString();
+    return merged;
+  }
+
+  LLSP3.manifest = { defaultManifest, genId, mergeForSave };
 })(typeof window !== 'undefined' ? window : globalThis);
