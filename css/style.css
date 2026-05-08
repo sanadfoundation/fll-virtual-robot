@@ -859,3 +859,49 @@ li.CodeMirror-hint-active {
   background: var(--surface3) !important;
   color: var(--amber) !important;
 }
+
+/* ── Version banner ────────────────────────────────────────────────────────── */
+.version-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 16px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 13px;
+}
+
+.version-banner[hidden] { display: none; }
+
+.version-banner-msg {
+  flex: 1;
+}
+
+.version-banner-reload {
+  background: var(--amber);
+  color: #1a1a1a;
+  border: none;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.version-banner-reload:hover { background: var(--amber2); }
+
+.version-banner-dismiss {
+  background: transparent;
+  color: var(--text-mid);
+  border: none;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.version-banner-dismiss:hover { color: var(--text); }
+
