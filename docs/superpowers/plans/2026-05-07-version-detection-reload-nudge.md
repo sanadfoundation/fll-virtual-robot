@@ -748,10 +748,10 @@ Delete it. (Per project style — see `06ee746 Updated backlog` — completed it
 - [ ] **Step 3: Run the full JS test suite one more time**
 
 ```bash
-node --test tests/js/
+node --test 'tests/js/**/*.test.js'
 ```
 
-Expected: every previously-passing test still passes plus the 12 new ones from `version_check`.
+Expected: every previously-passing test still passes (163 baseline) plus the 12 new ones from `version_check` → 175 total.
 
 - [ ] **Step 4: Commit**
 
@@ -765,7 +765,7 @@ git commit -m "chore: ignore generated version.json; close backlog item"
 ## Definition of Done
 
 - All 12 unit tests in `tests/js/version_check/version_check.test.js` pass.
-- `node --test tests/js/` is green (no regressions in existing suites).
+- `node --test 'tests/js/**/*.test.js'` is green (no regressions in existing suites).
 - Manual smoke test from Task 7 passes end-to-end on a local `python3 -m http.server`.
 - `.github/workflows/deploy-pages.yml` is valid YAML; the next push to `main` produces a Pages deploy whose `static/version.json` contains the deploy's commit SHA.
 - `BACKLOG.md` no longer lists the App Shell item.

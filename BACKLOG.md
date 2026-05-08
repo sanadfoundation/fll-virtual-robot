@@ -96,7 +96,6 @@ Code (Python + Blockly), theme, and speed already persist via localStorage. Rema
 
 ## App Shell
 
-- **New-release detection + reload nudge** — poll a deployed `version.json` (or hash an asset) and show a non-blocking banner offering to reload when a new build ships, so users on long-lived tabs don't keep running stale code.
 - **"Support us" link** — header/footer link to the Sanad Foundation donation / sponsorship page so users have a clear path to contribute.
 
 ---
