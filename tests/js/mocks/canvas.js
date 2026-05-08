@@ -10,6 +10,7 @@ function makeCtx2D() {
     save: noop, restore: noop,
     translate: noop, rotate: noop,
     setLineDash: noop, fillText: noop,
+    measureText: () => ({ width: 0 }),
     roundRect: noop, drawImage: noop,
     lineDashOffset: 0,
     fillStyle: '', strokeStyle: '', lineWidth: 1,

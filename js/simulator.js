@@ -389,6 +389,46 @@ class RobotSimulator {
       ctx.stroke();
     }
 
+    // Major-tick labels. Skip 0 (covered by the origin marker below).
+    ctx.font = '9px ui-monospace, monospace';
+    ctx.textBaseline = 'middle';
+
+    // Top labels (centered on each major tick, ~11 px below the edge)
+    ctx.textAlign = 'center';
+    for (const mm of xTicks.major) {
+      if (mm === 0) continue;
+      const px = mm * s;
+      const text = String(mm);
+      const tw = ctx.measureText(text).width;
+      ctx.fillStyle = 'rgba(240,232,208,0.85)';
+      ctx.fillRect(px - tw / 2 - 2, 5, tw + 4, 12);
+      ctx.fillStyle = '#333';
+      ctx.fillText(text, px, 11);
+    }
+
+    // Left labels (~11 px right of the edge, vertically centered on each tick)
+    ctx.textAlign = 'left';
+    for (const mm of yTicks.major) {
+      if (mm === 0) continue;
+      const px = mm * s;
+      const text = String(mm);
+      const tw = ctx.measureText(text).width;
+      ctx.fillStyle = 'rgba(240,232,208,0.85)';
+      ctx.fillRect(9, px - 6, tw + 4, 12);
+      ctx.fillStyle = '#333';
+      ctx.fillText(text, 11, px);
+    }
+
+    // Origin marker — anchors the unit (mm) once so per-tick labels stay numeric
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    const originText = '0,0 mm';
+    const otw = ctx.measureText(originText).width;
+    ctx.fillStyle = 'rgba(240,232,208,0.85)';
+    ctx.fillRect(4, 4, otw + 4, 11);
+    ctx.fillStyle = '#333';
+    ctx.fillText(originText, 6, 5);
+
     ctx.restore();
   }
 
