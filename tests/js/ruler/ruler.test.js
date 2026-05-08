@@ -29,3 +29,25 @@ test('tickPositions: tiny field smaller than minor pitch → only [0] for major,
   assert.deepEqual(major, [0]);
   assert.deepEqual(minor, []);
 });
+
+// ── clientToMM ──────────────────────────────────────────────────────────────
+
+test('clientToMM: cursor at canvas top-left → (0, 0) mm', () => {
+  const rect = { left: 0, top: 0 };
+  assert.deepEqual(r.clientToMM(0, 0, rect, 1), { x: 0, y: 0 });
+});
+
+test('clientToMM: cursor inside canvas with no rect offset → unscaled mm', () => {
+  const rect = { left: 0, top: 0 };
+  assert.deepEqual(r.clientToMM(100, 50, rect, 1), { x: 100, y: 50 });
+});
+
+test('clientToMM: subtracts rect.left/rect.top before dividing by scale', () => {
+  const rect = { left: 100, top: 50 };
+  assert.deepEqual(r.clientToMM(200, 150, rect, 1), { x: 100, y: 100 });
+});
+
+test('clientToMM: scale 0.5 doubles mm distance', () => {
+  const rect = { left: 0, top: 0 };
+  assert.deepEqual(r.clientToMM(200, 100, rect, 0.5), { x: 400, y: 200 });
+});

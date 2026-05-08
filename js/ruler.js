@@ -31,5 +31,15 @@
     return { major, minor };
   }
 
-  return { tickPositions };
+  // Cursor pixel coordinates → field mm coordinates. `rect` is the canvas's
+  // getBoundingClientRect() (we read only `left` and `top`); `scale` is the
+  // simulator's mm→px factor.
+  function clientToMM(clientX, clientY, rect, scale) {
+    return {
+      x: (clientX - rect.left) / scale,
+      y: (clientY - rect.top)  / scale,
+    };
+  }
+
+  return { tickPositions, clientToMM };
 });
