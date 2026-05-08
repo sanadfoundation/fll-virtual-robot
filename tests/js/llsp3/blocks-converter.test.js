@@ -170,8 +170,64 @@ test('sb3BlocksToBlocklyState: round-trips a chain through forward+inverse conve
   const mov = top.next.block;
   assert.strictEqual(mov.type, 'flippermove_move');
   assert.strictEqual(mov.fields.UNIT, 'rotations');
-  assert.strictEqual(mov.inputs.DIRECTION.shadow.type, 'flippermove_custom-icon-direction');
-  assert.strictEqual(mov.inputs.DIRECTION.shadow.fields['field_flippermove_custom-icon-direction'], 'forward');
+  assert.strictEqual(mov.fields.DIRECTION, 'forward', 'DIRECTION demoted to Blockly field');
+  assert.strictEqual(mov.inputs.DIRECTION, undefined, 'DIRECTION not in inputs after demotion');
   assert.strictEqual(mov.inputs.VALUE.shadow.type, 'math_number');
   assert.strictEqual(mov.inputs.VALUE.shadow.fields.NUM, '5');
+});
+
+test('blocklyStateToSb3Blocks: promotes fields matching SHADOW_CONTRACT to inputs-with-shadows', () => {
+  const ctx = env();
+  const state = {
+    blocks: { languageVersion: 0, blocks: [{
+      type: 'flippermove_move',
+      id: 'M1',
+      x: 0, y: 0,
+      fields: { DIRECTION: 'backward', UNIT: 'cm' },
+      inputs: {
+        VALUE: { shadow: { type: 'math_number', id: 'V1', fields: { NUM: '20' } } },
+      },
+    }] }
+  };
+
+  const out = ctx.LLSP3.blocks.blocklyStateToSb3Blocks(state);
+  const move = Object.values(out).find(b => b.opcode === 'flippermove_move');
+  assert.ok(move);
+
+  // DIRECTION promoted: now an input pointing at a flippermove_custom-icon-direction shadow
+  assert.ok(move.inputs.DIRECTION, 'DIRECTION promoted to input');
+  assert.strictEqual(move.inputs.DIRECTION[0], 1);
+  const dirShadowId = move.inputs.DIRECTION[1];
+  assert.strictEqual(out[dirShadowId].opcode, 'flippermove_custom-icon-direction');
+  assert.deepStrictEqual(out[dirShadowId].fields['field_flippermove_custom-icon-direction'], ['backward', null]);
+
+  // UNIT not in SHADOW_CONTRACT — stays as a Blockly field
+  assert.deepStrictEqual(move.fields.UNIT, ['cm', null]);
+  assert.strictEqual(move.fields.DIRECTION, undefined, 'DIRECTION not in fields after promotion');
+
+  // VALUE input still present and intact
+  assert.ok(move.inputs.VALUE);
+});
+
+test('sb3BlocksToBlocklyState: demotes contract-matching inputs back to Blockly fields', () => {
+  const ctx = env();
+  const sb3Blocks = {
+    'TOP': { opcode: 'flippermove_move', topLevel: true, parent: null, next: null,
+             x: 0, y: 0, fields: { UNIT: ['cm', null] }, shadow: false,
+             inputs: { DIRECTION: [1, 'D1'], VALUE: [1, 'V1'] } },
+    'D1':  { opcode: 'flippermove_custom-icon-direction', topLevel: false, parent: 'TOP', next: null,
+             inputs: {}, fields: { 'field_flippermove_custom-icon-direction': ['forward', null] },
+             shadow: true },
+    'V1':  { opcode: 'math_number', topLevel: false, parent: 'TOP', next: null,
+             inputs: {}, fields: { NUM: ['10', null] }, shadow: true },
+  };
+
+  const state = ctx.LLSP3.blocks.sb3BlocksToBlocklyState(sb3Blocks);
+  const top = state.blocks.blocks[0];
+  assert.strictEqual(top.type, 'flippermove_move');
+  assert.strictEqual(top.fields.DIRECTION, 'forward', 'DIRECTION demoted to field');
+  assert.strictEqual(top.fields.UNIT, 'cm', 'UNIT preserved as field');
+  assert.strictEqual(top.inputs && top.inputs.DIRECTION, undefined, 'DIRECTION not in inputs');
+  // VALUE has no SHADOW_CONTRACT entry — stays as input
+  assert.ok(top.inputs.VALUE, 'VALUE remains as input (no contract match)');
 });

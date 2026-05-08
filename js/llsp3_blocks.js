@@ -3,24 +3,65 @@
 (function (global) {
   const LLSP3 = (global.LLSP3 = global.LLSP3 || {});
 
-  // Shadow contract table.
-  // Keyed by `${opcode}|${inputName}`. Each entry says: when this input is
-  // unconnected (just a typed-in value or an icon picker), what shadow block
-  // wraps it in the Scratch sb3?
+  // ── Shadow contract table (authoritative) ────────────────────────────────
+  // Spike Prime selector shadow blocks for parent inputs. Cross-checked
+  // against astrospark/flippertools strings.json and
+  // alexandrehardy/lego-spike-simulator src/lib/blockly/blocks.ts.
   //
-  // Sources for entries:
-  //  1. tests/fixtures/llsp3/block-project.llsp3 → scratch.sb3 → project.json
-  //  2. js/blockly_config.js block defs
-  //  3. Spot-checks vs the alexandrehardy reference (license-clean: shape only)
+  // Most selector shadows store their selection in a field named
+  // `field_<opcode>`. The single exception is `flipperlight_menu_orientation`,
+  // whose field is plain `orientation`.
   //
-  // Catalogue exceptions as we find them. Anything not listed falls back to
-  // a `math_number` shadow with default "10".
+  // Several Spike blocks expose dropdowns that are real Blockly field_dropdowns
+  // on the parent (no shadow): UNIT/COMPARATOR/EVENT/OPTION fields on most
+  // blocks, plus several whole event blocks (whenButton, whenGesture,
+  // whenOrientation, buttonIsPressed). Those are NOT in this table — they
+  // stay as field_dropdown when emitted.
   const SHADOW_CONTRACT = {
-    // ── flippermove ────────────────────────────────────────────────────────
-    'flippermove_setMovementPair|PAIR':
-      { opcode: 'flippermove_movement-port-selector',
-        fieldName: 'field_flippermove_movement-port-selector',
-        defaultValue: 'AB' },
+    // ── flippermotor ──────────────────────────────────────────────────────
+    'flippermotor_motorTurnForDirection|PORT':
+      { opcode: 'flippermotor_multiple-port-selector',
+        fieldName: 'field_flippermotor_multiple-port-selector',
+        defaultValue: 'A' },
+    'flippermotor_motorTurnForDirection|DIRECTION':
+      { opcode: 'flippermotor_custom-icon-direction',
+        fieldName: 'field_flippermotor_custom-icon-direction',
+        defaultValue: 'clockwise' },
+    'flippermotor_motorGoDirectionToPosition|PORT':
+      { opcode: 'flippermotor_multiple-port-selector',
+        fieldName: 'field_flippermotor_multiple-port-selector',
+        defaultValue: 'A' },
+    'flippermotor_motorGoDirectionToPosition|POSITION':
+      { opcode: 'flippermotor_custom-angle',
+        fieldName: 'field_flippermotor_custom-angle',
+        defaultValue: '0' },
+    'flippermotor_motorStartDirection|PORT':
+      { opcode: 'flippermotor_multiple-port-selector',
+        fieldName: 'field_flippermotor_multiple-port-selector',
+        defaultValue: 'A' },
+    'flippermotor_motorStartDirection|DIRECTION':
+      { opcode: 'flippermotor_custom-icon-direction',
+        fieldName: 'field_flippermotor_custom-icon-direction',
+        defaultValue: 'clockwise' },
+    'flippermotor_motorStop|PORT':
+      { opcode: 'flippermotor_multiple-port-selector',
+        fieldName: 'field_flippermotor_multiple-port-selector',
+        defaultValue: 'A' },
+    'flippermotor_motorSetSpeed|PORT':
+      { opcode: 'flippermotor_multiple-port-selector',
+        fieldName: 'field_flippermotor_multiple-port-selector',
+        defaultValue: 'A' },
+    // Getters use the *single*-motor selector, not the multi-port one.
+    'flippermotor_absolutePosition|PORT':
+      { opcode: 'flippermotor_single-motor-selector',
+        fieldName: 'field_flippermotor_single-motor-selector',
+        defaultValue: 'A' },
+    'flippermotor_speed|PORT':
+      { opcode: 'flippermotor_single-motor-selector',
+        fieldName: 'field_flippermotor_single-motor-selector',
+        defaultValue: 'A' },
+
+    // ── flippermove ───────────────────────────────────────────────────────
     'flippermove_move|DIRECTION':
       { opcode: 'flippermove_custom-icon-direction',
         fieldName: 'field_flippermove_custom-icon-direction',
@@ -29,45 +70,100 @@
       { opcode: 'flippermove_custom-icon-direction',
         fieldName: 'field_flippermove_custom-icon-direction',
         defaultValue: 'forward' },
-    // ── flippermotor ───────────────────────────────────────────────────────
-    'flippermotor_motorTurnForDirection|PORT':
-      { opcode: 'flippermotor_single-port-selector',
-        fieldName: 'field_flippermotor_single-port-selector',
+    'flippermove_setMovementPair|PAIR':
+      { opcode: 'flippermove_movement-port-selector',
+        fieldName: 'field_flippermove_movement-port-selector',
+        defaultValue: 'AB' },
+
+    // ── flipperevents ─────────────────────────────────────────────────────
+    'flipperevents_whenColor|PORT':
+      { opcode: 'flipperevents_color-sensor-selector',
+        fieldName: 'field_flipperevents_color-sensor-selector',
         defaultValue: 'A' },
-    'flippermotor_motorGoDirectionToPosition|PORT':
-      { opcode: 'flippermotor_single-port-selector',
-        fieldName: 'field_flippermotor_single-port-selector',
-        defaultValue: 'A' },
-    'flippermotor_motorStartDirection|PORT':
-      { opcode: 'flippermotor_single-port-selector',
-        fieldName: 'field_flippermotor_single-port-selector',
-        defaultValue: 'A' },
-    'flippermotor_motorStop|PORT':
-      { opcode: 'flippermotor_single-port-selector',
-        fieldName: 'field_flippermotor_single-port-selector',
-        defaultValue: 'A' },
-    'flippermotor_motorSetSpeed|PORT':
-      { opcode: 'flippermotor_single-port-selector',
-        fieldName: 'field_flippermotor_single-port-selector',
-        defaultValue: 'A' },
-    // ── flipperevents ──────────────────────────────────────────────────────
-    'flipperevents_whenColor|VALUE':
+    'flipperevents_whenColor|OPTION':
       { opcode: 'flipperevents_color-selector',
         fieldName: 'field_flipperevents_color-selector',
-        defaultValue: '3' },
-    'flipperevents_whenPressed|VALUE':
-      { opcode: 'flipperevents_press-selector',
-        fieldName: 'field_flipperevents_press-selector',
-        defaultValue: 'pressed' },
-    // ── flippersound ───────────────────────────────────────────────────────
+        defaultValue: '9' },
+    'flipperevents_whenPressed|PORT':
+      { opcode: 'flipperevents_force-sensor-selector',
+        fieldName: 'field_flipperevents_force-sensor-selector',
+        defaultValue: 'A' },
+    'flipperevents_whenTilted|VALUE':
+      { opcode: 'flipperevents_custom-tilted',
+        fieldName: 'field_flipperevents_custom-tilted',
+        defaultValue: '1' },
+
+    // ── flippersensors ────────────────────────────────────────────────────
+    'flippersensors_isPressed|PORT':
+      { opcode: 'flippersensors_force-sensor-selector',
+        fieldName: 'field_flippersensors_force-sensor-selector',
+        defaultValue: 'A' },
+    'flippersensors_force|PORT':
+      { opcode: 'flippersensors_force-sensor-selector',
+        fieldName: 'field_flippersensors_force-sensor-selector',
+        defaultValue: 'A' },
+    'flippersensors_isDistance|PORT':
+      { opcode: 'flippersensors_distance-sensor-selector',
+        fieldName: 'field_flippersensors_distance-sensor-selector',
+        defaultValue: 'A' },
+    'flippersensors_distance|PORT':
+      { opcode: 'flippersensors_distance-sensor-selector',
+        fieldName: 'field_flippersensors_distance-sensor-selector',
+        defaultValue: 'A' },
+    'flippersensors_isColor|PORT':
+      { opcode: 'flippersensors_color-sensor-selector',
+        fieldName: 'field_flippersensors_color-sensor-selector',
+        defaultValue: 'A' },
+    'flippersensors_isColor|VALUE':
+      { opcode: 'flippersensors_color-selector',
+        fieldName: 'field_flippersensors_color-selector',
+        defaultValue: '9' },
+    'flippersensors_color|PORT':
+      { opcode: 'flippersensors_color-sensor-selector',
+        fieldName: 'field_flippersensors_color-sensor-selector',
+        defaultValue: 'A' },
+    'flippersensors_isReflectivity|PORT':
+      { opcode: 'flippersensors_color-sensor-selector',
+        fieldName: 'field_flippersensors_color-sensor-selector',
+        defaultValue: 'A' },
+    'flippersensors_reflectivity|PORT':
+      { opcode: 'flippersensors_color-sensor-selector',
+        fieldName: 'field_flippersensors_color-sensor-selector',
+        defaultValue: 'A' },
+
+    // ── flipperlight ──────────────────────────────────────────────────────
+    'flipperlight_centerButtonLight|COLOR':
+      { opcode: 'flipperlight_color-selector-vertical',
+        fieldName: 'field_flipperlight_color-selector-vertical',
+        defaultValue: '9' },
+    'flipperlight_lightDisplayRotate|DIRECTION':
+      { opcode: 'flipperlight_custom-icon-direction',
+        fieldName: 'field_flipperlight_custom-icon-direction',
+        defaultValue: 'clockwise' },
+    'flipperlight_lightDisplaySetOrientation|ORIENTATION':
+      // EXCEPTION: field is plain `orientation`, NOT field_<opcode>.
+      // Confirmed in flippertools strings.json.
+      { opcode: 'flipperlight_menu_orientation',
+        fieldName: 'orientation',
+        defaultValue: '1' },
+    'flipperlight_ultrasonicLightUp|PORT':
+      { opcode: 'flipperlight_distance-sensor-selector',
+        fieldName: 'field_flipperlight_distance-sensor-selector',
+        defaultValue: 'A' },
+    'flipperlight_ultrasonicLightUp|VALUE':
+      { opcode: 'flipperlight_led-selector',
+        fieldName: 'field_flipperlight_led-selector',
+        defaultValue: '100 100 100 100' },
+
+    // ── flippersound ──────────────────────────────────────────────────────
     'flippersound_playSoundUntilDone|SOUND':
       { opcode: 'flippersound_sound-selector',
         fieldName: 'field_flippersound_sound-selector',
-        defaultValue: 'Cat Meow 1' },
+        defaultValue: '{"name":"Cat Meow 1","location":"device"}' },
     'flippersound_playSound|SOUND':
       { opcode: 'flippersound_sound-selector',
         fieldName: 'field_flippersound_sound-selector',
-        defaultValue: 'Cat Meow 1' },
+        defaultValue: '{"name":"Cat Meow 1","location":"device"}' },
   };
 
   const NUMERIC_DEFAULT = { opcode: 'math_number', fieldName: 'NUM', defaultValue: '10' };
@@ -126,7 +222,7 @@
       next: null,
       parent: parentId,
       inputs: {},
-      fields: convertFields(blkly.fields || {}),
+      fields: {},  // populated below; promoted entries skip this
       shadow: !!blkly.shadow,
       topLevel: !!topLevel,
     };
@@ -136,6 +232,26 @@
     }
     out[id] = node;
 
+    // Fields: promote those matching SHADOW_CONTRACT to inputs, keep the rest.
+    for (const [fieldName, fieldValue] of Object.entries(blkly.fields || {})) {
+      const contract = SHADOW_CONTRACT[`${blkly.type}|${fieldName}`];
+      if (contract) {
+        const synthId = genSb3Id();
+        out[synthId] = {
+          opcode: contract.opcode,
+          next: null, parent: id,
+          inputs: {},
+          fields: { [contract.fieldName]: [fieldValue, null] },
+          shadow: true, topLevel: false,
+        };
+        node.inputs[fieldName] = [1, synthId];
+      } else {
+        node.fields[fieldName] = [fieldValue, null];
+      }
+    }
+
+    // Inputs: process any explicit Blockly inputs (these may include
+    // already-shadowed selectors AND value-typed slots like math_number).
     for (const [name, inp] of Object.entries(blkly.inputs || {})) {
       node.inputs[name] = encodeInput(out, blkly.type, name, inp, id);
     }
@@ -145,12 +261,6 @@
       node.next = nextId;
     }
     return id;
-  }
-
-  function convertFields(fields) {
-    const out = {};
-    for (const [k, v] of Object.entries(fields)) out[k] = [v, null];
-    return out;
   }
 
   function encodeInput(out, parentOpcode, inputName, inp, parentId) {
@@ -200,15 +310,24 @@
       blkly.y = sb.y || 0;
     }
 
+    // Fields (start from sb3 fields; we'll add demoted inputs below).
     const fields = {};
     for (const [k, v] of Object.entries(sb.fields || {})) fields[k] = v[0];
-    if (Object.keys(fields).length) blkly.fields = fields;
 
+    // Inputs: demote contract-matching shadow-only inputs back to Blockly
+    // fields when the shadow opcode matches the contract.
     const inputs = {};
     for (const [name, value] of Object.entries(sb.inputs || {})) {
+      const contract = SHADOW_CONTRACT[`${sb.opcode}|${name}`];
+      const demoted = contract && tryDemoteInputToField(sb3, value, contract);
+      if (demoted !== undefined) {
+        fields[name] = demoted;
+        continue;
+      }
       const built = decodeInput(sb3, value);
       if (built) inputs[name] = built;
     }
+    if (Object.keys(fields).length) blkly.fields = fields;
     if (Object.keys(inputs).length) blkly.inputs = inputs;
 
     if (sb.next) {
@@ -217,6 +336,20 @@
       delete blkly.next.block.y;
     }
     return blkly;
+  }
+
+  function tryDemoteInputToField(sb3, value, contract) {
+    // Demotion only applies to shadow-only inputs (tag 1) where the slot
+    // resolves to a real shadow block (string id), not an inline primitive.
+    if (!Array.isArray(value)) return undefined;
+    if (value[0] !== 1) return undefined;
+    const slot = value[1];
+    if (typeof slot !== 'string') return undefined;
+    const shadow = sb3[slot];
+    if (!shadow || shadow.opcode !== contract.opcode) return undefined;
+    const fieldEntry = (shadow.fields || {})[contract.fieldName];
+    if (!fieldEntry) return undefined;
+    return fieldEntry[0];
   }
 
   function decodeInput(sb3, value) {
