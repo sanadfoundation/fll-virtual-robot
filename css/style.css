@@ -568,20 +568,121 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
     var(--shadow-canvas);
 }
 
-/* ── Sensor / telemetry panel ──────────────────────────── */
+/* ── Hub sidebar ───────────────────────────────────────── */
 #sensor-panel {
-  position: absolute;
-  top: 12px;
-  right: 12px;
+  width: 210px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
   background: var(--surface);
-  border: 1px solid var(--border2);
-  border-radius: 6px;
-  padding: 10px 12px;
+  border-left: 1px solid var(--border);
   font-family: var(--font-code);
   font-size: 11px;
-  min-width: 168px;
-  backdrop-filter: blur(8px);
-  box-shadow: var(--glow-blue), var(--shadow-panel);
+  overflow: hidden;
+  transition: width 0.2s ease;
+}
+
+#sensor-panel.collapsed {
+  width: 28px;
+}
+
+.hub-rail {
+  width: 28px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  border-right: 1px solid var(--border);
+}
+
+#sensor-panel.collapsed .hub-rail {
+  border-right: none;
+}
+
+.hub-toggle {
+  width: 100%;
+  height: 28px;
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 16px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s;
+}
+
+.hub-toggle:hover {
+  color: var(--cyan);
+  background: var(--bg);
+}
+
+.hub-toggle-chevron {
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+
+#sensor-panel.collapsed .hub-toggle-chevron {
+  transform: rotate(180deg);
+}
+
+.hub-rail-label {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-family: var(--font-ui);
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--text-dim);
+  padding: 12px 0;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s, background 0.15s;
+}
+
+.hub-rail-label:hover {
+  color: var(--cyan);
+  background: var(--bg);
+}
+
+#sensor-panel:not(.collapsed) .hub-rail-label {
+  display: none;
+}
+
+.hub-title {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text);
+  margin: 0 0 14px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border2);
+}
+
+.hub-content {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+#sensor-panel.collapsed .hub-content {
+  opacity: 0;
+  pointer-events: none;
 }
 
 #sensor-panel h3 {
@@ -638,8 +739,8 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--cyan);
-  margin: 10px 0 4px 0;
-  padding-top: 8px;
+  margin: 12px 0 6px 0;
+  padding-top: 10px;
   padding-bottom: 4px;
   border-top: 1px solid var(--border);
 }

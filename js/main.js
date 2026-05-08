@@ -116,6 +116,43 @@ function toggleTheme() {
 // Apply theme as early as possible to avoid a flash of dark UI in light mode.
 initTheme();
 
+// ── Hub sidebar collapse ────────────────────────────────────────────────────
+
+function applyHubCollapsed(collapsed) {
+  const panel = document.getElementById('sensor-panel');
+  const btn   = document.getElementById('hub-toggle');
+  if (!panel || !btn) return;
+  panel.classList.toggle('collapsed', collapsed);
+  btn.setAttribute('aria-expanded', String(!collapsed));
+  btn.setAttribute('aria-label', collapsed ? 'Expand hub panel' : 'Collapse hub panel');
+}
+
+function initHubSidebar() {
+  const panel = document.getElementById('sensor-panel');
+  const btn   = document.getElementById('hub-toggle');
+  if (!panel || !btn) return;
+
+  applyHubCollapsed(false);
+
+  btn.addEventListener('click', () => {
+    applyHubCollapsed(!panel.classList.contains('collapsed'));
+  });
+
+  const railLabel = document.getElementById('hub-rail-label');
+  if (railLabel) {
+    railLabel.addEventListener('click', () => applyHubCollapsed(false));
+  }
+
+  // The canvas auto-fits its parent on window resize. When the sidebar
+  // width changes, panel-right reflows but no resize event fires — so
+  // re-trigger the sim's fit logic when the transition lands.
+  panel.addEventListener('transitionend', e => {
+    if (e.propertyName === 'width' && window.sim && typeof window.sim._resize === 'function') {
+      window.sim._resize();
+    }
+  });
+}
+
 // ── Initialization ────────────────────────────────────────────────────────────
 
 function initEditor() {
@@ -475,6 +512,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initSim();
   _pollForWorker();
   initResizeHandle();
+  initHubSidebar();
 
   document.getElementById('tab-python').addEventListener('click', () => switchMode('python'));
   document.getElementById('tab-blocks').addEventListener('click', () => switchMode('blocks'));

@@ -83,10 +83,29 @@
   <div class="panel-right">
     <div class="canvas-wrap">
       <canvas id="robot-canvas"></canvas>
+    </div>
 
-      <!-- Hub panel: pose + per-port live state -->
-      <div id="sensor-panel">
-        <h3>Hub</h3>
+    <div class="console-wrap">
+      <div class="console-header">
+        <span class="dot"></span>
+        Console Output
+      </div>
+      <div id="console-output"></div>
+    </div>
+  </div>
+
+  <!-- Hub sidebar: pose + per-port live state (collapsible) -->
+  <aside id="sensor-panel">
+    <div class="hub-rail">
+      <button class="hub-toggle" id="hub-toggle" aria-label="Collapse hub panel" aria-expanded="true">
+        <span class="hub-toggle-chevron">›</span>
+      </button>
+      <button class="hub-rail-label" id="hub-rail-label" type="button" aria-label="Expand hub panel">Hub Panel</button>
+    </div>
+    <div class="hub-content">
+      <h2 class="hub-title">Hub Panel</h2>
+      <div class="hub-section">
+        <h3>Position</h3>
 
         <div class="sensor-row">
           <span class="sensor-label">X</span>
@@ -100,7 +119,9 @@
           <span class="sensor-label">Heading</span>
           <span class="sensor-value" id="sp-heading">—</span>
         </div>
+      </div>
 
+      <div class="ports-section">
         <h4 class="port-header">Ports</h4>
         <div class="port-row" id="port-row-A">
           <span class="port-letter">A</span>
@@ -135,15 +156,7 @@
         </div>
       </div>
     </div>
-
-    <div class="console-wrap">
-      <div class="console-header">
-        <span class="dot"></span>
-        Console Output
-      </div>
-      <div id="console-output"></div>
-    </div>
-  </div>
+  </aside>
 
 </div>
 
