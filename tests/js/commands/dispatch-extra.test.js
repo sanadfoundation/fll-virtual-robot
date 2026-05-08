@@ -7,53 +7,66 @@ const test   = require('node:test');
 const assert = require('node:assert');
 const { createSim } = require('../sim-helper');
 
-const EPS = 0.5;
-const close = (a, b, tol) => Math.abs(a - b) <= tol;
+const close = (a, b, tol = 1e-9) => Math.abs(a - b) <= tol;
+
+function withTankStub(sim) {
+  sim.isRunning = true;
+  const calls = [];
+  sim._animateTank = async (leftV, rightV, distMM) => {
+    calls.push({ leftV, rightV, distMM });
+  };
+  return calls;
+}
 
 // ── start (continuous straight) ─────────────────────────────────────────────
 
-test('start: continuous straight drive moves robot forward', async () => {
+test('start: routes speed to _animateTank with both wheels equal', async () => {
   const sim = createSim();
-  sim.isRunning = true;
-  await sim._execCmd({ type: 'pair', pair_id: 0, left: 'A', right: 'B' });
+  const calls = withTankStub(sim);
   await sim._execCmd({ type: 'start', pair_id: 0, speed: 1000 });
-  assert.ok(sim.robot.y < 980, `y should decrease, got ${sim.robot.y}`);
-  assert.ok(close(sim.robot.heading, -90, EPS), `heading=${sim.robot.heading}`);
+  assert.strictEqual(calls.length, 1);
+  assert.ok(close(calls[0].leftV, 1.0));
+  assert.ok(close(calls[0].rightV, 1.0));
 });
 
-test('start: zero speed leaves robot stationary', async () => {
+test('start: zero speed routes 0,0 — kinematic but stationary', async () => {
   const sim = createSim();
-  sim.isRunning = true;
+  const calls = withTankStub(sim);
   await sim._execCmd({ type: 'start', pair_id: 0, speed: 0 });
-  assert.strictEqual(sim.robot.y, 980);
+  assert.strictEqual(calls.length, 1);
+  assert.strictEqual(calls[0].leftV, 0);
+  assert.strictEqual(calls[0].rightV, 0);
 });
 
 // ── start_tank (continuous tank) ────────────────────────────────────────────
 
-test('start_tank: equal speeds drive straight', async () => {
+test('start_tank: equal speeds normalised through dispatch', async () => {
   const sim = createSim();
-  sim.isRunning = true;
+  const calls = withTankStub(sim);
   await sim._execCmd({ type: 'start_tank', pair_id: 0, left_speed: 500, right_speed: 500 });
-  assert.ok(sim.robot.y < 980, `y=${sim.robot.y}`);
-  assert.ok(close(sim.robot.heading, -90, EPS), `heading=${sim.robot.heading}`);
+  assert.ok(close(calls[0].leftV, 0.5));
+  assert.ok(close(calls[0].rightV, 0.5));
 });
 
-test('start_tank: asymmetric speeds turn the robot', async () => {
+test('start_tank: asymmetric speeds passed through unchanged after /1000', async () => {
   const sim = createSim();
-  sim.isRunning = true;
+  const calls = withTankStub(sim);
   await sim._execCmd({ type: 'start_tank', pair_id: 0, left_speed: 1000, right_speed: 0 });
-  assert.ok(sim.robot.heading > -90, `heading should rotate right, got ${sim.robot.heading}`);
+  assert.ok(close(calls[0].leftV, 1.0));
+  assert.ok(close(calls[0].rightV, 0));
 });
 
 // ── motor_time ──────────────────────────────────────────────────────────────
 
-test('motor_time: with pair configured, drives the paired wheel', async () => {
+test('motor_time: with pair configured, routes through _animateTank', async () => {
   const sim = createSim();
-  sim.isRunning = true;
+  const calls = withTankStub(sim);
   await sim._execCmd({ type: 'pair', pair_id: 0, left: 'A', right: 'B' });
-  const yBefore = sim.robot.y;
   await sim._execCmd({ type: 'motor_time', port: 'A', time_ms: 500, velocity: 500 });
-  assert.notStrictEqual(sim.robot.y, yBefore, 'paired motor_time should move the robot');
+  assert.strictEqual(calls.length, 1, 'paired motor_time should reach _animateTank');
+  // Port A is the LEFT wheel — only it gets the velocity.
+  assert.ok(close(calls[0].leftV, 0.5),  `leftV=${calls[0].leftV}`);
+  assert.strictEqual(calls[0].rightV, 0, `rightV=${calls[0].rightV}`);
 });
 
 test('motor_time: defaults velocity to 500 when omitted', async () => {
@@ -126,14 +139,26 @@ test('_animateSingleMotor: non-pair port leaves robot pose unchanged', async () 
   assert.strictEqual(sim.robot.heading, -90);
 });
 
-test('_animateSingleMotor: paired port drives only its side', async () => {
+test('_animateSingleMotor: paired port routes velocity to the matching wheel only', async () => {
   const sim = createSim();
-  sim.isRunning = true;
+  const calls = withTankStub(sim);
   sim.pairMap[0] = { left: 'A', right: 'B' };
   await sim._animateSingleMotor('A', 1, 100);
-  // A is the LEFT wheel — driving only it should rotate the robot rightward
-  // (right pivot since right wheel stays at 0).
-  assert.ok(sim.robot.heading > -90, `heading should rotate right, got ${sim.robot.heading}`);
+  // Port A is the LEFT wheel — it gets the velocity, the right wheel stays at 0.
+  assert.strictEqual(calls.length, 1);
+  assert.ok(close(calls[0].leftV, 1));
+  assert.strictEqual(calls[0].rightV, 0);
+  assert.strictEqual(calls[0].distMM, 100);
+});
+
+test('_animateSingleMotor: paired right port routes velocity to the right wheel', async () => {
+  const sim = createSim();
+  const calls = withTankStub(sim);
+  sim.pairMap[0] = { left: 'A', right: 'B' };
+  await sim._animateSingleMotor('B', 0.7, 200);
+  assert.strictEqual(calls[0].leftV, 0);
+  assert.ok(close(calls[0].rightV, 0.7));
+  assert.strictEqual(calls[0].distMM, 200);
 });
 
 test('_animateSingleMotor: refuses non-motor port', async () => {

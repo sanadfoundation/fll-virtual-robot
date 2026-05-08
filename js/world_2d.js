@@ -27,8 +27,14 @@ function ensureInit() {
 }
 
 export class World2D {
-  async init() {
-    await ensureInit();
+  // `injectedBox2d` lets tests pass a stub module; production leaves it
+  // undefined and the CDN dynamic import runs as normal.
+  async init(injectedBox2d) {
+    if (injectedBox2d) {
+      box2d = injectedBox2d;
+    } else {
+      await ensureInit();
+    }
     // Top-down: zero gravity. Bodies move only when the kinematic robot
     // pushes them; damping settles them after release.
     const gravity = new box2d.b2Vec2(0, 0);

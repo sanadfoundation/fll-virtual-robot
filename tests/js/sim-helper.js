@@ -6,6 +6,9 @@ const path = require('path');
 const { makeWindowGlobals } = require('./mocks/window');
 const { TextEncoder, TextDecoder } = require('util');
 
+const KINEMATICS_CODE = fs.readFileSync(
+  path.resolve(__dirname, '../../js/kinematics.js'), 'utf8',
+);
 const SIM_CODE = fs.readFileSync(
   path.resolve(__dirname, '../../js/simulator.js'), 'utf8',
 );
@@ -23,6 +26,11 @@ function createSim(windowOverrides) {
     TextEncoder, TextDecoder,
   });
 
+  vm.runInContext(KINEMATICS_CODE, context);
+  // In real browsers `this` at script top-level is window; in vm contexts it's
+  // the context object itself, so the UMD assigns to `context.kinematics`
+  // rather than `context.window.kinematics`. Bridge them.
+  context.window.kinematics = context.kinematics;
   vm.runInContext(SIM_CODE, context);
 
   const sim = new context.window.RobotSimulator('robot-canvas');
