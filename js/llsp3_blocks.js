@@ -184,8 +184,13 @@
     return NUMERIC_DEFAULT;
   }
 
+  // Trimmed against the chars seen in Spike-app-emitted block IDs in
+  // tests/fixtures/llsp3/block-project.llsp3. Excludes: < > = & @ '
+  // The "<" / ">" exclusion matters: Spike's parser appears to silently
+  // reject blocks whose IDs contain HTML-special characters, dropping the
+  // entire stack from the rendered project. Keep the alphabet conservative.
   const SB3_ID_ALPHABET =
-    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-!#$%&()*+,.:;<=>?@[]^`{|}~';
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-!#$%()*+,.:;?[]^`{|}~';
 
   function genSb3Id() {
     let id = '';
