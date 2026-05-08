@@ -49,9 +49,6 @@ The individual motor API, `motor_pair.move_for_degrees` / `_for_time`, light mat
 - `app.display` / `app.bargraph` / `app.linegraph` / `app.music` — Spike App UI surfaces with no analogue here; leave as no-ops.
 - `color_matrix` (3×3 LED attachment) — no plan to render.
 
-### Cross-cutting
-- **Inline autocomplete docs** — pull docstrings from the LEGO/Tufts reference into `monaco_config.js` so hover-help matches the canonical API.
-
 ---
 
 ## Programming Experience
@@ -82,6 +79,7 @@ Collision against mission AABBs already stops the robot (`_robotOverlapsAABB`); 
 
 The Hub panel (X / Y / heading + per-port live readings for A–F) already updates each frame. Remaining:
 
+- **Field rulers** — render mm tick marks along the X and Y axes of the canvas so users can read robot position visually without checking the Hub panel.
 - **Step-through execution** — pause/step controls that advance one API call at a time.
 - **Variable watch panel** — show user Python variables per frame, derived from command-queue metadata.
 
