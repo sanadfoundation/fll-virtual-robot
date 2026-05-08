@@ -99,5 +99,87 @@
     return id;
   }
 
-  LLSP3.blocks = { shadowFor, genSb3Id, SHADOW_CONTRACT };
+  // ── Blockly serialization → sb3 blocks ───────────────────────────────────
+  // Blockly's `inputs` shape:  { INPUTNAME: { block: {...}, shadow: {...} } }
+  // Blockly's `fields` shape:  { FIELDNAME: <value> }
+  // Blockly's chain shape:     { ..., next: { block: {...} } }
+  //
+  // sb3's `inputs` shape:      { INPUTNAME: [N, blockId, shadowId?] }
+  //   N=1 shadow only, N=2 block only, N=3 block-with-shadow
+  // sb3's `fields` shape:      { FIELDNAME: [<value>, null] }
+
+  function blocklyStateToSb3Blocks(state) {
+    const out = {};
+    const root = state && state.blocks && state.blocks.blocks;
+    if (!Array.isArray(root)) return out;
+
+    for (const top of root) {
+      emitBlock(out, top, /* parentId */ null, /* topLevel */ true);
+    }
+    return out;
+  }
+
+  function emitBlock(out, blkly, parentId, topLevel) {
+    const id = blkly.id || genSb3Id();
+    const node = {
+      opcode: blkly.type,
+      next: null,
+      parent: parentId,
+      inputs: {},
+      fields: convertFields(blkly.fields || {}),
+      shadow: !!blkly.shadow,
+      topLevel: !!topLevel,
+    };
+    if (topLevel) {
+      node.x = (blkly.x === undefined ? 0 : blkly.x);
+      node.y = (blkly.y === undefined ? 0 : blkly.y);
+    }
+    out[id] = node;
+
+    for (const [name, inp] of Object.entries(blkly.inputs || {})) {
+      node.inputs[name] = encodeInput(out, blkly.type, name, inp, id);
+    }
+
+    if (blkly.next && blkly.next.block) {
+      const nextId = emitBlock(out, blkly.next.block, id, /* topLevel */ false);
+      node.next = nextId;
+    }
+    return id;
+  }
+
+  function convertFields(fields) {
+    const out = {};
+    for (const [k, v] of Object.entries(fields)) out[k] = [v, null];
+    return out;
+  }
+
+  function encodeInput(out, parentOpcode, inputName, inp, parentId) {
+    let shadowId = null;
+    let blockId  = null;
+
+    if (inp.shadow) {
+      shadowId = emitBlock(out, { ...inp.shadow, shadow: true }, parentId, false);
+    }
+    if (inp.block) {
+      blockId = emitBlock(out, inp.block, parentId, false);
+    }
+
+    if (shadowId && blockId) return [3, blockId, shadowId];
+    if (blockId)             return [2, blockId];
+    if (shadowId)            return [1, shadowId];
+
+    // No block, no shadow — synthesize a default shadow from the contract.
+    const contract = shadowFor(parentOpcode, inputName);
+    const synthId = genSb3Id();
+    out[synthId] = {
+      opcode: contract.opcode,
+      next: null, parent: parentId,
+      inputs: {},
+      fields: { [contract.fieldName]: [contract.defaultValue, null] },
+      shadow: true, topLevel: false,
+    };
+    return [1, synthId];
+  }
+
+  LLSP3.blocks = { shadowFor, genSb3Id, blocklyStateToSb3Blocks, SHADOW_CONTRACT };
 })(typeof window !== 'undefined' ? window : globalThis);
