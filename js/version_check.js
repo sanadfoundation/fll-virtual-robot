@@ -105,12 +105,58 @@
     el.hidden = false;
   }
 
-  // ── Bootstrap (single check, no polling yet — added in Task 6) ────────────
+  // ── Polling ───────────────────────────────────────────────────────────────
+  const POLL_INTERVAL_MS = 5 * 60 * 1000;
+  let pollTimerId = null;
+
+  async function checkOnce() {
+    const latest = await fetchVersion();
+    if (!latest) return;
+    if (shouldShowBanner(latest.sha, baselineSha, dismissedSha)) {
+      showBanner(latest.sha, latest.builtAt);
+    } else if (bannerEl && !bannerEl.hidden && latest.sha !== bannerEl.dataset.sha) {
+      // Banner already up; a newer SHA appeared. Update the tooltip silently.
+      bannerEl.dataset.sha = latest.sha;
+      bannerEl.title = latest.builtAt ? ('Built ' + latest.builtAt) : '';
+    }
+  }
+
+  function startPolling() {
+    if (pollTimerId !== null) return;
+    pollTimerId = root.setInterval(checkOnce, POLL_INTERVAL_MS);
+  }
+
+  function stopPolling() {
+    if (pollTimerId === null) return;
+    root.clearInterval(pollTimerId);
+    pollTimerId = null;
+  }
+
+  function onVisibilityChange() {
+    const doc = root.document;
+    if (!doc) return;
+    if (doc.visibilityState === 'visible') {
+      startPolling();
+      checkOnce(); // immediate catch-up
+    } else {
+      stopPolling();
+    }
+  }
+
+  // ── Bootstrap ─────────────────────────────────────────────────────────────
   async function bootstrap() {
     const initial = await fetchVersion();
-    if (!initial) return; // dormant: dev server, network error, etc.
+    if (!initial) return; // dormant
     baselineSha  = initial.sha;
     dismissedSha = readDismissed();
+
+    const doc = root.document;
+    if (doc && doc.addEventListener) {
+      doc.addEventListener('visibilitychange', onVisibilityChange);
+    }
+    if (!doc || doc.visibilityState === 'visible') {
+      startPolling();
+    }
   }
 
   // Runtime entry point (Task 6 will start polling from here).
