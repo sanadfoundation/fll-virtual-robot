@@ -15,6 +15,7 @@ function loadVersionCheck() {
     window: root,
     globalThis: root,
     console,
+    Object: Object,  // Pass outer Object so vm code can create objects with correct prototype
   });
   vm.runInContext(SRC, context);
   return root.versionCheck;

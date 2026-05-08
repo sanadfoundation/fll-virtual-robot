@@ -8,8 +8,14 @@
     if (latestSha === dismissedSha) return false;
     return true;
   }
-  function parseVersionPayload(/* text */) {
-    throw new Error('not implemented');
+  function parseVersionPayload(text) {
+    let data;
+    try { data = JSON.parse(text); }
+    catch (e) { return null; }
+    if (!data || typeof data.sha !== 'string' || data.sha.length === 0) return null;
+    const builtAt = (typeof data.builtAt === 'string') ? data.builtAt : null;
+    // Reconstruct the object to ensure consistent prototype across contexts
+    return Object.fromEntries([['sha', data.sha], ['builtAt', builtAt]]);
   }
 
   // Runtime entry point (filled in by Task 5/6). Safe no-op for now.
