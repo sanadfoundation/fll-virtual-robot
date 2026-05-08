@@ -70,7 +70,16 @@
         hooks.setDirty(false);
         hooks.appendOutput(`[load] Opened "${name}"`, 'info');
       } catch (e) {
-        hooks.appendOutput('[load] ' + (e && e.message ? e.message : String(e)), 'error');
+        const msg = (e && e.message) ? e.message : String(e);
+        let display;
+        if (/missing manifest|invalid JSON|loadAsync/i.test(msg)) {
+          display = "[load] Couldn't read this file — it doesn't look like a .llsp3.";
+        } else if (/Unsupported \.llsp3 type/i.test(msg)) {
+          display = `[load] This file uses a project type the simulator doesn't support.`;
+        } else {
+          display = '[load] ' + msg;
+        }
+        hooks.appendOutput(display, 'error');
       }
     });
 
