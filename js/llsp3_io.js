@@ -30,5 +30,33 @@
     throw new Error(`Unsupported .llsp3 type: ${manifest.type}`);
   }
 
-  LLSP3.io = { read };
+  const PYTHON_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">` +
+    `<rect width="96" height="96" rx="12" fill="#3b82f6"/>` +
+    `<text x="48" y="58" text-anchor="middle" font-family="monospace" font-size="32" fill="#fff">Py</text>` +
+    `</svg>`;
+
+  const BLOCKS_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">` +
+    `<rect width="96" height="96" rx="12" fill="#fbbf24"/>` +
+    `<text x="48" y="58" text-anchor="middle" font-family="monospace" font-size="32" fill="#1f2937">Bl</text>` +
+    `</svg>`;
+
+  async function write(project) {
+    const zip = new JSZip();
+    zip.file('manifest.json', JSON.stringify(project.manifest));
+
+    if (project.type === 'python') {
+      zip.file('projectbody.json', LLSP3.python.writeProjectBody(project.python));
+      zip.file('icon.svg', PYTHON_ICON_SVG);
+    } else if (project.type === 'word-blocks') {
+      if (!project.sb3) throw new Error('write: word-blocks project requires sb3 bytes');
+      zip.file('scratch.sb3', project.sb3);
+      zip.file('icon.svg', BLOCKS_ICON_SVG);
+    } else {
+      throw new Error(`write: unsupported project type ${project.type}`);
+    }
+
+    return await zip.generateAsync({ type: 'uint8array' });
+  }
+
+  LLSP3.io = { read, write };
 })(typeof window !== 'undefined' ? window : globalThis);
