@@ -107,13 +107,16 @@ The ruler does *not* respect the `_dirty` flag any differently than other field 
 
 ### Unit (existing `node:test` harness in `tests/js/`)
 
-The renderer is canvas-API-heavy and not productively unit-tested as a whole, but two pure helpers can and should be extracted and tested:
+The renderer is canvas-API-heavy and not productively unit-tested as a whole, but the underlying geometry is. Pure helpers go in a new UMD module `js/ruler.js` (mirrors the `js/kinematics.js` pattern: same source loads as a `<script>` assigning to `window.ruler` and as a CommonJS module). Tests `require('../../../js/ruler.js')` directly, no vm sandbox needed.
 
-- `rulerTickPositions(fieldMM, majorPitch, minorPitch) → { major: number[], minor: number[] }` — returns the mm offsets for ticks along one axis. Tests cover:
-  - 2362 mm × 200/100 mm pitch → expected major and minor arrays, no duplicates at 200 mm boundaries (a position that's both major and minor counts only as major).
-  - 1143 mm × 200/100 mm pitch → same shape, ends within bounds.
-  - Pitch larger than field → only `0` returned for major; minors empty.
-- `clientToMM(clientX, clientY, rect, scale) → { x, y }` — pure conversion used by the hover overlay. Tests cover origin (top-left), bottom-right, midpoint, and a sanity check that scale = 0.5 halves the result.
+Helpers and tests:
+
+- `tickPositions(fieldMM, majorPitch, minorPitch) → { major: number[], minor: number[] }` — returns the mm offsets for ticks along one axis. A position that lands on both pitches counts as major only (no duplicates). Tests cover:
+  - 2362 mm × 200 / 100 mm → 12 majors (0…2200), 12 minors (100, 300, 500, … 2300).
+  - 1143 mm × 200 / 100 mm → 6 majors (0…1000), 6 minors (100, 300, 500, 700, 900, 1100).
+  - Pitch larger than field → `[0]` for major, `[]` for minor.
+- `clientToMM(clientX, clientY, rect, scale) → { x, y }` — pure conversion used by the hover overlay. Tests cover top-left of rect, bottom-right, midpoint, and `scale = 0.5` halves the result.
+- `placeHoverOverlay(cursorX, cursorY, canvasW, canvasH, overlayW, overlayH, offset) → { left, top }` — picks a non-clipping corner near the cursor. Tests cover top-left (no flip), near-right edge (flips left), near-bottom edge (flips up), near-bottom-right corner (flips both).
 
 ### Manual smoke
 
@@ -137,8 +140,9 @@ The renderer is canvas-API-heavy and not productively unit-tested as a whole, bu
 
 ## File touch list
 
-- **Modified:** `js/simulator.js` — new `_drawRuler(ctx, s)`, `mousemove` / `mouseleave` listeners in the constructor, helpers `rulerTickPositions` and `clientToMM` exported on the class (or module-scope) for tests.
-- **Modified:** `index.html` — one `<div id="canvas-hover" hidden></div>` inside `.canvas-wrap`.
-- **Modified:** `css/style.css` — `#canvas-hover` styles using existing theme tokens.
-- **New:** `tests/js/ruler/ruler.test.js` — unit tests for `rulerTickPositions` and `clientToMM`.
+- **New:** `js/ruler.js` — UMD module exposing `tickPositions`, `clientToMM`, `placeHoverOverlay`. No DOM / canvas access; pure functions only.
+- **New:** `tests/js/ruler/ruler.test.js` — unit tests for the three helpers, `node:test` style.
+- **Modified:** `js/simulator.js` — new `_drawRuler(ctx, s)` reading `window.ruler.tickPositions`, plus `mousemove` / `mouseleave` listeners attached to the canvas in the constructor that drive the `#canvas-hover` overlay via `clientToMM` and `placeHoverOverlay`.
+- **Modified:** `index.html` — one `<div id="canvas-hover" hidden></div>` inside `.canvas-wrap`, and a `<script src="js/ruler.js">` tag immediately before `<script src="js/simulator.js">` (matches the `kinematics.js` placement).
+- **Modified:** `css/style.css` — `#canvas-hover` styles using `--surface2` / `--text` / `--border2` / `--font-code`.
 - **Modified:** `BACKLOG.md` — strike the "Field rulers" line under Debugging & Observation.
