@@ -430,7 +430,7 @@ Then add `_drawRuler` as a new method on `RobotSimulator`. Place it directly aft
 
 - [ ] **Step 5.2: Run existing tests to confirm nothing regressed**
 
-Run: `node --test tests/js/`
+Run: `node --test 'tests/js/**/*.test.js'`
 
 Expected: all tests pass (the simulator-level tests use `_draw` indirectly via constructor / state; ruler ticks are pure-canvas-API and don't disturb logic).
 
@@ -504,7 +504,7 @@ In `js/simulator.js`, append to the body of `_drawRuler` — just before the tra
 
 - [ ] **Step 6.2: Run existing tests**
 
-Run: `node --test tests/js/`
+Run: `node --test 'tests/js/**/*.test.js'`
 
 Expected: still all green.
 
@@ -655,7 +655,7 @@ Then add `_handleHover` as a new method. Place it directly above the existing `s
 
 - [ ] **Step 8.2: Run all tests to confirm no regressions**
 
-Run: `node --test tests/js/`
+Run: `node --test 'tests/js/**/*.test.js'`
 
 Expected: all green. The simulator-level tests don't fire mouse events; the listener wiring is dormant under tests because `document.getElementById('canvas-hover')` returns the mock element from `tests/js/sim-helper.js` only if `makeWindowGlobals` happens to provide one. If a test fails because of a missing element, the `if (this._hoverEl)` guard already handles that — confirm the failure isn't somewhere else.
 
@@ -695,7 +695,7 @@ Remove it. (The convention in this repo is to delete completed backlog items rat
 
 - [ ] **Step 9.2: Run the full test suite once more**
 
-Run: `node --test tests/js/`
+Run: `node --test 'tests/js/**/*.test.js'`
 
 Expected: all green.
 
