@@ -40,7 +40,13 @@
 <header>
   <div class="app-logo">
     <div class="logo-mark">🤖</div>
-    <h1><span class="fll">FLL</span><span class="sep">/</span><span class="sub">Virtual Robot Simulator</span></h1>
+    <h1><span class="fll">FLL</span></h1>
+  </div>
+
+  <div class="file-controls">
+    <input type="file" id="file-open-input" accept=".llsp3" style="display:none">
+    <button class="btn btn-file" id="btn-open"  title="Open .llsp3 file">📂 Open</button>
+    <button class="btn btn-file" id="btn-save"  title="Save current project as .llsp3">💾 Save</button>
   </div>
 
   <div class="project-name-wrap">
@@ -51,12 +57,6 @@
   <div class="tab-group">
     <button class="tab-btn active" id="tab-python">🐍 Python</button>
     <button class="tab-btn"        id="tab-blocks">🧱 Blocks</button>
-  </div>
-
-  <div class="file-controls">
-    <input type="file" id="file-open-input" accept=".llsp3" style="display:none">
-    <button class="btn btn-file" id="btn-open"  title="Open .llsp3 file">📂 Open</button>
-    <button class="btn btn-file" id="btn-save"  title="Save current project as .llsp3">💾 Save</button>
   </div>
 
   <div class="spacer"></div>
