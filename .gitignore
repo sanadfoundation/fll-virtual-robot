@@ -7,3 +7,6 @@
 
 # Claude
 .superpowers
+
+# Generated per-deploy by .github/workflows/deploy-pages.yml; never commit a local copy
+static/version.json
