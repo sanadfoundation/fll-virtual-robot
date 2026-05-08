@@ -88,5 +88,16 @@
     return NUMERIC_DEFAULT;
   }
 
-  LLSP3.blocks = { shadowFor, SHADOW_CONTRACT };
+  const SB3_ID_ALPHABET =
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-!#$%&()*+,.:;<=>?@[]^`{|}~';
+
+  function genSb3Id() {
+    let id = '';
+    for (let i = 0; i < 20; i++) {
+      id += SB3_ID_ALPHABET[Math.floor(Math.random() * SB3_ID_ALPHABET.length)];
+    }
+    return id;
+  }
+
+  LLSP3.blocks = { shadowFor, genSb3Id, SHADOW_CONTRACT };
 })(typeof window !== 'undefined' ? window : globalThis);

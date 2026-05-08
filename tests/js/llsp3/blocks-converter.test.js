@@ -40,3 +40,11 @@ test('shadowFor: unknown input falls back to math_number "10"', () => {
   assert.strictEqual(s.opcode, 'math_number');
   assert.strictEqual(s.defaultValue, '10');
 });
+
+test('genSb3Id: produces 20-char unique ids', () => {
+  const ctx = env();
+  const ids = new Set();
+  for (let i = 0; i < 100; i++) ids.add(ctx.LLSP3.blocks.genSb3Id());
+  assert.strictEqual(ids.size, 100);
+  for (const id of ids) assert.strictEqual(id.length, 20);
+});
