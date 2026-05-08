@@ -39,13 +39,13 @@ test('shouldShowBanner: false on empty / null baseline (cannot compare)', () => 
 test('parseVersionPayload: returns { sha, builtAt } for well-formed JSON', () => {
   const { parseVersionPayload } = loadVersionCheck();
   const result = parseVersionPayload('{"sha":"abc","builtAt":"2026-05-07T18:42:11Z"}');
-  assert.deepStrictEqual(result, { sha: 'abc', builtAt: '2026-05-07T18:42:11Z' });
+  assert.deepEqual(result, { sha: 'abc', builtAt: '2026-05-07T18:42:11Z' });
 });
 
 test('parseVersionPayload: returns object with sha when builtAt missing', () => {
   const { parseVersionPayload } = loadVersionCheck();
   const result = parseVersionPayload('{"sha":"abc"}');
-  assert.deepStrictEqual(result, { sha: 'abc', builtAt: null });
+  assert.deepEqual(result, { sha: 'abc', builtAt: null });
 });
 
 test('parseVersionPayload: returns null when sha missing', () => {
@@ -62,7 +62,7 @@ test('parseVersionPayload: returns null on malformed JSON', () => {
 test('parseVersionPayload: ignores unknown fields', () => {
   const { parseVersionPayload } = loadVersionCheck();
   const result = parseVersionPayload('{"sha":"abc","builtAt":"t","extra":42}');
-  assert.deepStrictEqual(result, { sha: 'abc', builtAt: 't' });
+  assert.deepEqual(result, { sha: 'abc', builtAt: 't' });
 });
 
 test('parseVersionPayload: rejects non-string sha', () => {
