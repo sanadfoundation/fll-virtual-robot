@@ -195,6 +195,32 @@
     return id;
   }
 
+  // Map Blockly-shadow shapes to Scratch 3 inline primitive type codes.
+  // Returns null if the shadow is not eligible for inline-primitive compression
+  // (i.e. has a nested block, has multiple fields, or is a non-primitive type).
+  const PRIMITIVE_TYPE_BY_OPCODE = {
+    math_number:           [4, 'NUM'],
+    math_positive_number:  [5, 'NUM'],
+    math_whole_number:     [6, 'NUM'],
+    math_integer:          [7, 'NUM'],
+    math_angle:            [8, 'NUM'],
+    colour_picker:         [9, 'COLOUR'],
+    text:                  [10, 'TEXT'],
+    // event_broadcast_menu (11) needs a (name, id) tuple — defer to verbose form.
+  };
+
+  function tryInlinePrimitive(shadow) {
+    if (!shadow || typeof shadow !== 'object') return null;
+    if (shadow.next) return null;
+    if (shadow.inputs && Object.keys(shadow.inputs).length) return null;
+    const entry = PRIMITIVE_TYPE_BY_OPCODE[shadow.type];
+    if (!entry) return null;
+    const [typeCode, fieldName] = entry;
+    const value = shadow.fields && shadow.fields[fieldName];
+    if (value === undefined || value === null) return null;
+    return [typeCode, String(value)];
+  }
+
   // ── Blockly serialization → sb3 blocks ───────────────────────────────────
   // Blockly's `inputs` shape:  { INPUTNAME: { block: {...}, shadow: {...} } }
   // Blockly's `fields` shape:  { FIELDNAME: <value> }
@@ -259,7 +285,7 @@
         opcode: contract.opcode,
         next: null, parent: id,
         inputs: {},
-        fields: { [contract.fieldName]: [value, null] },
+        fields: { [contract.fieldName]: [String(value), null] },
         shadow: true, topLevel: false,
       };
       node.inputs[fieldName] = [1, synthId];
@@ -270,7 +296,12 @@
     //     field_dropdown values that Spike also stores as fields).
     for (const [fieldName, fieldValue] of Object.entries(blklyFields)) {
       if (handledFieldNames.has(fieldName)) continue;
-      node.fields[fieldName] = [fieldValue, null];
+      // Scratch 3 spec: field values must be strings, regardless of whether
+      // the field is conceptually numeric. Coerce here.
+      node.fields[fieldName] = [
+        (fieldValue === null || fieldValue === undefined) ? fieldValue : String(fieldValue),
+        null,
+      ];
     }
 
     // Inputs: process any explicit Blockly inputs (these may include
@@ -287,6 +318,15 @@
   }
 
   function encodeInput(out, parentOpcode, inputName, inp, parentId) {
+    // Try to compress trivial shadow + no nested block to inline primitive.
+    // Spike Prime strict-validates the Scratch 3 sb3 format and silently drops
+    // blocks/stacks that use the verbose (separate-block) form for trivial
+    // primitive shadows.
+    if (inp.shadow && !inp.block) {
+      const inline = tryInlinePrimitive(inp.shadow);
+      if (inline) return [1, inline];
+    }
+
     let shadowId = null;
     let blockId  = null;
 
@@ -302,13 +342,19 @@
     if (shadowId)            return [1, shadowId];
 
     // No block, no shadow — synthesize a default shadow from the contract.
+    // For numeric/text contract defaults, use the inline-primitive form.
     const contract = shadowFor(parentOpcode, inputName);
+    const inlineEntry = PRIMITIVE_TYPE_BY_OPCODE[contract.opcode];
+    if (inlineEntry) {
+      return [1, [inlineEntry[0], String(contract.defaultValue)]];
+    }
+    // Otherwise emit a separate shadow block referencing the contract.
     const synthId = genSb3Id();
     out[synthId] = {
       opcode: contract.opcode,
       next: null, parent: parentId,
       inputs: {},
-      fields: { [contract.fieldName]: [contract.defaultValue, null] },
+      fields: { [contract.fieldName]: [String(contract.defaultValue), null] },
       shadow: true, topLevel: false,
     };
     return [1, synthId];

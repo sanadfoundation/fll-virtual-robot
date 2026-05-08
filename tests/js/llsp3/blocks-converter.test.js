@@ -98,7 +98,7 @@ test('blocklyStateToSb3Blocks: simple two-block chain (whenProgramStarts → set
   assert.strictEqual(move.inputs.PAIR[0], 1, 'shadow-only input encoded as 1');
 });
 
-test('blocklyStateToSb3Blocks: inline math_number shadow becomes [1, math_number_block_id]', () => {
+test('blocklyStateToSb3Blocks: trivial math_number shadow is compressed to inline primitive [1, [4, "<value>"]]', () => {
   const ctx = env();
   const state = {
     blocks: {
@@ -123,11 +123,11 @@ test('blocklyStateToSb3Blocks: inline math_number shadow becomes [1, math_number
   const out = ctx.LLSP3.blocks.blocklyStateToSb3Blocks(state);
   const move = Object.values(out).find(b => b.opcode === 'flippermove_move');
   assert.ok(move);
-  assert.strictEqual(move.inputs.VALUE[0], 1);
-  const shadowId = move.inputs.VALUE[1];
-  assert.ok(typeof shadowId === 'string');
-  assert.strictEqual(out[shadowId].opcode, 'math_number');
-  assert.deepStrictEqual(out[shadowId].fields.NUM, ['10', null]);
+  // Trivial math_number shadow is compressed to a Scratch 3 inline primitive.
+  assert.deepStrictEqual(move.inputs.VALUE, [1, [4, '10']]);
+  // No separate math_number block should exist in the dictionary.
+  const mn = Object.values(out).filter(b => b.opcode === 'math_number');
+  assert.strictEqual(mn.length, 0, 'no separate math_number blocks for trivial shadows');
 });
 
 test('sb3BlocksToBlocklyState: round-trips a chain through forward+inverse converters', () => {
@@ -315,4 +315,104 @@ test('blocklyStateToSb3Blocks: explicit input wins over auto-promote (no double-
   // Only one PAIR shadow should exist — count flippermove_movement-port-selector blocks.
   const shadowCount = Object.values(out).filter(b => b.opcode === 'flippermove_movement-port-selector').length;
   assert.strictEqual(shadowCount, 1, 'no double-emit');
+});
+
+test('encodeInput: trivial math_number shadow becomes inline primitive [1, [4, "<num>"]]', () => {
+  const ctx = env();
+  const state = {
+    blocks: { languageVersion: 0, blocks: [{
+      type: 'flippermove_steer',
+      id: 'S',
+      x: 0, y: 0,
+      fields: { UNIT: 'rotations' },
+      inputs: {
+        STEERING: { shadow: { type: 'math_number', id: 'M1', fields: { NUM: 50 } } },
+        VALUE:    { shadow: { type: 'math_number', id: 'M2', fields: { NUM: 1 } } },
+      },
+    }] }
+  };
+
+  const out = ctx.LLSP3.blocks.blocklyStateToSb3Blocks(state);
+  const steer = Object.values(out).find(b => b.opcode === 'flippermove_steer');
+  assert.ok(steer);
+
+  // Inputs are inline primitives — no separate math_number block in `out`.
+  assert.deepStrictEqual(steer.inputs.STEERING, [1, [4, '50']], 'STEERING inline primitive with string value');
+  assert.deepStrictEqual(steer.inputs.VALUE,    [1, [4, '1']],  'VALUE inline primitive with string value');
+
+  // No math_number blocks should exist in the dictionary.
+  const mn = Object.values(out).filter(b => b.opcode === 'math_number');
+  assert.strictEqual(mn.length, 0, 'no separate math_number blocks emitted for trivial shadows');
+});
+
+test('encodeInput: trivial text shadow becomes inline [1, [10, "<text>"]]', () => {
+  const ctx = env();
+  const state = {
+    blocks: { languageVersion: 0, blocks: [{
+      type: 'flipperlight_lightDisplayText',
+      id: 'L',
+      x: 0, y: 0,
+      inputs: {
+        TEXT: { shadow: { type: 'text', id: 'T1', fields: { TEXT: 'Done!' } } },
+      },
+    }] }
+  };
+  const out = ctx.LLSP3.blocks.blocklyStateToSb3Blocks(state);
+  const ld = Object.values(out).find(b => b.opcode === 'flipperlight_lightDisplayText');
+  assert.deepStrictEqual(ld.inputs.TEXT, [1, [10, 'Done!']]);
+  const txt = Object.values(out).filter(b => b.opcode === 'text');
+  assert.strictEqual(txt.length, 0);
+});
+
+test('encodeInput: math_number shadow with nested block stays in verbose form', () => {
+  const ctx = env();
+  const state = {
+    blocks: { languageVersion: 0, blocks: [{
+      type: 'flippermove_steer',
+      id: 'S',
+      x: 0, y: 0,
+      fields: { UNIT: 'rotations' },
+      inputs: {
+        STEERING: {
+          // shadow + a real block plugged into the slot
+          shadow: { type: 'math_number', id: 'M1', fields: { NUM: 50 } },
+          block:  { type: 'operator_add', id: 'A',
+                    inputs: {
+                      NUM1: { shadow: { type: 'math_number', id: 'M2', fields: { NUM: 1 } } },
+                      NUM2: { shadow: { type: 'math_number', id: 'M3', fields: { NUM: 2 } } },
+                    } },
+        },
+      },
+    }] }
+  };
+  const out = ctx.LLSP3.blocks.blocklyStateToSb3Blocks(state);
+  const steer = Object.values(out).find(b => b.opcode === 'flippermove_steer');
+  // STEERING uses tag 3 (block-with-shadow), with both ids being strings.
+  assert.strictEqual(steer.inputs.STEERING[0], 3);
+  assert.strictEqual(typeof steer.inputs.STEERING[1], 'string', 'block id is string');
+  assert.strictEqual(typeof steer.inputs.STEERING[2], 'string', 'shadow id is string');
+  // operator_add and its shadows are emitted as separate blocks.
+  assert.ok(Object.values(out).some(b => b.opcode === 'operator_add'));
+});
+
+test('emitBlock: all field values are strings (Scratch 3 spec)', () => {
+  const ctx = env();
+  const state = {
+    blocks: { languageVersion: 0, blocks: [{
+      type: 'flippermove_move',
+      id: 'M',
+      x: 0, y: 0,
+      fields: { DIRECTION: 'forward', UNIT: 'cm' },
+      inputs: {
+        VALUE: { shadow: { type: 'math_number', id: 'V', fields: { NUM: 20 } } },
+      },
+    }] }
+  };
+  const out = ctx.LLSP3.blocks.blocklyStateToSb3Blocks(state);
+  for (const b of Object.values(out)) {
+    for (const [name, pair] of Object.entries(b.fields || {})) {
+      assert.strictEqual(typeof pair[0], 'string',
+        `field ${b.opcode}.${name} value should be string, got ${typeof pair[0]} (${pair[0]})`);
+    }
+  }
 });
