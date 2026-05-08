@@ -51,3 +51,25 @@ test('clientToMM: scale 0.5 doubles mm distance', () => {
   const rect = { left: 0, top: 0 };
   assert.deepEqual(r.clientToMM(200, 100, rect, 0.5), { x: 400, y: 200 });
 });
+
+// ── placeHoverOverlay ───────────────────────────────────────────────────────
+
+test('placeHoverOverlay: cursor in interior → bottom-right of cursor', () => {
+  const out = r.placeHoverOverlay(50, 50, 700, 400, 110, 18, 12);
+  assert.deepEqual(out, { left: 62, top: 62 });
+});
+
+test('placeHoverOverlay: cursor near right edge → flips to left of cursor', () => {
+  const out = r.placeHoverOverlay(650, 50, 700, 400, 110, 18, 12);
+  assert.deepEqual(out, { left: 528, top: 62 }); // 650 - 12 - 110 = 528
+});
+
+test('placeHoverOverlay: cursor near bottom edge → flips above cursor', () => {
+  const out = r.placeHoverOverlay(50, 380, 700, 400, 110, 18, 12);
+  assert.deepEqual(out, { left: 62, top: 350 }); // 380 - 12 - 18 = 350
+});
+
+test('placeHoverOverlay: cursor in bottom-right corner → flips both axes', () => {
+  const out = r.placeHoverOverlay(680, 390, 700, 400, 110, 18, 12);
+  assert.deepEqual(out, { left: 558, top: 360 });
+});

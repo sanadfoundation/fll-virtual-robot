@@ -41,5 +41,16 @@
     };
   }
 
-  return { tickPositions, clientToMM };
+  // Pick a non-clipping corner near the cursor. Default placement is
+  // bottom-right of the cursor; flips to the opposite side near the right
+  // or bottom edge so the overlay never extends past the canvas.
+  function placeHoverOverlay(cursorX, cursorY, canvasW, canvasH, overlayW, overlayH, offset) {
+    let left = cursorX + offset;
+    let top  = cursorY + offset;
+    if (left + overlayW > canvasW) left = cursorX - offset - overlayW;
+    if (top  + overlayH > canvasH) top  = cursorY - offset - overlayH;
+    return { left, top };
+  }
+
+  return { tickPositions, clientToMM, placeHoverOverlay };
 });
