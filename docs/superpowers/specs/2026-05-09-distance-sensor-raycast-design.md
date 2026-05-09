@@ -49,6 +49,29 @@ Boundary: `simulator.js` continues to know nothing about `b2*` types. The new
 `World2D.castRay` takes mm-space inputs and returns mm-space outputs only.
 Future sensors reuse it without learning Box2D.
 
+### Component interactions
+
+![Distance sensor component interactions](2026-05-09-distance-sensor-raycast-interactions.svg)
+
+Source: [`2026-05-09-distance-sensor-raycast-interactions.mmd`](2026-05-09-distance-sensor-raycast-interactions.mmd)
+
+Three flows worth understanding before reading the rest of the spec:
+
+- **A · Per-step raycast (blue).** During a motion command, every physics
+  tick the sim asks `World2D.castRay`, which runs `world.RayCast` and clamps
+  to the closest non-robot fixture. The result populates
+  `robot.sensors.distanceMM` (for the post-command snapshot) and
+  `distanceHit`/`distanceOrigin` (for the canvas overlay).
+- **B · Python sensor read (sand).** Python reads `_state['distance_mm']`
+  directly — no JS round-trip. The cached value is whatever the last command-
+  end snapshot stored. A read from Python while the robot is idle returns
+  whatever the last command wrote. This is a pre-existing architectural
+  property of the bridge, not something this work changes.
+- **C · Blockly sensor read (green).** Blockly's generators call
+  `window.sim.getDistanceSensorValue()` directly from generated JS (no worker
+  round-trip), so an on-demand recompute in the getter gives Blockly programs
+  a fresh value any read. Python does **not** traverse this path.
+
 ## `World2D.castRay`
 
 ### Signature
@@ -174,12 +197,21 @@ _updateDistanceSensor() {
 ### Two call sites
 
 1. Inside `_animateTank`, immediately after the existing `colorValue` update
-   (currently around line 751). Keeps the overlay smooth and the
-   `_sensorState()` snapshot fresh for `executeCommand`'s return payload.
+   (currently around line 751). Drives the overlay during motion and ensures
+   the `_sensorState()` snapshot returned by `executeCommand` carries the
+   final post-command distance back to Python.
 2. At the top of `getDistanceSensorValue()` and `getDistanceSensorPresence()`.
-   Covers idle reads — Python code that polls
-   `runloop.until(lambda: distance_sensor.distance(F) < 100)` while the robot
-   is stopped still gets a fresh value.
+   These getters are called from **Blockly generated code** (see flow C in
+   the interaction diagram, e.g. `js/blockly_config.js:1510-1517`), which
+   bypasses the worker. The on-demand recompute means a Blockly program that
+   polls the sensor in a tight loop gets a fresh value each read.
+
+   This recompute does **not** affect Python idle reads:
+   `distance_sensor.distance(F)` reads `_state['distance_mm']` directly
+   (`py/spike_bridge.py:307`), which is only refreshed when a `_bridge_call`
+   round-trip lands. Making Python idle polling fresh is a separate change
+   (e.g. a `read_sensors` bridge call from each Python sensor read) and is
+   out of scope here.
 
 ### Bridge contract
 
