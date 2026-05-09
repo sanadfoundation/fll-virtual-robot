@@ -186,9 +186,12 @@ _updateDistanceSensor() {
 `py/spike_bridge.py:308` already returns `-1` for `v >= 9999`. We don't touch
 Python — the contract is honored by setting `distanceMM = 9999` on miss.
 
-`getDistanceSensorPresence()` (currently `return distanceMM < 100`) keeps
-working unchanged: `9999 < 100` is false, the correct out-of-range answer.
-LEGO's real `presence()` is binary; this approximation is acceptable.
+`getDistanceSensorPresence()` (currently `return distanceMM < 100`) is left
+**unchanged**. With `distanceMM = 9999` on miss, `9999 < 100` is false, which
+is the correct out-of-range answer. The pre-existing approximation
+(presence = "object within 10 cm") differs from LEGO's real binary
+"anything-detected" semantics, but bringing presence to parity is not part of
+this work — it's a separate behavioral change that stands on its own.
 
 ## Overlay rendering
 
