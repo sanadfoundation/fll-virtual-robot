@@ -13,6 +13,9 @@
   <script src="https://unpkg.com/blockly@10.4.3/blockly.min.js"></script>
   <script src="https://unpkg.com/blockly@10.4.3/javascript_compressed.js"></script>
 
+  <!-- JSZip (for .llsp3 read/write) -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
   <!-- Monaco Editor -->
   <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs/loader.js"></script>
 
@@ -37,7 +40,18 @@
 <header>
   <div class="app-logo">
     <div class="logo-mark">🤖</div>
-    <h1><span class="fll">FLL</span><span class="sep">/</span><span class="sub">Virtual Robot Simulator</span></h1>
+    <h1><span class="fll">FLL</span></h1>
+  </div>
+
+  <div class="file-controls">
+    <input type="file" id="file-open-input" accept=".llsp3" style="display:none">
+    <button class="btn btn-file" id="btn-open"  title="Open .llsp3 file">📂 Open</button>
+    <button class="btn btn-file" id="btn-save"  title="Save current project as .llsp3">💾 Save</button>
+  </div>
+
+  <div class="project-name-wrap">
+    <span class="project-name-icon">📝</span>
+    <input type="text" id="project-name" class="project-name-input" placeholder="Untitled-Project" maxlength="64">
   </div>
 
   <div class="tab-group">
@@ -180,6 +194,12 @@
 <script src="js/simulator.js"></script>
 <script src="js/blockly_config.js"></script>
 <script src="js/monaco_config.js"></script>
+<script src="js/llsp3_assets.js"></script>
+<script src="js/llsp3_manifest.js"></script>
+<script src="js/llsp3_python.js"></script>
+<script src="js/llsp3_blocks.js"></script>
+<script src="js/llsp3_io.js"></script>
+<script src="js/llsp3_ui.js"></script>
 <script src="js/main.js"></script>
 <script src="js/version_check.js"></script>
 <script>window.versionCheck && window.versionCheck.init();</script>
