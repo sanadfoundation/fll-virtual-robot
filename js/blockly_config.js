@@ -274,7 +274,7 @@ function _withEmblem(block) {
     ...block,
     message0: `%1 ${shifted}`,
     args0: [
-      { type: 'field_image', src: 'static/icons/' + icon, width: 24, height: 24, alt: '' },
+      { type: 'field_image', src: 'static/icons/' + icon, width: 40, height: 40, alt: '' },
       ...(block.args0 || []),
     ],
   };

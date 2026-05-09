@@ -385,6 +385,12 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
   display: none !important;
 }
 
+/* Match the live SPIKE app: word-block text renders at medium weight (500),
+   not Zelos' default bold. Measured directly from spike.legoeducation.com. */
+.spike_compact-renderer .blocklyText {
+  font-weight: 500;
+}
+
 /* Image-only dropdowns (direction arrows, color swatches, stop-method icons,
    acceleration chevrons) lay out as a wrapping row — matches LEGO SPIKE.
    Text dropdowns stay vertical because :has(img) doesn't match them.
