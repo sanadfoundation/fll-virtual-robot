@@ -2,7 +2,7 @@
 
 const test   = require('node:test');
 const assert = require('node:assert');
-const { createSim } = require('../sim-helper');
+const { createSim, createSimWithDocument } = require('../sim-helper');
 
 test('getColorSensorColor: returns robot.sensors.colorValue (default "none")', () => {
   const sim = createSim();
@@ -98,4 +98,56 @@ test('getColorSensorColorInt: returns 6 for "green"', () => {
   const sim = createSim();
   sim.robot.sensors.colorValue = 'green';
   assert.strictEqual(sim.getColorSensorColorInt(), 6);
+});
+
+test('units: defaults to "cm"', () => {
+  assert.strictEqual(createSim().units, 'cm');
+});
+
+test('setUnits: assigns the new unit and marks _dirty', () => {
+  const sim = createSim();
+  sim._dirty = false;
+  sim.setUnits('mm');
+  assert.strictEqual(sim.units, 'mm');
+  assert.strictEqual(sim._dirty, true);
+});
+
+test('_updateSensorPanel: X/Y formatted via formatPosition(this.units)', () => {
+  const { sim, document } = createSimWithDocument();
+  sim.robot.x = 980;
+  sim.robot.y = 254;
+
+  // Build a minimal element map and wire it into the harness document.
+  const elMap = {};
+  const fakeEl = (id) => { elMap[id] = elMap[id] || { textContent: '', style: {} }; return elMap[id]; };
+  document.getElementById = (id) => fakeEl(id);
+
+  sim.setUnits('mm');
+  sim._updateSensorPanel();
+  assert.strictEqual(elMap['sp-x'].textContent, '980 mm');
+  assert.strictEqual(elMap['sp-y'].textContent, '254 mm');
+
+  sim.setUnits('in');
+  sim._updateSensorPanel();
+  assert.strictEqual(elMap['sp-x'].textContent, '38.6 in');
+  assert.strictEqual(elMap['sp-y'].textContent, '10.0 in');
+});
+
+test('_drawRuler: reads this.units for tick pitch and label format', () => {
+  const sim = createSim();
+  sim.setUnits('in');
+  // Stand in a fake ctx that records ops and label texts.
+  const calls = [];
+  const fakeCtx = new Proxy({
+    save: () => calls.push({ op: 'save' }),
+    restore: () => calls.push({ op: 'restore' }),
+  }, {
+    get(t, k) { if (k in t) return t[k]; return (...a) => calls.push({ op: k, args: a }); },
+    set() { return true; },
+  });
+  sim._drawRuler(fakeCtx, 1);
+  // The rendered text labels should include " in" suffix (origin or some major).
+  const labels = calls.filter(c => c.op === 'fillText').map(c => c.args[0]);
+  assert.ok(labels.some(t => / in$/.test(t)),
+    `expected at least one tick label to end with " in", got: ${labels.join(', ')}`);
 });

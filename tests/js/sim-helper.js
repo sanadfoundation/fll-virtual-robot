@@ -16,7 +16,7 @@ const SIM_CODE = fs.readFileSync(
   path.resolve(__dirname, '../../js/simulator.js'), 'utf8',
 );
 
-function createSim(windowOverrides) {
+function createSimWithDocument(windowOverrides) {
   const { window, document } = makeWindowGlobals();
   Object.assign(window, windowOverrides || {});
 
@@ -40,7 +40,11 @@ function createSim(windowOverrides) {
 
   const sim = new context.window.RobotSimulator('robot-canvas');
   sim._sleep = () => Promise.resolve();
-  return sim;
+  return { sim, document };
 }
 
-module.exports = { createSim };
+function createSim(windowOverrides) {
+  return createSimWithDocument(windowOverrides).sim;
+}
+
+module.exports = { createSim, createSimWithDocument };

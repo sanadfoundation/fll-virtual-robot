@@ -30,6 +30,61 @@ test('tickPositions: tiny field smaller than minor pitch → only [0] for major,
   assert.deepEqual(minor, []);
 });
 
+test('tickPositions: float minor pitch (inches: 254 / 25.4) — no FP drift collisions', () => {
+  const { major, minor } = r.tickPositions(2362, 254, 25.4);
+  // 10 majors at 0, 254, 508, …, 2286.
+  assert.deepEqual(major, [0, 254, 508, 762, 1016, 1270, 1524, 1778, 2032, 2286]);
+  // 92 minor candidates at i=1..92, minus 9 overlaps with non-zero majors = 83.
+  assert.strictEqual(minor.length, 83);
+  // Spot-check: 254 mm sits on the major-pitch grid via 10*25.4; must not appear in minors.
+  for (const m of minor) {
+    for (const M of major) {
+      if (M === 0) continue;
+      assert.ok(Math.abs(m - M) > 1e-6, `minor ${m} collides with major ${M}`);
+    }
+  }
+});
+
+// ── tickPitchFor ────────────────────────────────────────────────────────────
+
+test('tickPitchFor: cm → 200/100 mm pitches', () => {
+  assert.deepEqual(r.tickPitchFor('cm'), { major: 200, minor: 100 });
+});
+
+test('tickPitchFor: mm → 200/100 mm pitches (same physical positions as cm)', () => {
+  assert.deepEqual(r.tickPitchFor('mm'), { major: 200, minor: 100 });
+});
+
+test('tickPitchFor: in → 254/25.4 mm pitches (10″ major, 1″ minor)', () => {
+  assert.deepEqual(r.tickPitchFor('in'), { major: 254, minor: 25.4 });
+});
+
+// ── formatPosition ──────────────────────────────────────────────────────────
+
+test('formatPosition: 980 mm in cm → "98.0 cm"', () => {
+  assert.strictEqual(r.formatPosition(980, 'cm'), '98.0 cm');
+});
+
+test('formatPosition: 980 mm in mm → "980 mm"', () => {
+  assert.strictEqual(r.formatPosition(980, 'mm'), '980 mm');
+});
+
+test('formatPosition: 980 mm in inches → "38.6 in"', () => {
+  assert.strictEqual(r.formatPosition(980, 'in'), '38.6 in');
+});
+
+test('formatPosition: 0 mm in cm → "0.0 cm"', () => {
+  assert.strictEqual(r.formatPosition(0, 'cm'), '0.0 cm');
+});
+
+test('formatPosition: 0 mm in mm → "0 mm" (no decimals)', () => {
+  assert.strictEqual(r.formatPosition(0, 'mm'), '0 mm');
+});
+
+test('formatPosition: exactly 25.4 mm in inches → "1.0 in"', () => {
+  assert.strictEqual(r.formatPosition(25.4, 'in'), '1.0 in');
+});
+
 // ── clientToMM ──────────────────────────────────────────────────────────────
 
 test('clientToMM: cursor at canvas top-left → (0, 0) mm', () => {

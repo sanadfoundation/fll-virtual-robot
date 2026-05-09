@@ -145,6 +145,7 @@ class RobotSimulator {
     this.trail     = [{ x: this.robot.x, y: this.robot.y }];
     this.isRunning = false;
     this.speedMult = 1.0;
+    this.units     = 'cm';   // 'cm' | 'mm' | 'in'; main.js calls setUnits() with stored value on load
     this.pairMap   = {};  // pair_id → { left, right }
     this._portConfig = PORT_CONFIG;
 
@@ -391,8 +392,9 @@ class RobotSimulator {
   // For each math-y tick, canvas y = (FIELD_H_MM - mm) * s.
   _drawRuler(ctx, s) {
     const ruler = window.ruler;
-    const xTicks = ruler.tickPositions(FIELD_W_MM, 200, 100);
-    const yTicks = ruler.tickPositions(FIELD_H_MM, 200, 100);
+    const { major: majorPitch, minor: minorPitch } = ruler.tickPitchFor(this.units);
+    const xTicks = ruler.tickPositions(FIELD_W_MM, majorPitch, minorPitch);
+    const yTicks = ruler.tickPositions(FIELD_H_MM, majorPitch, minorPitch);
     const H = FIELD_H_MM * s;
 
     ctx.save();
@@ -443,7 +445,7 @@ class RobotSimulator {
     for (const mm of xTicks.major) {
       if (mm === 0) continue;
       const px = mm * s;
-      const text = String(mm);
+      const text = ruler.formatPosition(mm, this.units);
       const tw = ctx.measureText(text).width;
       ctx.fillStyle = 'rgba(240,232,208,0.85)';
       ctx.fillRect(px - tw / 2 - 2, H - 17, tw + 4, 12);
@@ -456,7 +458,7 @@ class RobotSimulator {
     for (const mm of yTicks.major) {
       if (mm === 0) continue;
       const py = (FIELD_H_MM - mm) * s;
-      const text = String(mm);
+      const text = ruler.formatPosition(mm, this.units);
       const tw = ctx.measureText(text).width;
       ctx.fillStyle = 'rgba(240,232,208,0.85)';
       ctx.fillRect(9, py - 6, tw + 4, 12);
@@ -467,7 +469,7 @@ class RobotSimulator {
     // Origin marker — bottom-left in math convention.
     ctx.textAlign = 'left';
     ctx.textBaseline = 'bottom';
-    const originText = '0,0 mm';
+    const originText = `0,0 ${this.units}`;
     const otw = ctx.measureText(originText).width;
     ctx.fillStyle = 'rgba(240,232,208,0.85)';
     ctx.fillRect(4, H - 15, otw + 4, 11);
@@ -708,8 +710,8 @@ class RobotSimulator {
 
     // Pose section
     const deg = (((r.heading % 360) + 360) % 360);
-    set('sp-x',       (r.x / 10).toFixed(1) + ' cm');
-    set('sp-y',       (r.y / 10).toFixed(1) + ' cm');
+    set('sp-x',       window.ruler.formatPosition(r.x, this.units));
+    set('sp-y',       window.ruler.formatPosition(r.y, this.units));
     set('sp-heading', deg.toFixed(0) + '°');
 
     // Port rows. PORT_CONFIG is module-scope; use this._portConfig.
@@ -747,7 +749,7 @@ class RobotSimulator {
     const cursorX = event.clientX - rect.left;
     const cursorY = event.clientY - rect.top;
 
-    this._hoverEl.textContent = `x=${Math.round(x)} mm  y=${Math.round(y)} mm`;
+    this._hoverEl.textContent = `x=${window.ruler.formatPosition(x, this.units)}  y=${window.ruler.formatPosition(y, this.units)}`;
     this._hoverEl.hidden = false;
 
     // Read overlay dimensions after textContent set so size reflects content
@@ -763,6 +765,15 @@ class RobotSimulator {
     const wrapRect = this.canvas.parentElement.getBoundingClientRect();
     this._hoverEl.style.left = (left + rect.left - wrapRect.left) + 'px';
     this._hoverEl.style.top  = (top  + rect.top  - wrapRect.top)  + 'px';
+  }
+
+  // Single setter for the position-readout unit. Trusts the caller (only
+  // called from js/main.js, which validates against the allowed set before
+  // calling). Marking _dirty triggers the next animation-frame redraw of
+  // the ruler with the new tick pitch and labels.
+  setUnits(unit) {
+    this.units = unit;
+    this._dirty = true;
   }
 
   stop() {
