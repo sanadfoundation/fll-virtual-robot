@@ -111,3 +111,22 @@ test('setUnits: assigns the new unit and marks _dirty', () => {
   assert.strictEqual(sim.units, 'mm');
   assert.strictEqual(sim._dirty, true);
 });
+
+test('_drawRuler: reads this.units for tick pitch and label format', () => {
+  const sim = createSim();
+  sim.setUnits('in');
+  // Stand in a fake ctx that records ops and label texts.
+  const calls = [];
+  const fakeCtx = new Proxy({
+    save: () => calls.push({ op: 'save' }),
+    restore: () => calls.push({ op: 'restore' }),
+  }, {
+    get(t, k) { if (k in t) return t[k]; return (...a) => calls.push({ op: k, args: a }); },
+    set() { return true; },
+  });
+  sim._drawRuler(fakeCtx, 1);
+  // The rendered text labels should include " in" suffix (origin or some major).
+  const labels = calls.filter(c => c.op === 'fillText').map(c => c.args[0]);
+  assert.ok(labels.some(t => / in$/.test(t)),
+    `expected at least one tick label to end with " in", got: ${labels.join(', ')}`);
+});
