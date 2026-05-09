@@ -52,6 +52,14 @@ test('getDistanceSensorPresence: true when distanceMM < 100', () => {
   assert.strictEqual(sim.getDistanceSensorPresence(), true);
 });
 
+test('robot.sensors.distanceHit: defaults to null', () => {
+  assert.strictEqual(createSim().robot.sensors.distanceHit, null);
+});
+
+test('robot.sensors.distanceOrigin: defaults to null', () => {
+  assert.strictEqual(createSim().robot.sensors.distanceOrigin, null);
+});
+
 test('getForceSensorValue: returns 0', () => {
   assert.strictEqual(createSim().getForceSensorValue(), 0);
 });

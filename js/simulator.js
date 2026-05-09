@@ -29,6 +29,8 @@ const TRACK_W_MM    = 112;  // center-to-center
 const ROBOT_BODY_W  = 160;  // body width without wheels
 const ROBOT_BODY_H  = 200;  // body front-to-back
 const MM_PER_MS_100 = 0.9;  // robot speed at 100% (mm per ms)
+const DIST_SENSOR_MAX_MM    = 2000;  // matches LEGO Spike hardware spec
+const DIST_SENSOR_OOR_VALUE = 9999;  // wire sentinel; py/spike_bridge.py:308 maps ≥9999 → -1
 
 // ── Port configuration ──────────────────────────────────────────────────────
 // Mirror of py/spike_bridge.py _PORT_CONFIG. Customization will replace this
@@ -122,6 +124,8 @@ function makeRobotState() {
     sensors: {
       colorValue: 'none',
       distanceMM: 300,
+      distanceHit:    null,
+      distanceOrigin: null,
     },
     display: Array(25).fill(0), // 5×5 matrix brightness
   };
