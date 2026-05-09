@@ -749,7 +749,7 @@ class RobotSimulator {
     const cursorX = event.clientX - rect.left;
     const cursorY = event.clientY - rect.top;
 
-    this._hoverEl.textContent = `x=${Math.round(x)} mm  y=${Math.round(y)} mm`;
+    this._hoverEl.textContent = `x=${window.ruler.formatPosition(x, this.units)}  y=${window.ruler.formatPosition(y, this.units)}`;
     this._hoverEl.hidden = false;
 
     // Read overlay dimensions after textContent set so size reflects content
