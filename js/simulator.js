@@ -367,49 +367,54 @@ class RobotSimulator {
     ctx.strokeRect(0, 0, W, H);
   }
 
-  // Ruler: ticks along the top and left inside edges of the field. Labels
-  // and origin marker live in the same method (added in the next task).
+  // Ruler. Math y-up convention:
+  //   • Y-axis ticks at the left edge, labels read 0 at bottom up to ~1100 at top.
+  //   • X-axis ticks and labels at the BOTTOM edge (so both axes meet at the
+  //     bottom-left origin — full math-convention symmetry).
+  //   • Origin marker `0,0 mm` in the bottom-left corner.
+  // For each math-y tick, canvas y = (FIELD_H_MM - mm) * s.
   _drawRuler(ctx, s) {
     const ruler = window.ruler;
     const xTicks = ruler.tickPositions(FIELD_W_MM, 200, 100);
     const yTicks = ruler.tickPositions(FIELD_H_MM, 200, 100);
+    const H = FIELD_H_MM * s;
 
     ctx.save();
     ctx.lineWidth = 1;
 
-    // Top edge — minors first (so majors paint over any overlap), then majors
+    // Bottom edge X-axis — minors first, then majors paint over any overlap.
     ctx.strokeStyle = '#555';
     for (const mm of xTicks.minor) {
       const px = mm * s;
       ctx.beginPath();
-      ctx.moveTo(px, 0);
-      ctx.lineTo(px, 5);
+      ctx.moveTo(px, H);
+      ctx.lineTo(px, H - 5);
       ctx.stroke();
     }
     ctx.strokeStyle = '#333';
     for (const mm of xTicks.major) {
       const px = mm * s;
       ctx.beginPath();
-      ctx.moveTo(px, 0);
-      ctx.lineTo(px, 9);
+      ctx.moveTo(px, H);
+      ctx.lineTo(px, H - 9);
       ctx.stroke();
     }
 
-    // Left edge
+    // Left edge Y-axis. Math-y mm ⇒ canvas y = (FIELD_H_MM - mm) * s.
     ctx.strokeStyle = '#555';
     for (const mm of yTicks.minor) {
-      const px = mm * s;
+      const py = (FIELD_H_MM - mm) * s;
       ctx.beginPath();
-      ctx.moveTo(0, px);
-      ctx.lineTo(5, px);
+      ctx.moveTo(0, py);
+      ctx.lineTo(5, py);
       ctx.stroke();
     }
     ctx.strokeStyle = '#333';
     for (const mm of yTicks.major) {
-      const px = mm * s;
+      const py = (FIELD_H_MM - mm) * s;
       ctx.beginPath();
-      ctx.moveTo(0, px);
-      ctx.lineTo(9, px);
+      ctx.moveTo(0, py);
+      ctx.lineTo(9, py);
       ctx.stroke();
     }
 
@@ -417,7 +422,7 @@ class RobotSimulator {
     ctx.font = '9px ui-monospace, monospace';
     ctx.textBaseline = 'middle';
 
-    // Top labels (centered on each major tick, ~11 px below the edge)
+    // Bottom labels (centered on each major tick, ~11 px above the edge)
     ctx.textAlign = 'center';
     for (const mm of xTicks.major) {
       if (mm === 0) continue;
@@ -425,33 +430,33 @@ class RobotSimulator {
       const text = String(mm);
       const tw = ctx.measureText(text).width;
       ctx.fillStyle = 'rgba(240,232,208,0.85)';
-      ctx.fillRect(px - tw / 2 - 2, 5, tw + 4, 12);
+      ctx.fillRect(px - tw / 2 - 2, H - 17, tw + 4, 12);
       ctx.fillStyle = '#333';
-      ctx.fillText(text, px, 11);
+      ctx.fillText(text, px, H - 11);
     }
 
     // Left labels (~11 px right of the edge, vertically centered on each tick)
     ctx.textAlign = 'left';
     for (const mm of yTicks.major) {
       if (mm === 0) continue;
-      const px = mm * s;
+      const py = (FIELD_H_MM - mm) * s;
       const text = String(mm);
       const tw = ctx.measureText(text).width;
       ctx.fillStyle = 'rgba(240,232,208,0.85)';
-      ctx.fillRect(9, px - 6, tw + 4, 12);
+      ctx.fillRect(9, py - 6, tw + 4, 12);
       ctx.fillStyle = '#333';
-      ctx.fillText(text, 11, px);
+      ctx.fillText(text, 11, py);
     }
 
-    // Origin marker — anchors the unit (mm) once so per-tick labels stay numeric
+    // Origin marker — bottom-left in math convention.
     ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
+    ctx.textBaseline = 'bottom';
     const originText = '0,0 mm';
     const otw = ctx.measureText(originText).width;
     ctx.fillStyle = 'rgba(240,232,208,0.85)';
-    ctx.fillRect(4, 4, otw + 4, 11);
+    ctx.fillRect(4, H - 15, otw + 4, 11);
     ctx.fillStyle = '#333';
-    ctx.fillText(originText, 6, 5);
+    ctx.fillText(originText, 6, H - 5);
 
     ctx.restore();
   }
