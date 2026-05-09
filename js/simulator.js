@@ -1111,6 +1111,22 @@ class RobotSimulator {
     this.robot.sensors.forceN = FSL.combine(this._emaN, manualN);
   }
 
+  // Public: called by the Hub-panel button on pointerdown. Idempotent — a
+  // duplicate press while already pressed leaves manualStartMs untouched.
+  manualPress() {
+    if (this._manualStartMs == null) {
+      this._manualStartMs = performance.now();
+    }
+  }
+
+  // Public: called on pointerup / pointerleave / pointercancel. Snaps the
+  // manual contribution to zero immediately.
+  manualRelease() {
+    this._manualStartMs = null;
+    // Note: emaN is NOT cleared — a release while in physics contact should
+    // still surface the physics force.
+  }
+
   // ── SAB sensor snapshot ──────────────────────────────────────────────────────
 
   _sensorState() {

@@ -221,6 +221,21 @@ function initEditor() {
 function initSim() {
   sim = new RobotSimulator('robot-canvas');
   window.sim = sim;
+
+  // Wire the force-sensor press button to the simulator's manual-press API.
+  // pointerdown captures the pointer so a drag off the button still fires
+  // pointerup; pointerleave / pointercancel are belt-and-suspenders for cases
+  // where capture wasn't established (touch swipe, browser bug).
+  const forceBtn = document.getElementById('port-force-C');
+  if (forceBtn && sim) {
+    forceBtn.addEventListener('pointerdown', (e) => {
+      forceBtn.setPointerCapture && forceBtn.setPointerCapture(e.pointerId);
+      sim.manualPress();
+    });
+    forceBtn.addEventListener('pointerup',     () => sim.manualRelease());
+    forceBtn.addEventListener('pointerleave',  () => sim.manualRelease());
+    forceBtn.addEventListener('pointercancel', () => sim.manualRelease());
+  }
 }
 
 function initBlocklyWorkspace() {
