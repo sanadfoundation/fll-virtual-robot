@@ -103,8 +103,8 @@ const OBSTACLES = [
 function makeRobotState() {
   return {
     x: 350,          // mm from left edge
-    y: 980,          // mm from top edge
-    heading: -90,    // degrees, -90 = facing up (north)
+    y: 163,          // mm from bottom edge (math y-up)
+    heading: 90,     // degrees: 0=east, 90=north, 180=west, 270=south
     motors: { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 },
     sensors: {
       colorValue: 'none',

@@ -4,11 +4,11 @@ const test   = require('node:test');
 const assert = require('node:assert');
 const { createSim } = require('../sim-helper');
 
-test('initial state: x=350, y=980, heading=-90', () => {
+test('initial state: x=350, y=163, heading=90 (math y-up)', () => {
   const sim = createSim();
   assert.strictEqual(sim.robot.x, 350);
-  assert.strictEqual(sim.robot.y, 980);
-  assert.strictEqual(sim.robot.heading, -90);
+  assert.strictEqual(sim.robot.y, 163);
+  assert.strictEqual(sim.robot.heading, 90);
 });
 
 test('initial state: all 25 display pixels are 0', () => {
@@ -35,8 +35,8 @@ test('reset(): restores position, heading, trail, and pairMap', () => {
   sim.reset();
 
   assert.strictEqual(sim.robot.x, 350);
-  assert.strictEqual(sim.robot.y, 980);
-  assert.strictEqual(sim.robot.heading, -90);
+  assert.strictEqual(sim.robot.y, 163);
+  assert.strictEqual(sim.robot.heading, 90);
   assert.strictEqual(Object.keys(sim.pairMap).length, 0);
   assert.strictEqual(sim.trail.length, 1);
 });

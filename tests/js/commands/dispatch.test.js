@@ -35,7 +35,7 @@ test('stop: no state change', async () => {
   const sim = createSim();
   await sim._execCmd({ type: 'stop', pair_id: 0 });
   assert.strictEqual(sim.robot.x, 350);
-  assert.strictEqual(sim.robot.y, 980);
+  assert.strictEqual(sim.robot.y, 163);
 });
 
 test('hub_display_off: sets all 25 pixels to 0', async () => {
@@ -61,7 +61,7 @@ test('hub_pixel: out-of-bounds x/y ignored', async () => {
 test('motor_stop: no state change', async () => {
   const sim = createSim();
   await sim._execCmd({ type: 'motor_stop', port: 'A' });
-  assert.strictEqual(sim.robot.y, 980);
+  assert.strictEqual(sim.robot.y, 163);
 });
 
 test('print: calls window.appendOutput with cmd.text', async () => {
@@ -75,7 +75,7 @@ test('print: does not affect robot position', async () => {
   const sim = createSim();
   await sim._execCmd({ type: 'print', text: 'hello' });
   assert.strictEqual(sim.robot.x, 350);
-  assert.strictEqual(sim.robot.y, 980);
+  assert.strictEqual(sim.robot.y, 163);
 });
 
 // ── move (steering-based) ───────────────────────────────────────────────────
