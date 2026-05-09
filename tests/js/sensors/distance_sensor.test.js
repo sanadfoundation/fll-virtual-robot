@@ -118,7 +118,6 @@ test('getDistanceSensorValue: works with physics=null (returns existing distance
 
 function fakeCtx() {
   const calls = [];
-  const noop = (...args) => calls.push({ op: 'call', args });
   return new Proxy({ calls, save: () => calls.push({ op: 'save' }), restore: () => calls.push({ op: 'restore' }) }, {
     get(target, prop) {
       if (prop in target) return target[prop];
@@ -182,4 +181,15 @@ test('_drawDistanceSensorRay: converts math y-up to canvas y-down at the boundar
   assert.strictEqual(moveTo.args[1], 892);   // canvas y for math y=251
   assert.strictEqual(lineTo.args[0], 350);
   assert.strictEqual(lineTo.args[1], 392);   // canvas y for math y=751
+
+  // Hit dot arc — same canvas-y as lineTo's endpoint.
+  const arcCall = ctx.calls.find(c => c.op === 'arc');
+  assert.strictEqual(arcCall.args[0], 350);
+  assert.strictEqual(arcCall.args[1], 392);
+
+  // Mid-ray label — perpendicular offset 14 mm to the west (heading north).
+  // Math midpoint (350, 501); perp offset (-14, 0); label canvas-y = 1143 - 501 = 642.
+  const textCall = ctx.calls.find(c => c.op === 'fillText');
+  assert.strictEqual(textCall.args[1], 336);   // mx + px = 350 - 14
+  assert.strictEqual(textCall.args[2], 642);   // canvas y for math y=501
 });
