@@ -887,6 +887,8 @@ class RobotSimulator {
     this.trail   = [{ x: this.robot.x, y: this.robot.y }];
     this.pairMap = {};
     this._stopRequested = false;
+    this._emaN          = 0;
+    this._manualStartMs = null;
     this._trailCtx.clearRect(0, 0, this._trailCanvas.width, this._trailCanvas.height);
     this._trailArc = 0;
     this._dirty = true;
