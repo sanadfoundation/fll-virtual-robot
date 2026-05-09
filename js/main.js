@@ -519,7 +519,7 @@ async def main():
     # Pair the drive motors (left = port.A, right = port.B)
     motor_pair.pair(motor_pair.PAIR_1, port.A, port.B)
 
-    # From spawn (350, 980), drive 780 mm north to the row of upper boxes (y≈200)
+    # From spawn (350, 163), drive 780 mm north to the row of upper boxes (y≈943)
     await motor_pair.move_for_degrees(motor_pair.PAIR_1, 1596, 0, velocity=720)
 
     # Turn right 90° (now heading east)
@@ -531,7 +531,7 @@ async def main():
     # Turn right 90° (now heading south)
     await motor_pair.move_tank_for_time(motor_pair.PAIR_1, 360, -360, 500)
 
-    # Drive 600 mm south — line up with the red mission row (y≈800)
+    # Drive 600 mm south — line up with the red mission row (y≈343)
     await motor_pair.move_for_degrees(motor_pair.PAIR_1, 1228, 0, velocity=720)
 
     # Turn left 90° (now heading east)
