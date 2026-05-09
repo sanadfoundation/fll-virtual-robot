@@ -662,7 +662,10 @@ class RobotSimulator {
 
   _handleHover(event) {
     const rect = this.canvas.getBoundingClientRect();
-    const { x, y } = window.ruler.clientToMM(event.clientX, event.clientY, rect, this._scale);
+    const canvasMm = window.ruler.clientToMM(event.clientX, event.clientY, rect, this._scale);
+    // canvasMm.y is canvas-relative; convert to math y for display.
+    const x = canvasMm.x;
+    const y = FIELD_H_MM - canvasMm.y;
     const cursorX = event.clientX - rect.left;
     const cursorY = event.clientY - rect.top;
 
