@@ -994,6 +994,21 @@ class RobotSimulator {
     };
   }
 
+  // Cast a ray from the distance-sensor mount along heading and update
+  // robot.sensors.{distanceMM, distanceHit, distanceOrigin}. No-op when
+  // physics isn't ready (early startup or headless tests).
+  _updateDistanceSensor() {
+    if (!this.physics || !this.robotBody) return;
+    const m = this._distanceSensorMount(this.robot);
+    const r = this.physics.castRay(
+      { x: m.x, y: m.y }, m.angleRad, DIST_SENSOR_MAX_MM,
+      { excludeBody: this.robotBody },
+    );
+    this.robot.sensors.distanceMM     = r.hit ? r.distanceMm : DIST_SENSOR_OOR_VALUE;
+    this.robot.sensors.distanceHit    = r.hit ? r.point : null;
+    this.robot.sensors.distanceOrigin = { x: m.x, y: m.y };
+  }
+
   _colorAtPosition(x, y) {
     for (const obj of FIELD_OBJECTS) {
       if (!obj.sensorColor) continue;
@@ -1067,8 +1082,8 @@ class RobotSimulator {
     return [128, 128, 128];
   }
 
-  getDistanceSensorValue()    { return this.robot.sensors.distanceMM; }
-  getDistanceSensorPresence() { return this.robot.sensors.distanceMM < 100; }
+  getDistanceSensorValue()    { this._updateDistanceSensor(); return this.robot.sensors.distanceMM; }
+  getDistanceSensorPresence() { this._updateDistanceSensor(); return this.robot.sensors.distanceMM < 100; }
   getForceSensorValue()       { return 0; }
   getForceSensorPressed()     { return false; }
   getMotorSpeed(port)         { return 0; }
