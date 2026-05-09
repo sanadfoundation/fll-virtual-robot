@@ -2,7 +2,7 @@
 
 const test   = require('node:test');
 const assert = require('node:assert');
-const { createSim } = require('../sim-helper');
+const { createSim, createSimWithDocument } = require('../sim-helper');
 
 test('getColorSensorColor: returns robot.sensors.colorValue (default "none")', () => {
   const sim = createSim();
@@ -110,6 +110,27 @@ test('setUnits: assigns the new unit and marks _dirty', () => {
   sim.setUnits('mm');
   assert.strictEqual(sim.units, 'mm');
   assert.strictEqual(sim._dirty, true);
+});
+
+test('_updateSensorPanel: X/Y formatted via formatPosition(this.units)', () => {
+  const { sim, document } = createSimWithDocument();
+  sim.robot.x = 980;
+  sim.robot.y = 254;
+
+  // Build a minimal element map and wire it into the harness document.
+  const elMap = {};
+  const fakeEl = (id) => { elMap[id] = elMap[id] || { textContent: '', style: {} }; return elMap[id]; };
+  document.getElementById = (id) => fakeEl(id);
+
+  sim.setUnits('mm');
+  sim._updateSensorPanel();
+  assert.strictEqual(elMap['sp-x'].textContent, '980 mm');
+  assert.strictEqual(elMap['sp-y'].textContent, '254 mm');
+
+  sim.setUnits('in');
+  sim._updateSensorPanel();
+  assert.strictEqual(elMap['sp-x'].textContent, '38.6 in');
+  assert.strictEqual(elMap['sp-y'].textContent, '10.0 in');
 });
 
 test('_drawRuler: reads this.units for tick pitch and label format', () => {

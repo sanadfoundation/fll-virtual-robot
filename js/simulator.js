@@ -710,8 +710,8 @@ class RobotSimulator {
 
     // Pose section
     const deg = (((r.heading % 360) + 360) % 360);
-    set('sp-x',       (r.x / 10).toFixed(1) + ' cm');
-    set('sp-y',       (r.y / 10).toFixed(1) + ' cm');
+    set('sp-x',       window.ruler.formatPosition(r.x, this.units));
+    set('sp-y',       window.ruler.formatPosition(r.y, this.units));
     set('sp-heading', deg.toFixed(0) + '°');
 
     // Port rows. PORT_CONFIG is module-scope; use this._portConfig.
