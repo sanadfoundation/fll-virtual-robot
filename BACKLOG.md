@@ -15,22 +15,17 @@ Reference: [LEGO Spike Python help](https://spike.legoeducation.com/prime/modal/
 The individual motor API, `motor_pair.move_for_degrees` / `_for_time`, light matrix, beep, and the basic hub surface are in place. Remaining work, ordered by impact:
 
 ### Wrong / non-standard signatures
-- **`hub.port` values are strings, not ints.** LEGO defines `port.A = 0 … port.F = 5`. We use `'A' … 'F'`. User code that compares `port.A == 0` fails silently.
-- **`motor_pair.move_tank` signature is wrong.** Should be a steady-speed start: `move_tank(pair, left_velocity, right_velocity, *, acceleration)`. Ours takes `amount`/`unit` and acts like a finite move.
-- **`motor_pair.move_tank_for_degrees` missing** — the canonical finite tank-drive call.
 - **`hub.button.was_pressed` is non-standard.** LEGO only has `pressed(button) -> int` returning ms held. Drop our `was_pressed`, make `pressed` return a real duration.
 - **`hub.speaker` is a non-standard alias.** Canonical name is `hub.sound`; align and drop the alias.
-- **`hub.sound.beep` missing `waveform` and `channel` kwargs**, plus `WAVEFORM_SINE/SQUARE/SAWTOOTH/TRIANGLE` and `ANY`/`DEFAULT` constants.
 - **`hub.light_matrix.show(pixels)` ignores its argument** — it always renders the `'CUSTOM'` glyph instead of the 25-pixel list.
-- **Light matrix `IMAGE_*` constants missing** — LEGO defines 67 named images (`IMAGE_HEART`, `IMAGE_HAPPY`, …). We accept only raw strings.
-- **`motor.run_to_absolute_position` ignores `direction`** (`CLOCKWISE` / `COUNTERCLOCKWISE` / `SHORTEST_PATH` / `LONGEST_PATH`).
+- **`motor.run_to_absolute_position` `direction` arg is plumbed but ignored.** Python forwards `CLOCKWISE` / `COUNTERCLOCKWISE` / `SHORTEST_PATH` / `LONGEST_PATH` over the bridge; the simulator picks the same path regardless.
 
 ### Sensor stubs that need real values
 - **Motion sensor.** `tilt_angles()`, `acceleration()`, `angular_velocity()`, `quaternion()`, `up_face()`, `gesture()`, `tap_count()` all return frozen constants. Highest-value fix: drive `tilt_angles()` from the simulator heading so heading-locked driving works (this replaces the previously-listed `get_yaw_angle()` item, which doesn't exist in v3 — the canonical reader is `tilt_angles()`).
 - **Force sensor.** `force()` / `pressed()` / `raw()` always return 0 / False / 0. Drive `pressed()` from on-screen / keyboard input so the existing Blockly blocks become functional.
 - **Hub button.** `pressed(button)` always returns 0; needs real ms-held duration tied to keyboard or on-screen buttons.
 - **Motor angle counter never increments.** `_animateTank` and `_animateSingleMotor` advance robot pose but never tick `robot.motors[port]`. The Hub panel surfaces this — A and B both read `0°` no matter how far the robot drives. Fix: increment per-port degrees from wheel mm-per-step (drive ports in `_animateTank`, unpaired motors in `_animateSingleMotor`).
-- **Motor.** `velocity(port)` always returns 0; `absolute_position` and `relative_position` return the same counter; `reset_relative_position` is a no-op.
+- **Motor position counters.** `absolute_position` and `relative_position` return the same counter; `reset_relative_position` is a no-op. (`velocity(port)` now returns the last commanded value via `_motor_velocities`.)
 - **Distance sensor never updates.** `robot.sensors.distanceMM` is initialized to 300 mm and never recomputed; the Hub panel reads `30.0 cm` constantly. Fix: cast a ray from the front-of-robot in the heading direction against field walls (and, when populated, mission AABBs); clamp to a max sensing range (~200 cm) and return `-1` beyond that.
 - **Color sensor.** `rgbi(port)` returns intensity = 0; should be the mean of R, G, B.
 
@@ -66,10 +61,9 @@ The individual motor API, `motor_pair.move_for_degrees` / `_for_time`, light mat
 
 ## Simulation Fidelity
 
-Collision against mission AABBs already stops the robot (`_robotOverlapsAABB`); field walls clamp position. Remaining:
+Box2D-WASM drives the robot and field walls; two seeded mission obstacles exercise collision. Remaining:
 
-- **Physics engine for collision** — replace the dead-stop AABB check with a 2D physics engine (Rapier / Planck / Matter) so the robot pushes, deflects, and is pushed by mission models the way a real bot would, and so mission pieces can slide / topple / stack. Also informs the 3D view's collision model.
-- **Mission objects in the scene** — populate `_missionBoxes` (or the physics world) from a mission set so collision is actually exercised in default play.
+- **Mission set authoring** — load a real FLL mission layout into the Box2D world (more than the two seeded obstacles) so collision and scoring are exercised in default play.
 - **Sensor footprint overlay** — draw the color sensor patch and distance sensor ray on the canvas during playback.
 - **Surface friction variation** — "smooth mat" vs "rough mat" calibration modes that perturb travel distance slightly.
 
@@ -87,10 +81,10 @@ The Hub panel (X / Y / heading + per-port live readings for A–F) already updat
 
 ## Program Management
 
-Code (Python + Blockly), theme, and speed already persist via localStorage. Remaining:
+Code (Python + Blockly), theme, speed, and active tab already persist via localStorage. `.llsp3` Open/Save round-trips both editor modes. Remaining:
 
-- **File import / export** — download the current program as `.py` (and Blockly as XML or `.llsp3`), and load one back from disk.
 - **Example programs** — a dropdown of canonical FLL programs (straight drive, gyro turn, line follow, arm control).
+- **Plain `.py` export** — quicker hand-off than `.llsp3` for users who just want the script.
 
 ---
 
@@ -107,7 +101,7 @@ Now that the step-interleaved execution model is in place, the 3D view can be bu
 - Scene: bundled LDraw robot model + FLL mat texture + user-uploaded LDraw mission models.
 - Camera presets only: Top, Iso, Follow (no free orbit).
 - Renderer: Three.js r168+ with `LDrawLoader` via importmap; no build step.
-- Collision / distance sensing: shadow robot does AABB + forward raycast against mission geometry.
+- Collision / distance sensing: reuse the existing Box2D world for footprint collisions plus a forward raycast against mission geometry for the distance sensor.
 
 ## Obstacle Courses
 
