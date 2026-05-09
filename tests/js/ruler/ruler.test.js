@@ -45,6 +45,20 @@ test('tickPositions: float minor pitch (inches: 254 / 25.4) — no FP drift coll
   }
 });
 
+// ── tickPitchFor ────────────────────────────────────────────────────────────
+
+test('tickPitchFor: cm → 200/100 mm pitches', () => {
+  assert.deepEqual(r.tickPitchFor('cm'), { major: 200, minor: 100 });
+});
+
+test('tickPitchFor: mm → 200/100 mm pitches (same physical positions as cm)', () => {
+  assert.deepEqual(r.tickPitchFor('mm'), { major: 200, minor: 100 });
+});
+
+test('tickPitchFor: in → 254/25.4 mm pitches (10″ major, 1″ minor)', () => {
+  assert.deepEqual(r.tickPitchFor('in'), { major: 254, minor: 25.4 });
+});
+
 // ── clientToMM ──────────────────────────────────────────────────────────────
 
 test('clientToMM: cursor at canvas top-left → (0, 0) mm', () => {

@@ -37,6 +37,15 @@
     return { major, minor };
   }
 
+  // Tick pitches (in mm) for a unit, chosen so the rendered tick labels read
+  // as round numbers in that unit. cm and mm share physical positions
+  // (200 mm pitch — `20 cm` and `200 mm` line up); inches gets its own pitch
+  // (254 mm = 10″ major, 25.4 mm = 1″ minor).
+  function tickPitchFor(unit) {
+    if (unit === 'in') return { major: 254, minor: 25.4 };
+    return { major: 200, minor: 100 };
+  }
+
   // Cursor pixel coordinates → field mm coordinates. `rect` is the canvas's
   // getBoundingClientRect() (we read only `left` and `top`); `scale` is the
   // simulator's mm→px factor.
@@ -58,5 +67,5 @@
     return { left, top };
   }
 
-  return { tickPositions, clientToMM, placeHoverOverlay };
+  return { tickPositions, tickPitchFor, clientToMM, placeHoverOverlay };
 });
