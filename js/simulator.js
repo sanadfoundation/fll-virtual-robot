@@ -99,14 +99,16 @@ const FIELD_OBJECTS = [
 // Dynamic bodies in the Box2D world. The robot pushes them on contact.
 // `x, y` are spawn coordinates (mm); `w, h` are footprint (mm).
 
-// `(x, y)` is the bottom-left corner in math y-up. Spawn coordinates picked to
+// `(x, y)` is the obstacle CENTER (passed to addObstacleBox → Box2D body
+// position, which is always center-of-mass). Spawn coordinates picked to
 // centre each obstacle on the matching coloured mission zone in FIELD_OBJECTS:
-// '1' on the green sensor zone, '2' on the red.
-//   was canvas y=200, h=100 ⇒ math y = 1143-200-100 = 843
-//   was canvas y=800, h=120 ⇒ math y = 1143-800-120 = 223
+// '1' on the green sensor zone (centre math y = 843+100 = 943),
+// '2' on the red sensor zone   (centre math y = 243+100 = 343).
+//   was canvas y=200 ⇒ math y = 1143-200 = 943
+//   was canvas y=800 ⇒ math y = 1143-800 = 343
 const OBSTACLES = [
-  { x: 1700, y: 843, w: 100, h: 100, fill: '#9b59b6', stroke: '#5e2c79', label: '1' },
-  { x: 2000, y: 223, w: 120, h: 120, fill: '#e67e22', stroke: '#a04d10', label: '2' },
+  { x: 1700, y: 943, w: 100, h: 100, fill: '#9b59b6', stroke: '#5e2c79', label: '1' },
+  { x: 2000, y: 343, w: 120, h: 120, fill: '#e67e22', stroke: '#a04d10', label: '2' },
 ];
 
 // ── Robot state ──────────────────────────────────────────────────────────────
@@ -271,8 +273,10 @@ class RobotSimulator {
     for (const o of this._obstacles) {
       const pose = this.physics.readPose(o.body);
       ctx.save();
-      ctx.translate(pose.x * s, pose.y * s);
-      ctx.rotate(pose.angle);
+      // pose.{x, y, angle} are math y-up. Canvas y = FIELD_H_MM - pose.y.
+      // Math heading is CCW-positive; canvas ctx.rotate is visually CW; negate.
+      ctx.translate(pose.x * s, (FIELD_H_MM - pose.y) * s);
+      ctx.rotate(-pose.angle);
 
       ctx.shadowColor   = 'rgba(0,0,0,0.25)';
       ctx.shadowBlur    = 6 * s;
