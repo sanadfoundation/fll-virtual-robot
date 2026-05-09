@@ -357,10 +357,13 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
 
 /* ── Blockly (Zelos) tweaks to match LEGO SPIKE word-block UI ────────────── */
 
-/* Bright white field pills (Zelos defaults to a subtle off-white). */
-.blocklyEditableText > .blocklyFieldRect,
-.blocklyNonEditableText > .blocklyFieldRect,
-.blocklyDropdownRect {
+/* Bright white field pills for editable text/number inputs (Zelos defaults
+   to a subtle off-white). Dropdown rects (which carry both blocklyFieldRect
+   and blocklyDropdownRect) deliberately keep their inline transparent fill
+   so the block colour shows through — this matches Spike, where dropdowns
+   read as a tinted notch on the block, not a white pill. */
+.blocklyEditableText    > .blocklyFieldRect:not(.blocklyDropdownRect),
+.blocklyNonEditableText > .blocklyFieldRect:not(.blocklyDropdownRect) {
   fill: #ffffff !important;
 }
 
