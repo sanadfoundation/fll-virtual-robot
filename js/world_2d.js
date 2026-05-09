@@ -128,6 +128,28 @@ export class World2D {
     return body;
   }
 
+  // Welds a second collider to an existing body in body-local frame. Used to
+  // attach the force-sensor bumper to the robot body. offset_mm is the centre
+  // of the bumper rectangle in body-local mm. userData (anything) is attached
+  // to the FixtureDef so the contact listener can identify the bumper at
+  // runtime via fixture.GetUserData().
+  addBumper(robotBody, hx_mm, hy_mm, offsetX_mm, offsetY_mm, userData) {
+    const shape = new box2d.b2PolygonShape();
+    const centre = new box2d.b2Vec2(offsetX_mm * M_PER_MM, offsetY_mm * M_PER_MM);
+    shape.SetAsBox(hx_mm * M_PER_MM, hy_mm * M_PER_MM, centre, 0);
+
+    const fd = new box2d.b2FixtureDef();
+    fd.set_shape(shape);
+    fd.set_density(1);
+    fd.set_friction(0.5);
+    if (userData !== undefined) fd.set_userData(userData);
+    robotBody.CreateFixture(fd);
+
+    box2d.destroy(shape);
+    box2d.destroy(centre);
+    box2d.destroy(fd);
+  }
+
   // Public-API methods take/return millimetres.
 
   setKinematicPose(body, x_mm, y_mm, angle) {
