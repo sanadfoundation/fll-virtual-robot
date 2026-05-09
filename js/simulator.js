@@ -665,20 +665,28 @@ class RobotSimulator {
       ctx.arc(endX * s, cy(endY), 3 * s, 0, Math.PI * 2);
       ctx.fill();
 
-      // Mid-ray label, perpendicular-offset so the line doesn't run through it.
-      // Perpendicular is computed in math frame; canvas conversion at ctx calls.
-      const mx = (o.x + endX) / 2, my = (o.y + endY) / 2;
-      const a  = this.robot.heading * Math.PI / 180;
-      const px = -Math.sin(a) * 14, py = Math.cos(a) * 14;
+      // Mid-ray label. Offset and font are in canvas pixels (CSS px) with
+      // a floor — at default zoom the mm-scale s≈0.23, so a pure mm-space
+      // sizing would give ~3 px text. We want the label readable at any
+      // zoom level, so the floor wins below ~s=1.
+      const cxPx = ((o.x + endX) / 2) * s;
+      const cyPx = cy((o.y + endY) / 2);
+      const a    = this.robot.heading * Math.PI / 180;
+      // Canvas-left perpendicular = (-sin(a), -cos(a)) — accounts for y-flip
+      // so the label always sits on the left side of the heading direction.
+      const offsetPx = Math.max(20, 18 * s);
+      const labelX   = cxPx + (-Math.sin(a)) * offsetPx;
+      const labelY   = cyPx + (-Math.cos(a)) * offsetPx;
+      const fontPx   = Math.max(13, 14 * s);
       ctx.fillStyle    = '#1a1a1a';
-      ctx.font         = `bold ${10 * s}px sans-serif`;
+      ctx.font         = `bold ${fontPx}px sans-serif`;
       ctx.textAlign    = 'center';
       ctx.textBaseline = 'middle';
-      ctx.strokeStyle  = 'rgba(255,255,255,0.85)';
-      ctx.lineWidth    = 3 * s;
+      ctx.strokeStyle  = 'rgba(255,255,255,0.9)';
+      ctx.lineWidth    = Math.max(3.5, 4 * s);
       const cm = (sens.distanceMM / 10).toFixed(1);
-      ctx.strokeText(`${cm} cm`, (mx + px) * s, cy(my + py));
-      ctx.fillText  (`${cm} cm`, (mx + px) * s, cy(my + py));
+      ctx.strokeText(`${cm} cm`, labelX, labelY);
+      ctx.fillText  (`${cm} cm`, labelX, labelY);
     }
     ctx.restore();
   }

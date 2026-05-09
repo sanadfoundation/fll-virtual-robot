@@ -187,9 +187,9 @@ test('_drawDistanceSensorRay: converts math y-up to canvas y-down at the boundar
   assert.strictEqual(arcCall.args[0], 350);
   assert.strictEqual(arcCall.args[1], 392);
 
-  // Mid-ray label — perpendicular offset 14 mm to the west (heading north).
-  // Math midpoint (350, 501); perp offset (-14, 0); label canvas-y = 1143 - 501 = 642.
+  // Mid-ray label — perpendicular offset 20 mm to the west (heading north).
+  // Math midpoint (350, 501); perp offset (-20, 0); label canvas-y = 1143 - 501 = 642.
   const textCall = ctx.calls.find(c => c.op === 'fillText');
-  assert.strictEqual(textCall.args[1], 336);   // mx + px = 350 - 14
+  assert.strictEqual(textCall.args[1], 330);   // mx + px = 350 - 20
   assert.strictEqual(textCall.args[2], 642);   // canvas y for math y=501
 });
