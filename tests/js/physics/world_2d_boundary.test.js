@@ -170,11 +170,11 @@ test('addWalls: builds four perimeter bodies sized in metres', async () => {
 test('addRobot: spawn position converted mm → m', async () => {
   const { world, calls } = await makeWorld();
   calls.length = 0;
-  world.addRobot(100, 80, { x: 350, y: 980 }, -Math.PI / 2);
+  world.addRobot(100, 80, { x: 350, y: 163 }, Math.PI / 2);
   const created = calls.find(c => c.op === 'CreateBody');
   assert.ok(close(created.x, 0.350), `body x=${created.x} should be 0.35 m`);
-  assert.ok(close(created.y, 0.980), `body y=${created.y} should be 0.98 m`);
-  assert.ok(close(created.angle, -Math.PI / 2), `angle=${created.angle}`);
+  assert.ok(close(created.y, 0.163), `body y=${created.y} should be 0.163 m`);
+  assert.ok(close(created.angle, Math.PI / 2), `angle=${created.angle}`);
   assert.strictEqual(created.type, 'kinematic');
 });
 
@@ -217,10 +217,10 @@ test('setKinematicPose: position converted mm → m', async () => {
   const { world, calls } = await makeWorld();
   const body = world.addRobot(100, 80, { x: 0, y: 0 });
   calls.length = 0;
-  world.setKinematicPose(body, 350, 980, Math.PI / 4);
+  world.setKinematicPose(body, 350, 163, Math.PI / 4);
   const t = calls.find(c => c.op === 'SetTransform');
   assert.ok(close(t.x, 0.350), `x=${t.x}`);
-  assert.ok(close(t.y, 0.980), `y=${t.y}`);
+  assert.ok(close(t.y, 0.163), `y=${t.y}`);
   assert.ok(close(t.a, Math.PI / 4));
 });
 
@@ -272,10 +272,10 @@ test('setDynamicPose: teleports + clears linear and angular velocity + wakes', a
 
 test('readPose: position converted m → mm on the way out', async () => {
   const { world } = await makeWorld();
-  const body = world.addRobot(100, 80, { x: 350, y: 980 }, 1.234);
+  const body = world.addRobot(100, 80, { x: 350, y: 163 }, 1.234);
   const pose = world.readPose(body);
   assert.ok(close(pose.x, 350), `pose.x=${pose.x}`);
-  assert.ok(close(pose.y, 980), `pose.y=${pose.y}`);
+  assert.ok(close(pose.y, 163), `pose.y=${pose.y}`);
   assert.strictEqual(pose.angle, 1.234);
 });
 
