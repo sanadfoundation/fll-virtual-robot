@@ -1493,7 +1493,7 @@ function registerGenerators(Blockly) {
     // is configured anywhere. Comma-operator preserves the boolean value.
     const guard = `window.sim._assertSensorAvailable('force_sensor')`;
     if (opt === 'released') return [`(${guard}, !window.sim.getForceSensorPressed())`, ORDER_ATOMIC];
-    if (opt === 'hard-pressed') return [`(${guard}, window.sim.getForceSensorValue() > 70)`, ORDER_ATOMIC];
+    if (opt === 'hard-pressed') return [`(${guard}, window.sim.getForceSensorValue() >= 70)`, ORDER_ATOMIC];
     return [`(${guard}, window.sim.getForceSensorPressed())`, ORDER_ATOMIC];
   };
 

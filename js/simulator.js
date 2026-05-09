@@ -285,7 +285,7 @@ class RobotSimulator {
   // ── Drawing loop ────────────────────────────────────────────────────────────
 
   _drawLoop() {
-    this._idleStepForceSensor();
+    if (!this.isRunning) this._idleStepForceSensor();
     // Manual-press ramp + EMA bleed mutate forceN; mark dirty so the panel /
     // canvas redraw picks the change up. _animateTank already marks _dirty
     // when it's running, so this is a no-op contribution while a command runs.
