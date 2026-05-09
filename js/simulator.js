@@ -480,9 +480,10 @@ class RobotSimulator {
     tctx.save();
     this._trailStrokeStyle(tctx, s);
     tctx.beginPath();
-    tctx.moveTo(this.trail[0].x * s, this.trail[0].y * s);
+    // trail.{x,y} are math; canvas y = FIELD_H_MM - y.
+    tctx.moveTo(this.trail[0].x * s, (FIELD_H_MM - this.trail[0].y) * s);
     for (let i = 1; i < this.trail.length; i++) {
-      tctx.lineTo(this.trail[i].x * s, this.trail[i].y * s);
+      tctx.lineTo(this.trail[i].x * s, (FIELD_H_MM - this.trail[i].y) * s);
       const dx = (this.trail[i].x - this.trail[i-1].x) * s;
       const dy = (this.trail[i].y - this.trail[i-1].y) * s;
       this._trailArc += Math.hypot(dx, dy);
@@ -501,8 +502,9 @@ class RobotSimulator {
     this._trailStrokeStyle(tctx, s);
     tctx.lineDashOffset = -this._trailArc;
     tctx.beginPath();
-    tctx.moveTo(prevX * s, prevY * s);
-    tctx.lineTo(x * s, y * s);
+    // (prevX, prevY) and (x, y) are math; canvas y = FIELD_H_MM - y.
+    tctx.moveTo(prevX * s, (FIELD_H_MM - prevY) * s);
+    tctx.lineTo(x * s, (FIELD_H_MM - y) * s);
     tctx.stroke();
     tctx.restore();
     const dx = (x - prevX) * s;
