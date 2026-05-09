@@ -38,7 +38,7 @@ test('_updateDistanceSensor: no-op when physics is null', () => {
   // physics remains null (createSim couldn't load world_2d).
   sim._updateDistanceSensor();
   // distanceMM unchanged from default; no throw.
-  assert.strictEqual(sim.robot.sensors.distanceMM, 300);
+  assert.strictEqual(sim.robot.sensors.distanceMM, 9999);
   assert.strictEqual(sim.robot.sensors.distanceHit, null);
   assert.strictEqual(sim.robot.sensors.distanceOrigin, null);
 });
@@ -108,10 +108,10 @@ test('getDistanceSensorPresence: false when OOR sentinel returned', () => {
   assert.strictEqual(sim.getDistanceSensorPresence(), false);
 });
 
-test('getDistanceSensorValue: works with physics=null (returns existing distanceMM)', () => {
+test('getDistanceSensorValue: works with physics=null (returns OOR sentinel)', () => {
   const sim = createSim();
   // No stub injection — physics stays null.
-  assert.strictEqual(sim.getDistanceSensorValue(), 300);
+  assert.strictEqual(sim.getDistanceSensorValue(), 9999);
 });
 
 // ── _drawDistanceSensorRay (rendering, light coverage) ─────────────────────

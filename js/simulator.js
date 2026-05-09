@@ -123,7 +123,10 @@ function makeRobotState() {
     motors: { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 },
     sensors: {
       colorValue: 'none',
-      distanceMM: 300,
+      // 9999 = OOR sentinel, doubles as "no reading yet" pre-physics. The
+      // panel renders ≥9999 as "—" so users don't see a stale numeric default.
+      // _initPhysics and reset() trigger a real read once physics is ready.
+      distanceMM: DIST_SENSOR_OOR_VALUE,
       distanceHit:    null,
       distanceOrigin: null,
     },
@@ -210,6 +213,10 @@ class RobotSimulator {
       cfg,
       body: this.physics.addObstacleBox(cfg.w / 2, cfg.h / 2, { x: cfg.x, y: cfg.y }),
     }));
+
+    // Establish a real distance reading before the first paint so the panel
+    // and overlay don't show the OOR placeholder once physics is up.
+    this._updateDistanceSensor();
 
     this._dirty = true;
   }
@@ -716,7 +723,9 @@ class RobotSimulator {
       } else if (cfg.kind === 'color_sensor') {
         valueEl.textContent = s.colorValue || 'none';
       } else if (cfg.kind === 'distance_sensor') {
-        valueEl.textContent = (s.distanceMM / 10).toFixed(1) + ' cm';
+        valueEl.textContent = s.distanceMM >= DIST_SENSOR_OOR_VALUE
+          ? '—'
+          : (s.distanceMM / 10).toFixed(1) + ' cm';
       } else {
         valueEl.textContent = '';
       }
@@ -783,6 +792,7 @@ class RobotSimulator {
     for (const o of this._obstacles) {
       this.physics.setDynamicPose(o.body, o.cfg.x, o.cfg.y, 0);
     }
+    this._updateDistanceSensor();
     this._dirty = true;
   }
 

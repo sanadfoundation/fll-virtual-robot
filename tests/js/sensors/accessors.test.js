@@ -31,8 +31,8 @@ test('getColorSensorRGB: returns [128, 128, 128]', () => {
   assert.strictEqual(rgb.length, 3);
 });
 
-test('getDistanceSensorValue: returns robot.sensors.distanceMM (default 300)', () => {
-  assert.strictEqual(createSim().getDistanceSensorValue(), 300);
+test('getDistanceSensorValue: returns robot.sensors.distanceMM (default 9999, OOR)', () => {
+  assert.strictEqual(createSim().getDistanceSensorValue(), 9999);
 });
 
 test('getDistanceSensorValue: reflects updated distanceMM', () => {
