@@ -73,29 +73,40 @@ const COLOR_INT_MAP = {
 
 // ── FLL Mat field elements ───────────────────────────────────────────────────
 
+// All `y` values are math y-up (origin bottom-left). For rectangles, (x, y) is
+// the bottom-left corner. Conversions from the old canvas-top-left values:
+//   rect:   newY = FIELD_H_MM - oldY - h
+//   line:   newY = FIELD_H_MM - oldY
+//   circle: newY = FIELD_H_MM - oldY
 const FIELD_OBJECTS = [
-  // Home area
-  { type: 'rect', x: 80, y: 780, w: 600, h: 300, fill: 'rgba(100,160,255,0.18)', stroke: '#4488ff', lw: 3, label: 'HOME' },
+  // Home area (was canvas y=780, h=300 ⇒ math y = 1143-780-300 = 63)
+  { type: 'rect', x: 80, y: 63, w: 600, h: 300, fill: 'rgba(100,160,255,0.18)', stroke: '#4488ff', lw: 3, label: 'HOME' },
   // Mission areas — sensorColor defines what the color sensor reads inside each zone
-  { type: 'rect', x: 900,  y: 100,  w: 200, h: 200, fill: 'rgba(255,200,100,0.2)', stroke: '#f0a830', lw: 2, sensorColor: 'yellow' },
-  { type: 'rect', x: 1600, y: 100,  w: 200, h: 200, fill: 'rgba(100,220,150,0.2)', stroke: '#30c060', lw: 2, sensorColor: 'green'  },
-  { type: 'rect', x: 1900, y: 700,  w: 200, h: 200, fill: 'rgba(220,100,100,0.2)', stroke: '#cc4444', lw: 2, sensorColor: 'red'    },
-  // Colored lines on the mat
-  { type: 'line', x1: 0,    y1: 680, x2: 2362, y2: 680, stroke: '#222', lw: 4, sensorColor: 'black' },
-  { type: 'circle', x: 1181, y: 571, r: 80, fill: 'rgba(200,200,200,0.2)', stroke: '#888', lw: 2 },
-  // Launch line
-  { type: 'line', x1: 0,    y1: 1000, x2: 680, y2: 1000, stroke: '#222', lw: 3, sensorColor: 'black' },
+  // (was canvas y=100, h=200 ⇒ math y = 1143-100-200 = 843)
+  { type: 'rect', x: 900,  y: 843, w: 200, h: 200, fill: 'rgba(255,200,100,0.2)', stroke: '#f0a830', lw: 2, sensorColor: 'yellow' },
+  { type: 'rect', x: 1600, y: 843, w: 200, h: 200, fill: 'rgba(100,220,150,0.2)', stroke: '#30c060', lw: 2, sensorColor: 'green'  },
+  // (was canvas y=700, h=200 ⇒ math y = 1143-700-200 = 243)
+  { type: 'rect', x: 1900, y: 243, w: 200, h: 200, fill: 'rgba(220,100,100,0.2)', stroke: '#cc4444', lw: 2, sensorColor: 'red'    },
+  // Colored lines on the mat (was canvas y=680 ⇒ math y = 1143-680 = 463)
+  { type: 'line', x1: 0,    y1: 463, x2: 2362, y2: 463, stroke: '#222', lw: 4, sensorColor: 'black' },
+  // Centre circle (was canvas y=571 ⇒ math y = 1143-571 = 572)
+  { type: 'circle', x: 1181, y: 572, r: 80, fill: 'rgba(200,200,200,0.2)', stroke: '#888', lw: 2 },
+  // Launch line (was canvas y=1000 ⇒ math y = 1143-1000 = 143)
+  { type: 'line', x1: 0,    y1: 143, x2: 680, y2: 143, stroke: '#222', lw: 3, sensorColor: 'black' },
 ];
 
 // ── Mission obstacles ────────────────────────────────────────────────────────
 // Dynamic bodies in the Box2D world. The robot pushes them on contact.
 // `x, y` are spawn coordinates (mm); `w, h` are footprint (mm).
 
-// Spawn coordinates picked to centre each obstacle on the matching coloured
-// mission zone in FIELD_OBJECTS: '1' on the green sensor zone, '2' on the red.
+// `(x, y)` is the bottom-left corner in math y-up. Spawn coordinates picked to
+// centre each obstacle on the matching coloured mission zone in FIELD_OBJECTS:
+// '1' on the green sensor zone, '2' on the red.
+//   was canvas y=200, h=100 ⇒ math y = 1143-200-100 = 843
+//   was canvas y=800, h=120 ⇒ math y = 1143-800-120 = 223
 const OBSTACLES = [
-  { x: 1700, y: 200, w: 100, h: 100, fill: '#9b59b6', stroke: '#5e2c79', label: '1' },
-  { x: 2000, y: 800, w: 120, h: 120, fill: '#e67e22', stroke: '#a04d10', label: '2' },
+  { x: 1700, y: 843, w: 100, h: 100, fill: '#9b59b6', stroke: '#5e2c79', label: '1' },
+  { x: 2000, y: 223, w: 120, h: 120, fill: '#e67e22', stroke: '#a04d10', label: '2' },
 ];
 
 // ── Robot state ──────────────────────────────────────────────────────────────
@@ -306,15 +317,18 @@ class RobotSimulator {
       ctx.beginPath(); ctx.moveTo(0, y*s); ctx.lineTo(W, y*s); ctx.stroke();
     }
 
-    // Field objects
+    // Field objects. FIELD_OBJECTS uses math y-up; convert to canvas y here.
+    // Rectangles: math (x, y) is bottom-left ⇒ canvas top-left = (x, FIELD_H_MM - y - h).
+    // Lines / circles: math y ⇒ canvas y = FIELD_H_MM - y.
     for (const obj of FIELD_OBJECTS) {
       ctx.save();
       if (obj.type === 'rect') {
+        const canvasY = (FIELD_H_MM - obj.y - obj.h) * s;
         ctx.fillStyle   = obj.fill   || 'transparent';
         ctx.strokeStyle = obj.stroke || 'transparent';
         ctx.lineWidth   = (obj.lw || 1) * s;
         ctx.beginPath();
-        ctx.roundRect(obj.x*s, obj.y*s, obj.w*s, obj.h*s, 4*s);
+        ctx.roundRect(obj.x*s, canvasY, obj.w*s, obj.h*s, 4*s);
         if (obj.fill)   ctx.fill();
         if (obj.stroke) ctx.stroke();
         if (obj.label) {
@@ -322,21 +336,25 @@ class RobotSimulator {
           ctx.font = `bold ${11*s}px sans-serif`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(obj.label, (obj.x + obj.w/2)*s, (obj.y + obj.h/2)*s);
+          // Label centre: x is unchanged; canvas-y centre = (FIELD_H_MM - y - h/2) * s.
+          ctx.fillText(obj.label, (obj.x + obj.w/2)*s, (FIELD_H_MM - obj.y - obj.h/2)*s);
         }
       } else if (obj.type === 'line') {
+        const canvasY1 = (FIELD_H_MM - obj.y1) * s;
+        const canvasY2 = (FIELD_H_MM - obj.y2) * s;
         ctx.strokeStyle = obj.stroke;
         ctx.lineWidth   = (obj.lw || 1) * s;
         ctx.beginPath();
-        ctx.moveTo(obj.x1*s, obj.y1*s);
-        ctx.lineTo(obj.x2*s, obj.y2*s);
+        ctx.moveTo(obj.x1*s, canvasY1);
+        ctx.lineTo(obj.x2*s, canvasY2);
         ctx.stroke();
       } else if (obj.type === 'circle') {
+        const canvasY = (FIELD_H_MM - obj.y) * s;
         ctx.fillStyle   = obj.fill   || 'transparent';
         ctx.strokeStyle = obj.stroke || 'transparent';
         ctx.lineWidth   = (obj.lw || 1) * s;
         ctx.beginPath();
-        ctx.arc(obj.x*s, obj.y*s, obj.r*s, 0, Math.PI*2);
+        ctx.arc(obj.x*s, canvasY, obj.r*s, 0, Math.PI*2);
         if (obj.fill)   ctx.fill();
         if (obj.stroke) ctx.stroke();
       }
