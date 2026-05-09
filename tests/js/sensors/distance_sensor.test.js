@@ -139,19 +139,34 @@ test('_drawDistanceSensorRay: no-op when distanceOrigin is null', () => {
   assert.strictEqual(ctx.calls.length, 0);
 });
 
-test('_drawDistanceSensorRay: in-range draws line, hit dot, and label', () => {
+test('_drawDistanceSensorRay: in-range draws line, hit dot, and label formatted via this.units', () => {
   const sim = createSim();
   // Math y-up: robot facing north, sensor 251 mm up, hit 500 mm further up.
   sim.robot.sensors.distanceMM     = 500;
   sim.robot.sensors.distanceHit    = { x: 350, y: 751 };
   sim.robot.sensors.distanceOrigin = { x: 350, y: 251 };
-  const ctx = fakeCtx();
+
+  // Default units = cm → label "50.0 cm".
+  let ctx = fakeCtx();
   sim._drawDistanceSensorRay(ctx, 1);
-  // Stroke for the ray + arc for the hit dot + fill/stroke for the label.
   assert.ok(ctx.calls.some(c => c.op === 'stroke'),    'stroked the ray');
   assert.ok(ctx.calls.some(c => c.op === 'arc'),       'arced the hit dot');
+  assert.ok(ctx.calls.some(c => c.op === 'fillText'  && /50\.0 cm/.test(c.args[0])),
+            'rendered the cm label');
+
+  // Switch to mm → label "500 mm".
+  sim.setUnits('mm');
+  ctx = fakeCtx();
+  sim._drawDistanceSensorRay(ctx, 1);
   assert.ok(ctx.calls.some(c => c.op === 'fillText'  && /500 mm/.test(c.args[0])),
             'rendered the mm label');
+
+  // Switch to inches → label "19.7 in" (500 / 25.4).
+  sim.setUnits('in');
+  ctx = fakeCtx();
+  sim._drawDistanceSensorRay(ctx, 1);
+  assert.ok(ctx.calls.some(c => c.op === 'fillText'  && /19\.7 in/.test(c.args[0])),
+            'rendered the in label');
 });
 
 test('_drawDistanceSensorRay: out-of-range draws faint dashed ray, no label', () => {

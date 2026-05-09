@@ -693,9 +693,9 @@ class RobotSimulator {
       ctx.textBaseline = 'middle';
       ctx.strokeStyle  = 'rgba(255,255,255,0.9)';
       ctx.lineWidth    = Math.max(3.5, 4 * s);
-      const mm = Math.round(sens.distanceMM);
-      ctx.strokeText(`${mm} mm`, labelX, labelY);
-      ctx.fillText  (`${mm} mm`, labelX, labelY);
+      const text = window.ruler.formatPosition(sens.distanceMM, this.units);
+      ctx.strokeText(text, labelX, labelY);
+      ctx.fillText  (text, labelX, labelY);
     }
     ctx.restore();
   }
@@ -727,7 +727,7 @@ class RobotSimulator {
       } else if (cfg.kind === 'distance_sensor') {
         valueEl.textContent = s.distanceMM >= DIST_SENSOR_OOR_VALUE
           ? '—'
-          : (s.distanceMM / 10).toFixed(1) + ' cm';
+          : window.ruler.formatPosition(s.distanceMM, this.units);
       } else {
         valueEl.textContent = '';
       }
