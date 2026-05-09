@@ -645,6 +645,51 @@ class RobotSimulator {
       }
     }
 
+    // Force-sensor bumper (port C). Drawn forward of the chassis edge with a
+    // colour ramp tied to robot.sensors.forceN. Uses the same drawing transform
+    // as the chassis (+90° offset / heading), so body-local +X is "up" on screen.
+    {
+      const f = this.robot.sensors.forceN || 0;
+      const pct = Math.max(0, Math.min(1, f / 10));
+      // idle: chassis-grey; pressed: amber; hard: red. Linear interp through
+      // the two stops, mirroring the panel widget colour logic.
+      const lerp = (a, b, t) => a + (b - a) * t;
+      const idle  = [160, 160, 176];   // #a0a0b0
+      const amber = [240, 168,  48];
+      const red   = [231,  76,  60];
+      let r, g, b;
+      if (pct < 0.7) {
+        const t = pct / 0.7;
+        r = lerp(idle[0],  amber[0], t);
+        g = lerp(idle[1],  amber[1], t);
+        b = lerp(idle[2],  amber[2], t);
+      } else {
+        const t = (pct - 0.7) / 0.3;
+        r = lerp(amber[0], red[0], t);
+        g = lerp(amber[1], red[1], t);
+        b = lerp(amber[2], red[2], t);
+      }
+      ctx.fillStyle = `rgb(${r|0}, ${g|0}, ${b|0})`;
+      ctx.strokeStyle = '#555';
+      ctx.lineWidth = 1 * s;
+      if (f >= 7) {
+        ctx.shadowColor   = 'rgba(231,76,60,0.8)';
+        ctx.shadowBlur    = 8 * s;
+        ctx.shadowOffsetY = 0;
+      }
+      // The chassis is drawn with body-local +Y = "down" on screen (the
+      // ctx.rotate uses heading + 90°). Body-local +X (forward) maps to screen
+      // -Y. So the bumper sits at y = -(bh/2 + bumperDepth/2).
+      const bumperWpx = 30 * s;
+      const bumperDpx = 10 * s;
+      ctx.beginPath();
+      ctx.roundRect(-bumperWpx/2, -bh/2 - bumperDpx, bumperWpx, bumperDpx, 2*s);
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+    }
+
     // Front indicator (red triangle pointing "forward")
     ctx.fillStyle = '#ff4455';
     ctx.beginPath();
