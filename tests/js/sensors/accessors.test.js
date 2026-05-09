@@ -60,12 +60,49 @@ test('robot.sensors.distanceOrigin: defaults to null', () => {
   assert.strictEqual(createSim().robot.sensors.distanceOrigin, null);
 });
 
-test('getForceSensorValue: returns 0', () => {
+test('getForceSensorValue: returns 0 when forceN is 0', () => {
   assert.strictEqual(createSim().getForceSensorValue(), 0);
 });
 
-test('getForceSensorPressed: returns false', () => {
-  assert.strictEqual(createSim().getForceSensorPressed(), false);
+test('getForceSensorValue: 5 N → 50 dN', () => {
+  const sim = createSim();
+  sim.robot.sensors.forceN = 5;
+  assert.strictEqual(sim.getForceSensorValue(), 50);
+});
+
+test('getForceSensorValue: 12 N over-range clamps to 100 dN', () => {
+  const sim = createSim();
+  sim.robot.sensors.forceN = 12;
+  assert.strictEqual(sim.getForceSensorValue(), 100);
+});
+
+test('getForceSensorPressed: false below 0.5 N', () => {
+  const sim = createSim();
+  sim.robot.sensors.forceN = 0.49;
+  assert.strictEqual(sim.getForceSensorPressed(), false);
+});
+
+test('getForceSensorPressed: true at and above 0.5 N', () => {
+  const sim = createSim();
+  sim.robot.sensors.forceN = 0.5;
+  assert.strictEqual(sim.getForceSensorPressed(), true);
+});
+
+test('getForceSensorRaw: 0 N → 0', () => {
+  assert.strictEqual(createSim().getForceSensorRaw(), 0);
+});
+
+test('getForceSensorRaw: 10 N → 4095 (clamp)', () => {
+  const sim = createSim();
+  sim.robot.sensors.forceN = 10;
+  assert.strictEqual(sim.getForceSensorRaw(), 4095);
+});
+
+test('getForceSensorRaw: 0.5 N → ~205', () => {
+  const sim = createSim();
+  sim.robot.sensors.forceN = 0.5;
+  const raw = sim.getForceSensorRaw();
+  assert.ok(raw >= 200 && raw <= 210, `raw=${raw}`);
 });
 
 test('getMotorSpeed: returns 0 for any port', () => {

@@ -23,18 +23,21 @@ test('_assertSensorAvailable("motor") passes — ports A,B are motors in default
   assert.doesNotThrow(() => sim._assertSensorAvailable('motor'));
 });
 
-test('_assertSensorAvailable("force_sensor") throws under canonical wiring', () => {
+test('_assertSensorAvailable("force_sensor") passes — port C is force_sensor in default config', () => {
   const sim = createSim();
+  assert.doesNotThrow(() => sim._assertSensorAvailable('force_sensor'));
+});
+
+test('_assertSensorAvailable("force_sensor") throws when all ports are empty', () => {
+  const sim = createSim();
+  sim._portConfig = {
+    A: { kind: 'empty' }, B: { kind: 'empty' }, C: { kind: 'empty' },
+    D: { kind: 'empty' }, E: { kind: 'empty' }, F: { kind: 'empty' },
+  };
   assert.throws(
     () => sim._assertSensorAvailable('force_sensor'),
     /no force sensor configured on any port/,
   );
-});
-
-test('_assertSensorAvailable passes once a port is reconfigured to force_sensor', () => {
-  const sim = createSim();
-  sim._portConfig = { ...sim._portConfig, C: { kind: 'force_sensor' } };
-  assert.doesNotThrow(() => sim._assertSensorAvailable('force_sensor'));
 });
 
 test('_assertSensorAvailable error message names the kind in human form', () => {

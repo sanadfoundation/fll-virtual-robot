@@ -38,7 +38,7 @@ const DIST_SENSOR_OOR_VALUE = 9999;  // wire sentinel; py/spike_bridge.py:308 ma
 const PORT_CONFIG = {
   A: { kind: 'motor',           role: 'drive-left'  },
   B: { kind: 'motor',           role: 'drive-right' },
-  C: { kind: 'empty' },
+  C: { kind: 'force_sensor',    mount: 'front'      },
   D: { kind: 'empty' },
   E: { kind: 'color_sensor' },
   F: { kind: 'distance_sensor' },
@@ -129,6 +129,7 @@ function makeRobotState() {
       distanceMM: DIST_SENSOR_OOR_VALUE,
       distanceHit:    null,
       distanceOrigin: null,
+      forceN:         0,
     },
     display: Array(25).fill(0), // 5×5 matrix brightness
   };
@@ -1185,8 +1186,15 @@ class RobotSimulator {
 
   getDistanceSensorValue()    { this._updateDistanceSensor(); return this.robot.sensors.distanceMM; }
   getDistanceSensorPresence() { this._updateDistanceSensor(); return this.robot.sensors.distanceMM < 100; }
-  getForceSensorValue()       { return 0; }
-  getForceSensorPressed()     { return false; }
+  getForceSensorValue() {
+    return window.forceSensorLogic.forceToReadings(this.robot.sensors.forceN).dn;
+  }
+  getForceSensorPressed() {
+    return window.forceSensorLogic.forceToReadings(this.robot.sensors.forceN).pressed;
+  }
+  getForceSensorRaw() {
+    return window.forceSensorLogic.forceToReadings(this.robot.sensors.forceN).raw;
+  }
   getMotorSpeed(port)         { return 0; }
   getMotorPosition(port)      { return this.robot.motors[port] || 0; }
 
