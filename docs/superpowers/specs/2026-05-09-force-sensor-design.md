@@ -185,31 +185,128 @@ getForceSensorRaw()      { return Math.round(this.robot.sensors.forceN * 409.5);
 
 `_sensorState` (`js/simulator.js:789-800`) gains `force_dn`, `force_pressed`, `force_raw`.
 
-## Data flow
+## Component interaction
+
+### Static component view
+
+Boxes are units of code (or a vendored runtime); arrows are calls / event flows.
 
 ```
-[Hub-panel button] --pointerdown--> simulator.manualStartMs := now
-                                               |
-                                               v
-[box2d world step]  PostSolve impulses --> simulator.emaN
-                                               |
-                                               v
-each tick:  forceN = max(emaN, manualN)  --> robot.sensors.forceN
-                                               |
-                                       /-------+-------\
-                                       v               v
-                          [_updateSensorPanel]   [_drawRobot]
-                                fill bar             bumper tint
-                                value text
-                                       |
-                                       v (on command reply)
-                              [_sensorState payload] -> Python `_state`
-                                       |
-                                       v
-                          force_sensor.{force,pressed,raw}(port)
+┌─────────────────────────────────────── MAIN THREAD ──────────────────────────────────────┐
+│                                                                                          │
+│   ┌──────────────┐         ┌──────────────────────────┐                                  │
+│   │  User mouse  │         │       Hub panel widget   │                                  │
+│   │              │         │   (DOM in index.html,    │                                  │
+│   │              │         │    wired by main.js)     │                                  │
+│   └──────┬───────┘         └────┬───────────────▲─────┘                                  │
+│          │ pointerdown/up       │ pointer evt   │ width / text / data-state              │
+│          ▼                      ▼               │                                        │
+│   ┌─────────────────────────────────────────────┴──────────────────────────────────────┐ │
+│   │                                  RobotSimulator                                    │ │
+│   │                                (js/simulator.js)                                   │ │
+│   │                                                                                    │ │
+│   │   state:    manualStartMs · manualN · emaN · forceN                                │ │
+│   │                                                                                    │ │
+│   │   per-tick: _animateTank   (during a motor command)                                │ │
+│   │             _idleStepForceSensor   (during idle frames)                            │ │
+│   │             ── calls ──► force_sensor_logic.{emaStep, manualRamp,                  │ │
+│   │                                              combine, forceToReadings}             │ │
+│   │                                                                                    │ │
+│   │   output:   _updateSensorPanel  ──► Hub panel widget                               │ │
+│   │             _drawRobot          ──► canvas bumper tint                             │ │
+│   │             _sensorState        ──► (worker) Python _state                         │ │
+│   └────────┬───────────────────────────────────────────────────────┬──────┬────────────┘ │
+│            │ velocity / pose                                       │      │ canvas        │
+│            │ ◄── { force_impulses: { C: J } }                      │      │ pixels        │
+│            ▼                                                       ▼      ▼               │
+│   ┌────────────────────────────────────┐                   ┌───────────────────────┐    │
+│   │             World2D                │                   │   <canvas#field>      │    │
+│   │         (js/world_2d.js)           │                   └───────────────────────┘    │
+│   │                                    │                                                  │
+│   │   addBumper(robotBody, hx,hy,…)    │                                                  │
+│   │   ForceSensorListener              │                                                  │
+│   │     extends b2ContactListener      │                                                  │
+│   │     PostSolve(contact, impulse)    │                                                  │
+│   │   step(dt) → drainStep() result    │                                                  │
+│   └─────────────────┬──────────────────┘                                                  │
+│                     │ Step / SetVelocity / GetContactList                                 │
+│                     ▼                                                                     │
+│   ┌────────────────────────────────────┐                                                  │
+│   │         Box2D-WASM 7.0.0           │                                                  │
+│   │   robot (kinematic) + bumper fixt. │                                                  │
+│   │   walls (static) · obstacles (dyn) │                                                  │
+│   └────────────────────────────────────┘                                                  │
+│                                                                                          │
+│ ═════════════════════════════ postMessage / bridgeSend ════════════════════════════════ │
+│                                                                                          │
+└──────────────────────────────────── WEB WORKER ──────────────────────────────────────────┘
+                                                │
+                                                ▼
+   ┌─────────────────────────────────────────────────────────────────┐
+   │                   py/spike_bridge.py (MicroPython)              │
+   │                                                                 │
+   │   _state['force_dn' / 'force_pressed' / 'force_raw']            │
+   │     ▲                                                           │
+   │     │ updated on every command reply via _await_and_update      │
+   │     │                                                           │
+   │   force_sensor.force(port)   ──► int   _state['force_dn']       │
+   │   force_sensor.pressed(port) ──► bool  _state['force_pressed']  │
+   │   force_sensor.raw(port)     ──► int   _state['force_raw']      │
+   │                                                                 │
+   │   ──► User Python program                                       │
+   └─────────────────────────────────────────────────────────────────┘
 ```
 
-No new persistence, no new worker messages, no localStorage.
+### Per-tick sequence — combined manual + physics
+
+The interesting case is a frame where the user is holding the button **and** the robot's bumper is in contact with something. Both sources contribute; `max` arbitrates.
+
+```
+User    Hub-button   Simulator     World2D        Box2D       DOM/Canvas      Worker/Python
+ │          │            │            │             │              │               │
+ │ down     │            │            │             │              │               │
+ │─────────▶│            │            │             │              │               │
+ │          │ start=now  │            │             │              │               │
+ │          │───────────▶│            │             │              │               │
+ │          │            │            │             │              │               │
+ │ ── animation frame N (rAF, ~60 Hz) ─────────────────────────────┼───────────    │
+ │          │            │            │             │              │               │
+ │          │            │ step(dt)   │             │              │               │
+ │          │            │───────────▶│ world.Step  │              │               │
+ │          │            │            │────────────▶│              │               │
+ │          │            │            │             │ PostSolve    │               │
+ │          │            │            │   ◄──── normalImpulses[]   │               │
+ │          │            │            │   on bumper fixture        │               │
+ │          │            │ { C: ΣJ }  │             │              │               │
+ │          │            │◄── drainStep              │              │               │
+ │          │            │            │             │              │               │
+ │          │            │  instantN = ΣJ / dt                                     │
+ │          │            │  emaN    = 0.4·instantN + 0.6·emaN  (α = 0.4)           │
+ │          │            │  manualN = min(10, (now - start) / 100)                 │
+ │          │            │  forceN  = max(emaN, manualN)                           │
+ │          │            │            │             │              │               │
+ │          │            │ paint widget + bumper                                   │
+ │          │            │────────────┼─────────────┼─────────────▶│               │
+ │          │            │            │             │              │               │
+ │ ── (eventually) Python user code calls force_sensor.force(port.C) ──            │
+ │          │            │            │             │              │               │
+ │          │            │            │       bridgeSend(cmd)                       │
+ │          │            │◄────────────────────────────────────────────────────────│
+ │          │            │ _sensorState() payload:                                  │
+ │          │            │   force_dn      = round(forceN × 10)                     │
+ │          │            │   force_pressed = forceN ≥ 0.5                           │
+ │          │            │   force_raw     = round(forceN × 409.5)                  │
+ │          │            │────────────────────────────────────────────────────────▶│
+ │          │            │            │             │              │  _state.update│
+ │          │            │            │             │              │               │
+ │ up       │            │            │             │              │               │
+ │─────────▶│            │            │             │              │               │
+ │          │ start=null,│            │             │              │               │
+ │          │ manualN=0  │            │             │              │               │
+ │          │───────────▶│            │             │              │               │
+```
+
+No new persistence, no new worker messages, no localStorage. The existing `read_sensors` / `_sensorState` round-trip carries the new keys.
 
 ## Edge cases
 
