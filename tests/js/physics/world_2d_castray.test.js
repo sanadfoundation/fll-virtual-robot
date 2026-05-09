@@ -48,11 +48,11 @@ function makeStubBox2dForCastRay(scriptedFixtures = []) {
   // pre-built fixture pointer.
   class b2Fixture {}
 
-  let nextBodyId = 0;
+  let nextBodyId = 1;             // start from 1; getPointer(null) returns 0
   function makeBody(def) {
     const id = nextBodyId++;
     const body = {
-      a: id,                        // emscripten-style raw pointer; identity key
+      _ptr: id,                     // stub stand-in for the Emscripten raw pointer
       pos:    new b2Vec2(def.props.position?.x || 0, def.props.position?.y || 0),
       angle:  def.props.angle || 0,
       SetTransform()        {},
@@ -85,7 +85,7 @@ function makeStubBox2dForCastRay(scriptedFixtures = []) {
       for (const f of scriptedFixtures) {
         if (f.fraction > bestFrac) continue;
         const ret = cb.ReportFixture(
-          { _kind: 'fixture', bodyA: f.bodyA },
+          { _kind: 'fixture', bodyPtr: f.bodyPtr },
           { x: f.point.x,  y: f.point.y  },
           { x: f.normal.x, y: f.normal.y },
           f.fraction,
@@ -100,15 +100,20 @@ function makeStubBox2dForCastRay(scriptedFixtures = []) {
     b2Fixture, JSRayCastCallback,
     b2_kinematicBody: 'kinematic',
     b2_dynamicBody:   'dynamic',
-    // wrapPointer for a fixture: hand back an object exposing GetBody() with
-    // the planted .a. For points/normals we wrap them as b2Vec2-like objects.
+    // wrapPointer for a fixture: hand back an object whose GetBody() returns a
+    // body wrapper carrying its identity in `_ptr`. For points/normals we wrap
+    // them as b2Vec2-like objects.
     wrapPointer: (ptr, type) => {
       if (type === b2Fixture) {
-        return { GetBody: () => ({ a: ptr.bodyA }) };
+        return { GetBody: () => ({ _ptr: ptr.bodyPtr }) };
       }
       // b2Vec2-like
       return { get_x: () => ptr.x, get_y: () => ptr.y };
     },
+    // box2d-wasm exposes getPointer(obj) → raw Emscripten pointer (Number).
+    // The stub stores identity in `_ptr` on body wrappers. For real bodies
+    // created via CreateBody we tag them with `_ptr = id` (see makeBody).
+    getPointer: (obj) => (obj && obj._ptr) | 0,
     destroy: () => {},
   };
   return { stub, calls };
@@ -156,7 +161,7 @@ test('castRay: direction π/2 (north in math y-up) places far endpoint along +Y'
 
 test('castRay: hit fraction 0.25 with maxDist 2000 → distanceMm 500', async () => {
   const { world } = await makeWorld([
-    { bodyA: 1, fraction: 0.25, point: { x: 0.5, y: 0 }, normal: { x: -1, y: 0 } },
+    { bodyPtr: 1, fraction: 0.25, point: { x: 0.5, y: 0 }, normal: { x: -1, y: 0 } },
   ]);
   const r = world.castRay({ x: 0, y: 0 }, 0, 2000);
   assert.strictEqual(r.hit, true);
@@ -165,7 +170,7 @@ test('castRay: hit fraction 0.25 with maxDist 2000 → distanceMm 500', async ()
 
 test('castRay: hit point converted m → mm on the way out', async () => {
   const { world } = await makeWorld([
-    { bodyA: 1, fraction: 0.5, point: { x: 1.234, y: 0.567 }, normal: { x: 0, y: 1 } },
+    { bodyPtr: 1, fraction: 0.5, point: { x: 1.234, y: 0.567 }, normal: { x: 0, y: 1 } },
   ]);
   const r = world.castRay({ x: 0, y: 0 }, 0, 2000);
   assert.ok(close(r.point.x, 1234, 1e-6));
@@ -174,7 +179,7 @@ test('castRay: hit point converted m → mm on the way out', async () => {
 
 test('castRay: normal passes through unchanged (already unit, dimensionless)', async () => {
   const { world } = await makeWorld([
-    { bodyA: 1, fraction: 0.5, point: { x: 0, y: 0 }, normal: { x: 0.6, y: -0.8 } },
+    { bodyPtr: 1, fraction: 0.5, point: { x: 0, y: 0 }, normal: { x: 0.6, y: -0.8 } },
   ]);
   const r = world.castRay({ x: 0, y: 0 }, 0, 2000);
   assert.ok(close(r.normal.x,  0.6));
@@ -186,8 +191,8 @@ test('castRay: returns the closest fixture when multiple report', async () => {
   // to clamp; the stub's RayCast skips later entries past the current bestFrac.
   // We list the closer one first so it sets the clamp before the farther one.
   const { world } = await makeWorld([
-    { bodyA: 1, fraction: 0.10, point: { x: 0.2, y: 0 }, normal: { x: -1, y: 0 } },
-    { bodyA: 2, fraction: 0.50, point: { x: 1.0, y: 0 }, normal: { x: -1, y: 0 } },
+    { bodyPtr: 1, fraction: 0.10, point: { x: 0.2, y: 0 }, normal: { x: -1, y: 0 } },
+    { bodyPtr: 2, fraction: 0.50, point: { x: 1.0, y: 0 }, normal: { x: -1, y: 0 } },
   ]);
   const r = world.castRay({ x: 0, y: 0 }, 0, 2000);
   assert.strictEqual(r.distanceMm, 200);
@@ -196,20 +201,20 @@ test('castRay: returns the closest fixture when multiple report', async () => {
 
 test('castRay: excludeBody filters by .a pointer (NOT object identity)', async () => {
   const { world } = await makeWorld([
-    { bodyA: 7, fraction: 0.10, point: { x: 0.2, y: 0 }, normal: { x: -1, y: 0 } },
-    { bodyA: 9, fraction: 0.50, point: { x: 1.0, y: 0 }, normal: { x: -1, y: 0 } },
+    { bodyPtr: 7, fraction: 0.10, point: { x: 0.2, y: 0 }, normal: { x: -1, y: 0 } },
+    { bodyPtr: 9, fraction: 0.50, point: { x: 1.0, y: 0 }, normal: { x: -1, y: 0 } },
   ]);
   // Pretend body 7 is the robot; we should hit body 9 instead.
-  const r = world.castRay({ x: 0, y: 0 }, 0, 2000, { excludeBody: { a: 7 } });
+  const r = world.castRay({ x: 0, y: 0 }, 0, 2000, { excludeBody: { _ptr: 7 } });
   assert.strictEqual(r.distanceMm, 1000);
 });
 
 test('castRay: excludeBody only skips fixtures whose body matches', async () => {
   const { world } = await makeWorld([
-    { bodyA: 7, fraction: 0.30, point: { x: 0.6, y: 0 }, normal: { x: -1, y: 0 } },
+    { bodyPtr: 7, fraction: 0.30, point: { x: 0.6, y: 0 }, normal: { x: -1, y: 0 } },
   ]);
   // Excluding a different body shouldn't filter our scripted hit.
-  const r = world.castRay({ x: 0, y: 0 }, 0, 2000, { excludeBody: { a: 99 } });
+  const r = world.castRay({ x: 0, y: 0 }, 0, 2000, { excludeBody: { _ptr: 99 } });
   assert.strictEqual(r.distanceMm, 600);
 });
 

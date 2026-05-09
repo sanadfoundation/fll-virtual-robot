@@ -115,13 +115,15 @@ castRay(originMm, directionRad, maxDistMm, { excludeBody = null } = {}) {
   let bestNormal = null;
   let bestFrac = 1.0;
 
+  const excludePtr = excludeBody ? box2d.getPointer(excludeBody) : 0;
+
   // box2d-wasm RayCastCallback recipe for "find the closest fixture": return
   // the fraction to clamp the search to that fraction. Return -1 to ignore
   // and keep the previous clamp (used to skip the robot itself).
   const cb = new box2d.JSRayCastCallback();
   cb.ReportFixture = (fixturePtr, pointPtr, normalPtr, fraction) => {
     const fixture = box2d.wrapPointer(fixturePtr, box2d.b2Fixture);
-    if (excludeBody && fixture.GetBody().a === excludeBody.a) return -1;
+    if (excludePtr && box2d.getPointer(fixture.GetBody()) === excludePtr) return -1;
 
     const point  = box2d.wrapPointer(pointPtr,  box2d.b2Vec2);
     const normal = box2d.wrapPointer(normalPtr, box2d.b2Vec2);
@@ -146,11 +148,12 @@ castRay(originMm, directionRad, maxDistMm, { excludeBody = null } = {}) {
 
 Three things worth flagging:
 
-1. **Body identity comparison.** box2d-wasm wraps Emscripten pointers; identical
-   bodies share the same `.a` (raw pointer address). Comparing
-   `fixture.GetBody() === excludeBody` does **not** work — each `wrapPointer`
-   returns a fresh JS wrapper. The `.a` comparison is the canonical equality
-   test in this binding.
+1. **Body identity comparison.** box2d-wasm wraps Emscripten pointers; each
+   `wrapPointer` call returns a fresh JS wrapper, so `fixture.GetBody() ===
+   excludeBody` does **not** work. The canonical equality test is
+   `box2d.getPointer(obj)`, which returns the underlying raw pointer
+   (a Number). The wrapper's own property name for the pointer is bundle-
+   specific and minified — never reach for it directly.
 
 2. **Allocation discipline.** Two `b2Vec2`s and one `JSRayCastCallback` per
    call — all explicitly destroyed, matching the rest of `world_2d.js`. At the

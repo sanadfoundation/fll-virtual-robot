@@ -173,8 +173,10 @@ export class World2D {
   //
   // box2d-wasm note: comparing fixtures/bodies via `===` does NOT work — each
   // wrapPointer call returns a fresh JS wrapper. The canonical equality test
-  // is the `.a` raw-pointer field. Per-call allocations (two b2Vec2, one
-  // callback) are explicitly destroyed; at 60 Hz this is fine.
+  // is `box2d.getPointer(obj)`, which returns the underlying Emscripten raw
+  // pointer (the property name on the wrapper itself is bundle-specific and
+  // minified). Per-call allocations (two b2Vec2, one callback) are explicitly
+  // destroyed; at 60 Hz this is fine.
   castRay(originMm, directionRad, maxDistMm, { excludeBody = null } = {}) {
     const ox = originMm.x * M_PER_MM;
     const oy = originMm.y * M_PER_MM;
@@ -189,10 +191,12 @@ export class World2D {
     let bestNormal = null;
     let bestFrac = 1.0;
 
+    const excludePtr = excludeBody ? box2d.getPointer(excludeBody) : 0;
+
     const cb = new box2d.JSRayCastCallback();
     cb.ReportFixture = (fixturePtr, pointPtr, normalPtr, fraction) => {
       const fixture = box2d.wrapPointer(fixturePtr, box2d.b2Fixture);
-      if (excludeBody && fixture.GetBody().a === excludeBody.a) return -1;
+      if (excludePtr && box2d.getPointer(fixture.GetBody()) === excludePtr) return -1;
 
       const point  = box2d.wrapPointer(pointPtr,  box2d.b2Vec2);
       const normal = box2d.wrapPointer(normalPtr, box2d.b2Vec2);

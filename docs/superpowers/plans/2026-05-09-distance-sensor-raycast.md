@@ -193,7 +193,7 @@ test('castRay: origin and far endpoint are converted mm → m before world.RayCa
   assert.ok(close(ray.p2.y, 0.500), `p2.y=${ray.p2.y}`);
 });
 
-test('castRay: direction π/2 (south) places far endpoint along +Y', async () => {
+test('castRay: direction π/2 (north in math y-up) places far endpoint along +Y', async () => {
   const { world, calls } = await makeWorld([]);
   world.castRay({ x: 0, y: 0 }, Math.PI / 2, 1000);
   const ray = calls.find(c => c.op === 'RayCast');
