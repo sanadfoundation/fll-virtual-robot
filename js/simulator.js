@@ -145,6 +145,7 @@ class RobotSimulator {
     this.trail     = [{ x: this.robot.x, y: this.robot.y }];
     this.isRunning = false;
     this.speedMult = 1.0;
+    this.units     = 'cm';   // 'cm' | 'mm' | 'in'; main.js calls setUnits() with stored value on load
     this.pairMap   = {};  // pair_id → { left, right }
     this._portConfig = PORT_CONFIG;
 
@@ -763,6 +764,15 @@ class RobotSimulator {
     const wrapRect = this.canvas.parentElement.getBoundingClientRect();
     this._hoverEl.style.left = (left + rect.left - wrapRect.left) + 'px';
     this._hoverEl.style.top  = (top  + rect.top  - wrapRect.top)  + 'px';
+  }
+
+  // Single setter for the position-readout unit. Trusts the caller (only
+  // called from js/main.js, which validates against the allowed set before
+  // calling). Marking _dirty triggers the next animation-frame redraw of
+  // the ruler with the new tick pitch and labels.
+  setUnits(unit) {
+    this.units = unit;
+    this._dirty = true;
   }
 
   stop() {

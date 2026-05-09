@@ -99,3 +99,15 @@ test('getColorSensorColorInt: returns 6 for "green"', () => {
   sim.robot.sensors.colorValue = 'green';
   assert.strictEqual(sim.getColorSensorColorInt(), 6);
 });
+
+test('units: defaults to "cm"', () => {
+  assert.strictEqual(createSim().units, 'cm');
+});
+
+test('setUnits: assigns the new unit and marks _dirty', () => {
+  const sim = createSim();
+  sim._dirty = false;
+  sim.setUnits('mm');
+  assert.strictEqual(sim.units, 'mm');
+  assert.strictEqual(sim._dirty, true);
+});
