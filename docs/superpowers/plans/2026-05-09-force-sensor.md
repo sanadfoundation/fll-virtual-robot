@@ -529,14 +529,14 @@ Expected: the three new `getForceSensorRaw` tests fail (`is not a function`); `g
 
 - [ ] **Step 4: Add `forceN` to robot state**
 
-In `js/simulator.js`, find `makeRobotState` (around line 103-115). Update the `sensors` object to include `forceN`:
+In `js/simulator.js`, find `makeRobotState` (the math y-up rewrite landed in commit `86d59fb`; current values are spawn `(350, 163)` heading `90`). Update only the `sensors` block to include `forceN` — leave the spawn pose untouched:
 
 ```javascript
 function makeRobotState() {
   return {
-    x: 350,
-    y: 980,
-    heading: -90,
+    x: 350,          // mm from left edge
+    y: 163,          // mm from bottom edge (math y-up)
+    heading: 90,     // degrees: 0=east, 90=north, 180=west, 270=south
     motors: { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 },
     sensors: {
       colorValue: 'none',
@@ -547,6 +547,8 @@ function makeRobotState() {
   };
 }
 ```
+
+If the `x / y / heading` lines on disk diverge from the values shown above (e.g. someone tweaked the spawn), keep the on-disk values — we're only adding `forceN: 0` to the `sensors` block.
 
 - [ ] **Step 5: Flip `PORT_CONFIG.C` to `force_sensor`**
 
@@ -842,28 +844,34 @@ Expected: `test_port_c_is_configured_force_sensor` fails (still 'empty'). `test_
 
 - [ ] **Step 4: Update `_state` initialization in `py/spike_bridge.py`**
 
-Find `_state = { ... }` (around line 34-39):
+Find the `_state = { ... }` block (around line 34-39). Add three new keys *before* the `'stopped': False,` line — leave the spawn-pose / motors / colour keys untouched, since the JS side overwrites them on every command reply via `_await_and_update`. Targeted edit (operates on whatever the file currently has):
+
+Replace this exact line:
 
 ```python
-_state = {
-    'x': 350, 'y': 980, 'heading': -90,
-    'color': 'none', 'distance_mm': 300,
-    'motors': {'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0},
     'stopped': False,
-}
 ```
 
-Replace with:
+With:
+
+```python
+    'force_dn': 0, 'force_pressed': False, 'force_raw': 0,
+    'stopped': False,
+```
+
+The block, post-edit, looks like:
 
 ```python
 _state = {
-    'x': 350, 'y': 980, 'heading': -90,
+    'x': 350, 'y': 163, 'heading': 90,            # math y-up; values may differ
     'color': 'none', 'distance_mm': 300,
     'motors': {'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0},
     'force_dn': 0, 'force_pressed': False, 'force_raw': 0,
     'stopped': False,
 }
 ```
+
+(The pose and heading values may differ from what's shown — the math-y-up migration only updated `js/simulator.js`'s spawn and didn't touch `py/spike_bridge.py`'s init defaults, which become moot after the first command reply. Don't "fix" them as part of this task.)
 
 - [ ] **Step 5: Flip `_PORT_CONFIG['C']` to `'force_sensor'`**
 
@@ -1065,7 +1073,7 @@ async function makeWorld() {
 
 test('addBumper: appends a CreateFixture call to the same body', async () => {
   const { world, calls } = await makeWorld();
-  const body = world.addRobot(100, 80, { x: 350, y: 980 });
+  const body = world.addRobot(100, 80, { x: 350, y: 163 });
   const before = calls.filter(c => c.op === 'CreateFixture').length;
   world.addBumper(body, 5, 15, 105, 0, { kind: 'force_sensor', port: 'C' });
   const after = calls.filter(c => c.op === 'CreateFixture').length;
@@ -2125,7 +2133,7 @@ Drive the robot forward into the wall via a separate program, *or* press and hol
   - Numeric climbs 0.0 N → 10.0 N.
   - Bumper on the canvas tints amber → red.
   - Releasing snaps the bar / value / bumper back to idle.
-- Drive the robot into a mission obstacle (the purple `1` box at `(1700, 200)`):
+- Drive the robot into a mission obstacle (the purple `1` box at math y-up `(1700, 943)`, on the green sensor zone):
   - Bar fills proportionally to the impulse.
   - Bumper tints.
   - Obstacle is shoved.

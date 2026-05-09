@@ -381,7 +381,7 @@ Following the pattern of `tests/py/test_motor.py`, `test_hub.py`, etc., a new fi
 1. `python3 -m http.server 8787` and load the page. Confirm port C row in the Hub panel renders the new "Force" press-button with an empty fill bar and "0.0 N".
 2. Press and hold the button. Bar fills smoothly over 1 s; numeric climbs from 0.0 to 10.0 N; canvas bumper transitions grey → amber → red. Release: bar empties instantly.
 3. Drive the robot forward into the top wall (`motor_pair.move(50, 'cm')` from spawn). On contact, bar fills, bumper tints, `force_sensor.force(port.C)` (printed in user code) returns a non-zero decinewton value. After the robot stops, bar bleeds back to 0 within ~50 ms.
-4. Drive the robot into mission obstacle 1 (the purple box at `(1700, 200)`) — same behaviour, plus the obstacle gets shoved.
+4. Drive the robot into mission obstacle 1 (the purple box at math y-up `(1700, 943)`, on the green sensor zone) — same behaviour, plus the obstacle gets shoved.
 5. Hold the manual button while the robot is also bumping a wall. Bar tracks the larger of the two; release the button while still bumping → bar drops to the physics-only level.
 6. Click *Reset*. Bar clears, button releases (visually), bumper returns to idle grey.
 7. Run a Blockly program with the `when force sensor on PORT C is hard-pressed` hat. Hold the button > 700 ms — the hat fires.
