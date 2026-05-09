@@ -12,7 +12,7 @@ class TestPortConfig(unittest.TestCase):
     def test_port_config_default(self):
         self.assertEqual(sb._PORT_CONFIG['A'], 'motor')
         self.assertEqual(sb._PORT_CONFIG['B'], 'motor')
-        self.assertEqual(sb._PORT_CONFIG['C'], 'empty')
+        self.assertEqual(sb._PORT_CONFIG['C'], 'force_sensor')
         self.assertEqual(sb._PORT_CONFIG['D'], 'empty')
         self.assertEqual(sb._PORT_CONFIG['E'], 'color_sensor')
         self.assertEqual(sb._PORT_CONFIG['F'], 'distance_sensor')
@@ -23,8 +23,8 @@ class TestPortConfig(unittest.TestCase):
 
     def test_require_raises_for_empty_port(self):
         with self.assertRaises(RuntimeError) as cx:
-            sb._require('C', 'motor', 'motor.run')
-        self.assertIn('port C has no motor', str(cx.exception))
+            sb._require('D', 'motor', 'motor.run')
+        self.assertIn('port D has no motor', str(cx.exception))
         self.assertIn('configured: empty', str(cx.exception))
 
     def test_require_raises_for_wrong_kind(self):
@@ -148,9 +148,11 @@ class TestPortConfig(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             sb.distance_sensor.clear('A')
 
-    # ── Force sensor (no force sensor in default config) ────────
+    # ── Force sensor (port C in default config) ────────
     def test_force_sensor_force_always_raises(self):
-        for p in ('A', 'B', 'C', 'D', 'E', 'F'):
+        # Port C is configured as force_sensor, so it should NOT raise.
+        # All other ports should raise.
+        for p in ('A', 'B', 'D', 'E', 'F'):
             with self.assertRaises(RuntimeError):
                 sb.force_sensor.force(p)
 

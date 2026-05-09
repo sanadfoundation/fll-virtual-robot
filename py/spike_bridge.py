@@ -35,6 +35,7 @@ _state = {
     'x': 350, 'y': 980, 'heading': -90,
     'color': 'none', 'distance_mm': 300,
     'motors': {'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0},
+    'force_dn': 0, 'force_pressed': False, 'force_raw': 0,
     'stopped': False,
 }
 
@@ -73,7 +74,7 @@ _COLOR_INT_MAP = {
 _PORT_CONFIG = {
     'A': 'motor',
     'B': 'motor',
-    'C': 'empty',
+    'C': 'force_sensor',
     'D': 'empty',
     'E': 'color_sensor',
     'F': 'distance_sensor',
@@ -326,23 +327,23 @@ class distance_sensor:
 
 
 class force_sensor:
-    """Force sensor API. The default robot config has no force sensor, so every
-    method here raises RuntimeError. Customization can later add one to a port."""
+    """Force sensor API. Port C is wired to 'force_sensor' in the canonical
+    config; calls on other ports raise via _require()."""
 
     @staticmethod
     def force(port):
         _require(port, 'force_sensor', 'force_sensor.force')
-        return 0
+        return int(_state.get('force_dn', 0))
 
     @staticmethod
     def pressed(port):
         _require(port, 'force_sensor', 'force_sensor.pressed')
-        return False
+        return bool(_state.get('force_pressed', False))
 
     @staticmethod
     def raw(port):
         _require(port, 'force_sensor', 'force_sensor.raw')
-        return 0
+        return int(_state.get('force_raw', 0))
 
 
 class _LightMatrix:
