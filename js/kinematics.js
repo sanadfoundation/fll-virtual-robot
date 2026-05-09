@@ -31,9 +31,10 @@
   // world-frame linear velocity (mm/s) and angular velocity (rad/s) given
   // current normalised wheel speeds and the body's current heading.
   //
-  // Sign convention preserved from the canvas-Y-down legacy integrator:
-  // right-turn = left wheel faster ⇒ rightSpd-leftSpd < 0 ⇒ +angVel ⇒ body
-  // angle increases ⇒ canvas heading increases. Don't "fix" the leading minus.
+  // Math y-up convention: right turn = left wheel faster ⇒ rightSpd-leftSpd < 0
+  // ⇒ angVel < 0 ⇒ heading decreases (CW = math-negative). vx/vy use cos/sin
+  // of heading directly; the trig works in either y convention as long as
+  // heading sign agrees with y direction (it does, in both conventions).
   function wheelsToBodyVelocity(leftV, rightV, headingRad, speedMmPerS, trackWidthMm) {
     const leftSpd  = leftV  * speedMmPerS;
     const rightSpd = rightV * speedMmPerS;
@@ -41,7 +42,7 @@
     return {
       vx:     Math.cos(headingRad) * linSpd,
       vy:     Math.sin(headingRad) * linSpd,
-      angVel: -(rightSpd - leftSpd) / trackWidthMm,
+      angVel: (rightSpd - leftSpd) / trackWidthMm,
     };
   }
 
