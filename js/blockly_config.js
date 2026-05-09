@@ -2167,7 +2167,84 @@ function initBlockly(divId, themeName, initialXml) {
     Blockly.Xml.domToWorkspace(Blockly.utils.xml.textToDom(DEFAULT_BLOCKLY_XML), workspace);
   }
 
+  _attachRepeatCurls(workspace, Blockly);
+
   return workspace;
+}
+
+// SPIKE word-block decoration: a small curl glyph at the bottom-right of every
+// loop block's C-mouth, mirroring Spike's repeat.svg overlay. Scratch-blocks
+// has no built-in hook for "extra decoration on a specific opcode", so we hang
+// an <image> child off the block's SVG group and re-position it on every
+// workspace event that could change the block's rendered size.
+const _LOOP_OPCODES = new Set(['control_repeat', 'control_repeat_until', 'control_forever']);
+const _REPEAT_CURL_CLASS = 'spike-repeat-curl';
+function _decorateLoopBlock(block) {
+  if (!block || !_LOOP_OPCODES.has(block.type)) return;
+  const root = block.getSvgRoot && block.getSvgRoot();
+  if (!root) return;
+  let img = root.querySelector(':scope > image.' + _REPEAT_CURL_CLASS);
+  if (!img) {
+    const ns = 'http://www.w3.org/2000/svg';
+    img = document.createElementNS(ns, 'image');
+    img.classList.add(_REPEAT_CURL_CLASS);
+    img.setAttribute('width', '24');
+    img.setAttribute('height', '24');
+    img.setAttribute('href', 'static/icons/RepeatCurl.svg');
+    img.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', 'static/icons/RepeatCurl.svg');
+    img.style.pointerEvents = 'none';
+    root.appendChild(img);
+  }
+  const hw = block.getHeightWidth ? block.getHeightWidth() : null;
+  if (hw) {
+    img.setAttribute('x', String(Math.max(0, hw.width  - 32)));
+    img.setAttribute('y', String(Math.max(0, hw.height - 30)));
+  }
+}
+function _attachRepeatCurls(workspace, Blockly) {
+  if (!workspace || !Blockly || !Blockly.Events) return;
+  const E = Blockly.Events;
+  const watched = new WeakSet();
+  function watch(ws) {
+    if (!ws || watched.has(ws)) return;
+    watched.add(ws);
+    const decorate = () => ws.getAllBlocks(false).forEach(_decorateLoopBlock);
+    ws.addChangeListener((ev) => {
+      if (!ev) return;
+      if (ev.type === E.BLOCK_CREATE     ||
+          ev.type === E.BLOCK_CHANGE     ||
+          ev.type === E.BLOCK_MOVE       ||
+          ev.type === E.FINISHED_LOADING ||
+          ev.type === E.BLOCK_DRAG) {
+        decorate();
+      }
+    });
+    setTimeout(decorate, 0);
+  }
+  watch(workspace);
+  // The flyout has its own workspace — every time a category is opened the
+  // blocks are re-rendered there, so we listen on that workspace too. Poll
+  // briefly until the flyout is materialized (Blockly creates it lazily).
+  const tryFlyout = (attempt) => {
+    const flyout = workspace.getFlyout && workspace.getFlyout();
+    const flyoutWs = flyout && flyout.getWorkspace && flyout.getWorkspace();
+    if (flyoutWs) { watch(flyoutWs); return; }
+    if (attempt < 10) setTimeout(() => tryFlyout(attempt + 1), 200);
+  };
+  tryFlyout(0);
+  // Toolbox-category clicks rebuild the flyout's blocks; re-decorate after
+  // each click so newly-rendered repeat blocks pick up the curl.
+  const host = workspace.getInjectionDiv ? workspace.getInjectionDiv() : null;
+  const toolboxRoot = host && host.querySelector('.blocklyToolboxDiv');
+  if (toolboxRoot) {
+    toolboxRoot.addEventListener('click', () => {
+      setTimeout(() => {
+        const flyout = workspace.getFlyout && workspace.getFlyout();
+        const flyoutWs = flyout && flyout.getWorkspace && flyout.getWorkspace();
+        if (flyoutWs) flyoutWs.getAllBlocks(false).forEach(_decorateLoopBlock);
+      }, 0);
+    });
+  }
 }
 
 // ── Code generator — prepends run-time state variables ──────────────────────
