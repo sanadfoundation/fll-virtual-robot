@@ -909,6 +909,7 @@ class RobotSimulator {
 
       const sp = this._sensorPosition(this.robot);
       this.robot.sensors.colorValue = this._colorAtPosition(sp.x, sp.y);
+      this._updateDistanceSensor();
 
       this._dirty = true;
       await this._sleep(wallStepMs);
