@@ -21,7 +21,7 @@ let pendingBlocklyXml   = null;   // Saved XML to restore after a re-inject (the
 let sim                 = null;   // RobotSimulator instance
 let currentMode         = 'python'; // 'python' | 'blocks'
 let pyReady             = false;
-let projectName         = 'Untitled';
+let projectName         = 'Untitled-Project';
 let dirty               = false;
 let loadedManifest      = null;
 
@@ -60,7 +60,7 @@ const DIRTY_KEY   = 'fll-vr-dirty';
 const DEFAULT_THEME = 'light';
 const DEFAULT_SPEED = 1;
 const DEFAULT_TAB   = 'python';
-const DEFAULT_NAME  = 'Untitled';
+const DEFAULT_NAME  = 'Untitled-Project';
 
 function lsGet(key) {
   try { return localStorage.getItem(key); } catch (e) { return null; }
@@ -383,10 +383,12 @@ function handleDefaults() {
   switchMode(DEFAULT_TAB);
 
   setProjectName(DEFAULT_NAME);
+  const nameInput = document.getElementById('project-name');
+  if (nameInput) nameInput.value = DEFAULT_NAME;
   loadedManifest = null;
   setDirty(false);
 
-  appendOutput('[Defaults] Theme, speed, active tab, and editor contents reset.', 'info');
+  appendOutput('[Defaults] Theme, speed, active tab, project name, and editor contents reset.', 'info');
 }
 
 // ── PyScript worker bootstrap ─────────────────────────────────────────────────

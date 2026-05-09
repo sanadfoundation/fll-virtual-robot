@@ -3,7 +3,7 @@
 (function (global) {
   const LLSP3 = (global.LLSP3 = global.LLSP3 || {});
 
-  const DEFAULT_NAME = 'Untitled';
+  const DEFAULT_NAME = 'Untitled-Project';
 
   // hooks: {
   //   getActiveMode():       'python' | 'blocks'
