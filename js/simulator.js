@@ -513,10 +513,14 @@ class RobotSimulator {
   _drawRobot(ctx, s) {
     const r = this.robot;
     ctx.save();
-    ctx.translate(r.x * s, r.y * s);
-    // +90° offset: robot is drawn with "forward" pointing along local -Y (up),
-    // but heading=0 in our system means "right" (+X). Adding 90° aligns them.
-    ctx.rotate((r.heading + 90) * Math.PI / 180);
+    // r.y is math y-up; canvas y = FIELD_H_MM - r.y.
+    ctx.translate(r.x * s, (FIELD_H_MM - r.y) * s);
+    // Math heading: 0=east, 90=north. Robot is drawn with forward = local -Y.
+    // ctx.rotate is visually CW (angle increases visually CW), but math heading
+    // is CCW (angle increases CCW), so we negate: rotation = 90 - heading.
+    // heading=90 (north) ⇒ rotation=0 ⇒ front points canvas-up (north). ✓
+    // heading=0  (east)  ⇒ rotation=90° CW ⇒ front points canvas-right (east). ✓
+    ctx.rotate((90 - r.heading) * Math.PI / 180);
 
     const bw = ROBOT_BODY_W * s;
     const bh = ROBOT_BODY_H * s;
