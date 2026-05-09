@@ -285,6 +285,13 @@ class RobotSimulator {
   // ── Drawing loop ────────────────────────────────────────────────────────────
 
   _drawLoop() {
+    this._idleStepForceSensor();
+    // Manual-press ramp + EMA bleed mutate forceN; mark dirty so the panel /
+    // canvas redraw picks the change up. _animateTank already marks _dirty
+    // when it's running, so this is a no-op contribution while a command runs.
+    if (this._manualStartMs !== null || this._emaN > 0.001) {
+      this._dirty = true;
+    }
     if (this._dirty) {
       this._draw();
       this._dirty = false;
@@ -1084,6 +1091,20 @@ class RobotSimulator {
     this._emaN = FSL.emaStep(
       this._emaN, instantN, hadContact, this._FORCE_ALPHA, this._FORCE_DECAY,
     );
+    const manualN = FSL.manualRamp(
+      this._manualStartMs, performance.now(), this._FORCE_RAMP_MS, this._FORCE_MAX_N,
+    );
+    this.robot.sensors.forceN = FSL.combine(this._emaN, manualN);
+  }
+
+  // Idle tick: runs from _drawLoop on every frame, regardless of whether a
+  // motor command is in flight. Doesn't issue a physics step (manual force is
+  // independent of physics). Bleeds emaN by FORCE_DECAY each call so any
+  // residual physics force from a just-finished _animateTank decays back to
+  // zero within a few frames.
+  _idleStepForceSensor() {
+    const FSL = window.forceSensorLogic;
+    this._emaN = this._emaN * this._FORCE_DECAY;
     const manualN = FSL.manualRamp(
       this._manualStartMs, performance.now(), this._FORCE_RAMP_MS, this._FORCE_MAX_N,
     );
