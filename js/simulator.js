@@ -269,6 +269,7 @@ class RobotSimulator {
     this._drawTrail(ctx);
     this._drawObstacles(ctx, s);
     this._drawRobot(ctx, s);
+    this._drawDistanceSensorRay(ctx, s);
     this._updateSensorPanel();
   }
 
@@ -627,6 +628,58 @@ class RobotSimulator {
     ctx.arc(0, -bh/2 + 12*s, 5*s, 0, Math.PI*2);
     ctx.fill();
 
+    ctx.restore();
+  }
+
+  _drawDistanceSensorRay(ctx, s) {
+    const sens = this.robot.sensors;
+    if (!sens.distanceOrigin) return;
+    const o = sens.distanceOrigin;
+    const inRange = sens.distanceMM < DIST_SENSOR_OOR_VALUE;
+
+    let endX, endY;
+    if (inRange) {
+      endX = sens.distanceHit.x;
+      endY = sens.distanceHit.y;
+    } else {
+      const a = this.robot.heading * Math.PI / 180;
+      endX = o.x + Math.cos(a) * DIST_SENSOR_MAX_MM;
+      endY = o.y + Math.sin(a) * DIST_SENSOR_MAX_MM;
+    }
+
+    // Math y-up → canvas y-down at the rendering boundary.
+    const cy = (mathY) => (FIELD_H_MM - mathY) * s;
+
+    ctx.save();
+    ctx.strokeStyle = inRange ? 'rgba(86,212,192,0.85)' : 'rgba(86,212,192,0.18)';
+    ctx.lineWidth   = 1.5 * s;
+    ctx.setLineDash(inRange ? [] : [4 * s, 4 * s]);
+    ctx.beginPath();
+    ctx.moveTo(o.x * s,  cy(o.y));
+    ctx.lineTo(endX * s, cy(endY));
+    ctx.stroke();
+
+    if (inRange) {
+      ctx.fillStyle = 'rgba(86,212,192,0.95)';
+      ctx.beginPath();
+      ctx.arc(endX * s, cy(endY), 3 * s, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Mid-ray label, perpendicular-offset so the line doesn't run through it.
+      // Perpendicular is computed in math frame; canvas conversion at ctx calls.
+      const mx = (o.x + endX) / 2, my = (o.y + endY) / 2;
+      const a  = this.robot.heading * Math.PI / 180;
+      const px = -Math.sin(a) * 14, py = Math.cos(a) * 14;
+      ctx.fillStyle    = '#1a1a1a';
+      ctx.font         = `bold ${10 * s}px sans-serif`;
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.strokeStyle  = 'rgba(255,255,255,0.85)';
+      ctx.lineWidth    = 3 * s;
+      const cm = (sens.distanceMM / 10).toFixed(1);
+      ctx.strokeText(`${cm} cm`, (mx + px) * s, cy(my + py));
+      ctx.fillText  (`${cm} cm`, (mx + px) * s, cy(my + py));
+    }
     ctx.restore();
   }
 

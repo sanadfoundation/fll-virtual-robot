@@ -113,3 +113,73 @@ test('getDistanceSensorValue: works with physics=null (returns existing distance
   // No stub injection — physics stays null.
   assert.strictEqual(sim.getDistanceSensorValue(), 300);
 });
+
+// ── _drawDistanceSensorRay (rendering, light coverage) ─────────────────────
+
+function fakeCtx() {
+  const calls = [];
+  const noop = (...args) => calls.push({ op: 'call', args });
+  return new Proxy({ calls, save: () => calls.push({ op: 'save' }), restore: () => calls.push({ op: 'restore' }) }, {
+    get(target, prop) {
+      if (prop in target) return target[prop];
+      // Returning a function for any property covers fillStyle/strokeStyle as
+      // assignable too — assignments hit the set trap instead.
+      return (...args) => calls.push({ op: prop, args });
+    },
+    set(target, prop, value) {
+      calls.push({ op: 'set:' + prop, value });
+      return true;
+    },
+  });
+}
+
+test('_drawDistanceSensorRay: no-op when distanceOrigin is null', () => {
+  const sim = createSim();
+  const ctx = fakeCtx();
+  sim._drawDistanceSensorRay(ctx, 1);
+  assert.strictEqual(ctx.calls.length, 0);
+});
+
+test('_drawDistanceSensorRay: in-range draws line, hit dot, and label', () => {
+  const sim = createSim();
+  // Math y-up: robot facing north, sensor 251 mm up, hit 500 mm further up.
+  sim.robot.sensors.distanceMM     = 500;
+  sim.robot.sensors.distanceHit    = { x: 350, y: 751 };
+  sim.robot.sensors.distanceOrigin = { x: 350, y: 251 };
+  const ctx = fakeCtx();
+  sim._drawDistanceSensorRay(ctx, 1);
+  // Stroke for the ray + arc for the hit dot + fill/stroke for the label.
+  assert.ok(ctx.calls.some(c => c.op === 'stroke'),    'stroked the ray');
+  assert.ok(ctx.calls.some(c => c.op === 'arc'),       'arced the hit dot');
+  assert.ok(ctx.calls.some(c => c.op === 'fillText'  && /50\.0 cm/.test(c.args[0])),
+            'rendered the cm label');
+});
+
+test('_drawDistanceSensorRay: out-of-range draws faint dashed ray, no label', () => {
+  const sim = createSim();
+  sim.robot.sensors.distanceMM     = 9999;
+  sim.robot.sensors.distanceHit    = null;
+  sim.robot.sensors.distanceOrigin = { x: 350, y: 251 };
+  const ctx = fakeCtx();
+  sim._drawDistanceSensorRay(ctx, 1);
+  assert.ok(ctx.calls.some(c => c.op === 'stroke'), 'stroked the dashed ray');
+  assert.ok(!ctx.calls.some(c => c.op === 'fillText'), 'no label out-of-range');
+  assert.ok(!ctx.calls.some(c => c.op === 'arc'),      'no hit dot out-of-range');
+});
+
+test('_drawDistanceSensorRay: converts math y-up to canvas y-down at the boundary', () => {
+  // Math (350, 251) → canvas (350, 1143-251) = (350, 892) for s=1.
+  // Math (350, 751) → canvas (350, 1143-751) = (350, 392).
+  const sim = createSim();
+  sim.robot.sensors.distanceMM     = 500;
+  sim.robot.sensors.distanceHit    = { x: 350, y: 751 };
+  sim.robot.sensors.distanceOrigin = { x: 350, y: 251 };
+  const ctx = fakeCtx();
+  sim._drawDistanceSensorRay(ctx, 1);
+  const moveTo = ctx.calls.find(c => c.op === 'moveTo');
+  const lineTo = ctx.calls.find(c => c.op === 'lineTo');
+  assert.strictEqual(moveTo.args[0], 350);
+  assert.strictEqual(moveTo.args[1], 892);   // canvas y for math y=251
+  assert.strictEqual(lineTo.args[0], 350);
+  assert.strictEqual(lineTo.args[1], 392);   // canvas y for math y=751
+});
