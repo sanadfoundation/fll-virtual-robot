@@ -40,6 +40,38 @@ export class World2D {
     const gravity = new box2d.b2Vec2(0, 0);
     this.world = new box2d.b2World(gravity);
     box2d.destroy(gravity);
+
+    this._forceImpulses = {};
+    this._listener = Object.assign(new box2d.JSContactListener(), {
+      PostSolve: (contact, impulse) => {
+        const fa = contact.GetFixtureA();
+        const fb = contact.GetFixtureB();
+        const udA = fa && fa.GetUserData ? fa.GetUserData() : null;
+        const udB = fb && fb.GetUserData ? fb.GetUserData() : null;
+        const ud = (udA && udA.kind === 'force_sensor') ? udA
+                 : (udB && udB.kind === 'force_sensor') ? udB
+                 : null;
+        if (!ud) return;
+        // box2d-wasm exposes normalImpulses as either a method (.get_normalImpulses())
+        // returning an array-like, or a property. Read whichever is available.
+        const arr = (typeof impulse.get_normalImpulses === 'function')
+          ? impulse.get_normalImpulses()
+          : impulse.normalImpulses;
+        const count = (typeof impulse.get_count === 'function')
+          ? impulse.get_count()
+          : (arr && arr.length) || 0;
+        let sum = 0;
+        for (let i = 0; i < count; i++) {
+          sum += (typeof arr[i] === 'number') ? arr[i] : (arr.get && arr.get(i)) || 0;
+        }
+        this._forceImpulses[ud.port] = (this._forceImpulses[ud.port] || 0) + sum;
+      },
+      // Required no-op overrides — some box2d-wasm builds will assert on missing methods.
+      BeginContact: () => {},
+      EndContact:   () => {},
+      PreSolve:     () => {},
+    });
+    this.world.SetContactListener(this._listener);
   }
 
   // Static perimeter so dynamic bodies (and the robot, on contact) can't
@@ -248,6 +280,9 @@ export class World2D {
     for (let i = 0; i < subSteps; i++) {
       this.world.Step(sub, 8, 3);
     }
+    const force_impulses = this._forceImpulses || {};
+    this._forceImpulses = {};
+    return { force_impulses };
   }
 }
 

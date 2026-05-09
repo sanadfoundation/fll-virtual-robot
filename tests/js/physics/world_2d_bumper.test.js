@@ -83,9 +83,10 @@ function makeStubBox2d() {
     Step() {}
     SetContactListener() {}
   }
+  class JSContactListener {}
   return {
     stub: {
-      b2Vec2, b2BodyDef, b2PolygonShape, b2FixtureDef, b2World,
+      b2Vec2, b2BodyDef, b2PolygonShape, b2FixtureDef, b2World, JSContactListener,
       b2_kinematicBody: 'kinematic', b2_dynamicBody: 'dynamic',
       destroy: () => {},
     },
