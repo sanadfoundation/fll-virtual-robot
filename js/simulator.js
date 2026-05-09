@@ -29,6 +29,8 @@ const TRACK_W_MM    = 112;  // center-to-center
 const ROBOT_BODY_W  = 160;  // body width without wheels
 const ROBOT_BODY_H  = 200;  // body front-to-back
 const MM_PER_MS_100 = 0.9;  // robot speed at 100% (mm per ms)
+const DIST_SENSOR_MAX_MM    = 2000;  // matches LEGO Spike hardware spec
+const DIST_SENSOR_OOR_VALUE = 9999;  // wire sentinel; py/spike_bridge.py:308 maps ≥9999 → -1
 
 // ── Port configuration ──────────────────────────────────────────────────────
 // Mirror of py/spike_bridge.py _PORT_CONFIG. Customization will replace this
@@ -121,7 +123,12 @@ function makeRobotState() {
     motors: { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 },
     sensors: {
       colorValue: 'none',
-      distanceMM: 300,
+      // 9999 = OOR sentinel, doubles as "no reading yet" pre-physics. The
+      // panel renders ≥9999 as "—" so users don't see a stale numeric default.
+      // _initPhysics and reset() trigger a real read once physics is ready.
+      distanceMM: DIST_SENSOR_OOR_VALUE,
+      distanceHit:    null,
+      distanceOrigin: null,
     },
     display: Array(25).fill(0), // 5×5 matrix brightness
   };
@@ -207,6 +214,10 @@ class RobotSimulator {
       body: this.physics.addObstacleBox(cfg.w / 2, cfg.h / 2, { x: cfg.x, y: cfg.y }),
     }));
 
+    // Establish a real distance reading before the first paint so the panel
+    // and overlay don't show the OOR placeholder once physics is up.
+    this._updateDistanceSensor();
+
     this._dirty = true;
   }
 
@@ -265,6 +276,7 @@ class RobotSimulator {
     this._drawTrail(ctx);
     this._drawObstacles(ctx, s);
     this._drawRobot(ctx, s);
+    this._drawDistanceSensorRay(ctx, s);
     this._updateSensorPanel();
   }
 
@@ -626,6 +638,66 @@ class RobotSimulator {
     ctx.restore();
   }
 
+  _drawDistanceSensorRay(ctx, s) {
+    const sens = this.robot.sensors;
+    if (!sens.distanceOrigin) return;
+    const o = sens.distanceOrigin;
+    const inRange = sens.distanceMM < DIST_SENSOR_OOR_VALUE;
+
+    let endX, endY;
+    if (inRange) {
+      endX = sens.distanceHit.x;
+      endY = sens.distanceHit.y;
+    } else {
+      const a = this.robot.heading * Math.PI / 180;
+      endX = o.x + Math.cos(a) * DIST_SENSOR_MAX_MM;
+      endY = o.y + Math.sin(a) * DIST_SENSOR_MAX_MM;
+    }
+
+    // Math y-up → canvas y-down at the rendering boundary.
+    const cy = (mathY) => (FIELD_H_MM - mathY) * s;
+
+    ctx.save();
+    ctx.strokeStyle = inRange ? 'rgba(86,212,192,0.85)' : 'rgba(86,212,192,0.18)';
+    ctx.lineWidth   = 1.5 * s;
+    ctx.setLineDash(inRange ? [] : [4 * s, 4 * s]);
+    ctx.beginPath();
+    ctx.moveTo(o.x * s,  cy(o.y));
+    ctx.lineTo(endX * s, cy(endY));
+    ctx.stroke();
+
+    if (inRange) {
+      ctx.fillStyle = 'rgba(86,212,192,0.95)';
+      ctx.beginPath();
+      ctx.arc(endX * s, cy(endY), 3 * s, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Mid-ray label. Offset and font are in canvas pixels (CSS px) with
+      // a floor — at default zoom the mm-scale s≈0.23, so a pure mm-space
+      // sizing would give ~3 px text. We want the label readable at any
+      // zoom level, so the floor wins below ~s=1.
+      const cxPx = ((o.x + endX) / 2) * s;
+      const cyPx = cy((o.y + endY) / 2);
+      const a    = this.robot.heading * Math.PI / 180;
+      // Canvas-left perpendicular = (-sin(a), -cos(a)) — accounts for y-flip
+      // so the label always sits on the left side of the heading direction.
+      const offsetPx = Math.max(20, 18 * s);
+      const labelX   = cxPx + (-Math.sin(a)) * offsetPx;
+      const labelY   = cyPx + (-Math.cos(a)) * offsetPx;
+      const fontPx   = Math.max(13, 14 * s);
+      ctx.fillStyle    = '#1a1a1a';
+      ctx.font         = `bold ${fontPx}px sans-serif`;
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.strokeStyle  = 'rgba(255,255,255,0.9)';
+      ctx.lineWidth    = Math.max(3.5, 4 * s);
+      const mm = Math.round(sens.distanceMM);
+      ctx.strokeText(`${mm} mm`, labelX, labelY);
+      ctx.fillText  (`${mm} mm`, labelX, labelY);
+    }
+    ctx.restore();
+  }
+
   _updateSensorPanel() {
     const r = this.robot;
     const s = r.sensors;
@@ -651,7 +723,9 @@ class RobotSimulator {
       } else if (cfg.kind === 'color_sensor') {
         valueEl.textContent = s.colorValue || 'none';
       } else if (cfg.kind === 'distance_sensor') {
-        valueEl.textContent = (s.distanceMM / 10).toFixed(1) + ' cm';
+        valueEl.textContent = s.distanceMM >= DIST_SENSOR_OOR_VALUE
+          ? '—'
+          : (s.distanceMM / 10).toFixed(1) + ' cm';
       } else {
         valueEl.textContent = '';
       }
@@ -718,6 +792,7 @@ class RobotSimulator {
     for (const o of this._obstacles) {
       this.physics.setDynamicPose(o.body, o.cfg.x, o.cfg.y, 0);
     }
+    this._updateDistanceSensor();
     this._dirty = true;
   }
 
@@ -905,6 +980,7 @@ class RobotSimulator {
 
       const sp = this._sensorPosition(this.robot);
       this.robot.sensors.colorValue = this._colorAtPosition(sp.x, sp.y);
+      this._updateDistanceSensor();
 
       this._dirty = true;
       await this._sleep(wallStepMs);
@@ -975,6 +1051,34 @@ class RobotSimulator {
       x: robot.x - localY * Math.sin(rotRad),
       y: robot.y + localY * Math.cos(rotRad),
     };
+  }
+
+  // Distance sensor world-space mount in math y-up: 88 mm forward of robot
+  // center along heading. Matches the dot drawn at body-local (0, -bh/2 + 12)
+  // in _drawRobot. Returned angleRad is the ray direction (= heading).
+  _distanceSensorMount(robot) {
+    const forward    = ROBOT_BODY_H / 2 - 12;           // 88 mm
+    const headingRad = robot.heading * Math.PI / 180;
+    return {
+      x: robot.x + forward * Math.cos(headingRad),
+      y: robot.y + forward * Math.sin(headingRad),
+      angleRad: headingRad,
+    };
+  }
+
+  // Cast a ray from the distance-sensor mount along heading and update
+  // robot.sensors.{distanceMM, distanceHit, distanceOrigin}. No-op when
+  // physics isn't ready (early startup or headless tests).
+  _updateDistanceSensor() {
+    if (!this.physics || !this.robotBody) return;
+    const m = this._distanceSensorMount(this.robot);
+    const r = this.physics.castRay(
+      { x: m.x, y: m.y }, m.angleRad, DIST_SENSOR_MAX_MM,
+      { excludeBody: this.robotBody },
+    );
+    this.robot.sensors.distanceMM     = r.hit ? r.distanceMm : DIST_SENSOR_OOR_VALUE;
+    this.robot.sensors.distanceHit    = r.hit ? r.point : null;
+    this.robot.sensors.distanceOrigin = { x: m.x, y: m.y };
   }
 
   _colorAtPosition(x, y) {
@@ -1050,8 +1154,8 @@ class RobotSimulator {
     return [128, 128, 128];
   }
 
-  getDistanceSensorValue()    { return this.robot.sensors.distanceMM; }
-  getDistanceSensorPresence() { return this.robot.sensors.distanceMM < 100; }
+  getDistanceSensorValue()    { this._updateDistanceSensor(); return this.robot.sensors.distanceMM; }
+  getDistanceSensorPresence() { this._updateDistanceSensor(); return this.robot.sensors.distanceMM < 100; }
   getForceSensorValue()       { return 0; }
   getForceSensorPressed()     { return false; }
   getMotorSpeed(port)         { return 0; }

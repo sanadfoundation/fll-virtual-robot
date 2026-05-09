@@ -167,6 +167,57 @@ export class World2D {
     };
   }
 
+  // mm-space ray cast against all fixtures in the world. Returns the closest
+  // hit excluding the optional `excludeBody` (used to skip the robot itself
+  // when casting from a sensor mounted on the robot).
+  //
+  // box2d-wasm note: comparing fixtures/bodies via `===` does NOT work — each
+  // wrapPointer call returns a fresh JS wrapper. The canonical equality test
+  // is `box2d.getPointer(obj)`, which returns the underlying Emscripten raw
+  // pointer (the property name on the wrapper itself is bundle-specific and
+  // minified). Per-call allocations (two b2Vec2, one callback) are explicitly
+  // destroyed; at 60 Hz this is fine.
+  castRay(originMm, directionRad, maxDistMm, { excludeBody = null } = {}) {
+    const ox = originMm.x * M_PER_MM;
+    const oy = originMm.y * M_PER_MM;
+    const dx = Math.cos(directionRad);
+    const dy = Math.sin(directionRad);
+    const maxM = maxDistMm * M_PER_MM;
+
+    const p1 = new box2d.b2Vec2(ox, oy);
+    const p2 = new box2d.b2Vec2(ox + dx * maxM, oy + dy * maxM);
+
+    let bestPoint = null;
+    let bestNormal = null;
+    let bestFrac = 1.0;
+
+    const excludePtr = excludeBody ? box2d.getPointer(excludeBody) : 0;
+
+    const cb = new box2d.JSRayCastCallback();
+    cb.ReportFixture = (fixturePtr, pointPtr, normalPtr, fraction) => {
+      const fixture = box2d.wrapPointer(fixturePtr, box2d.b2Fixture);
+      if (excludePtr && box2d.getPointer(fixture.GetBody()) === excludePtr) return -1;
+
+      const point  = box2d.wrapPointer(pointPtr,  box2d.b2Vec2);
+      const normal = box2d.wrapPointer(normalPtr, box2d.b2Vec2);
+      bestFrac   = fraction;
+      bestPoint  = { x: point.get_x()  * MM_PER_M, y: point.get_y()  * MM_PER_M };
+      bestNormal = { x: normal.get_x(),            y: normal.get_y() };
+      return fraction;
+    };
+
+    this.world.RayCast(cb, p1, p2);
+
+    box2d.destroy(p1);
+    box2d.destroy(p2);
+    box2d.destroy(cb);
+
+    if (bestPoint) {
+      return { hit: true,  distanceMm: bestFrac * maxDistMm, point: bestPoint, normal: bestNormal };
+    }
+    return   { hit: false, distanceMm: maxDistMm,            point: null,      normal: null };
+  }
+
   // Box2D becomes unstable above ~16 ms per step. Sub-step when the caller
   // hands us a larger dt (which happens at speedMult > 1).
   step(dt_s) {

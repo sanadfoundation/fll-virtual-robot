@@ -26,7 +26,6 @@ The individual motor API, `motor_pair.move_for_degrees` / `_for_time`, light mat
 - **Hub button.** `pressed(button)` always returns 0; needs real ms-held duration tied to keyboard or on-screen buttons.
 - **Motor angle counter never increments.** `_animateTank` and `_animateSingleMotor` advance robot pose but never tick `robot.motors[port]`. The Hub panel surfaces this — A and B both read `0°` no matter how far the robot drives. Fix: increment per-port degrees from wheel mm-per-step (drive ports in `_animateTank`, unpaired motors in `_animateSingleMotor`).
 - **Motor position counters.** `absolute_position` and `relative_position` return the same counter; `reset_relative_position` is a no-op. (`velocity(port)` now returns the last commanded value via `_motor_velocities`.)
-- **Distance sensor never updates.** `robot.sensors.distanceMM` is initialized to 300 mm and never recomputed; the Hub panel reads `30.0 cm` constantly. Fix: cast a ray from the front-of-robot in the heading direction against field walls (and, when populated, mission AABBs); clamp to a max sensing range (~200 cm) and return `-1` beyond that.
 - **Color sensor.** `rgbi(port)` returns intensity = 0; should be the mean of R, G, B.
 
 ### Ignored kwargs
@@ -64,7 +63,7 @@ The individual motor API, `motor_pair.move_for_degrees` / `_for_time`, light mat
 Box2D-WASM drives the robot and field walls; two seeded mission obstacles exercise collision. Remaining:
 
 - **Mission set authoring** — load a real FLL mission layout into the Box2D world (more than the two seeded obstacles) so collision and scoring are exercised in default play.
-- **Sensor footprint overlay** — draw the color sensor patch and distance sensor ray on the canvas during playback.
+- **Color sensor patch overlay** — draw the color sensor's read footprint on the canvas during playback so users can see what the sensor is reading.
 - **Surface friction variation** — "smooth mat" vs "rough mat" calibration modes that perturb travel distance slightly.
 
 ---
