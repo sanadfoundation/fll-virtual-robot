@@ -15,16 +15,22 @@
 })(typeof self !== 'undefined' ? self : this, function () {
 
   // Tick positions in mm along one axis. A position that falls on both pitches
-  // appears in `major` only (no duplicate in `minor`).
+  // appears in `major` only (no duplicate in `minor`). Index-based iteration
+  // (`i * pitch`) avoids float drift that would accumulate with `p += pitch`
+  // for fractional-mm pitches like inches (25.4 mm). The dedupe Set keys on
+  // `Math.round(p * 1000)` (1 µm precision) so values that should be equal
+  // but differ by a few ULPs collapse to the same key.
   function tickPositions(fieldMM, majorPitch, minorPitch) {
     const major = [];
-    for (let p = 0; p <= fieldMM; p += majorPitch) {
-      major.push(p);
+    for (let i = 0; i * majorPitch <= fieldMM + 1e-9; i++) {
+      major.push(i * majorPitch);
     }
     const minor = [];
     if (minorPitch > 0 && minorPitch < majorPitch) {
-      for (let p = minorPitch; p <= fieldMM; p += minorPitch) {
-        if (p % majorPitch === 0) continue;
+      const majorKeys = new Set(major.map(p => Math.round(p * 1000)));
+      for (let i = 1; i * minorPitch <= fieldMM + 1e-9; i++) {
+        const p = i * minorPitch;
+        if (majorKeys.has(Math.round(p * 1000))) continue;
         minor.push(p);
       }
     }
