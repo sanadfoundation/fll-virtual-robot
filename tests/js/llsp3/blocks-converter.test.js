@@ -386,34 +386,76 @@ test('decodeInput: lightDisplayText inline [1, [10, "<text>"]] demotes back to T
 });
 
 test('encodeInput: math_number shadow with nested block stays in verbose form', () => {
+  // VALUE on flippermove_move accepts a value-block (sensor reading,
+  // calculation). Verify the [3, blockId, shadowId] encoding survives.
   const ctx = env();
   const state = {
     blocks: { languageVersion: 0, blocks: [{
-      type: 'flippermove_steer',
-      id: 'S',
+      type: 'flippermove_move',
+      id: 'M',
       x: 0, y: 0,
-      fields: { UNIT: 'rotations' },
+      fields: { DIRECTION: 'forward', UNIT: 'cm' },
       inputs: {
-        STEERING: {
-          // shadow + a real block plugged into the slot
-          shadow: { type: 'math_number', id: 'M1', fields: { NUM: 50 } },
+        VALUE: {
+          shadow: { type: 'math_number', id: 'V1', fields: { NUM: 20 } },
           block:  { type: 'operator_add', id: 'A',
                     inputs: {
-                      NUM1: { shadow: { type: 'math_number', id: 'M2', fields: { NUM: 1 } } },
-                      NUM2: { shadow: { type: 'math_number', id: 'M3', fields: { NUM: 2 } } },
+                      NUM1: { shadow: { type: 'math_number', id: 'V2', fields: { NUM: 1 } } },
+                      NUM2: { shadow: { type: 'math_number', id: 'V3', fields: { NUM: 2 } } },
                     } },
         },
       },
     }] }
   };
   const out = ctx.LLSP3.blocks.blocklyStateToSb3Blocks(state);
-  const steer = Object.values(out).find(b => b.opcode === 'flippermove_steer');
-  // STEERING uses tag 3 (block-with-shadow), with both ids being strings.
-  assert.strictEqual(steer.inputs.STEERING[0], 3);
-  assert.strictEqual(typeof steer.inputs.STEERING[1], 'string', 'block id is string');
-  assert.strictEqual(typeof steer.inputs.STEERING[2], 'string', 'shadow id is string');
-  // operator_add and its shadows are emitted as separate blocks.
+  const move = Object.values(out).find(b => b.opcode === 'flippermove_move');
+  assert.strictEqual(move.inputs.VALUE[0], 3);
+  assert.strictEqual(typeof move.inputs.VALUE[1], 'string', 'block id is string');
+  assert.strictEqual(typeof move.inputs.VALUE[2], 'string', 'shadow id is string');
   assert.ok(Object.values(out).some(b => b.opcode === 'operator_add'));
+});
+
+test('encodeInput: flippermove_steer STEERING field is promoted to inline [1, [4, "<n>"]]', () => {
+  // STEERING is a FieldSteering (custom field), but the .llsp3 wire form
+  // stays Spike-compatible: an input with a math_number text-shadow.
+  const ctx = env();
+  const state = {
+    blocks: { languageVersion: 0, blocks: [{
+      type: 'flippermove_steer',
+      id: 'S',
+      x: 0, y: 0,
+      fields: { UNIT: 'rotations', STEERING: 50 },
+      inputs: {
+        VALUE: { shadow: { type: 'math_number', id: 'V1', fields: { NUM: 1 } } },
+      },
+    }] }
+  };
+  const out = ctx.LLSP3.blocks.blocklyStateToSb3Blocks(state);
+  const steer = Object.values(out).find(b => b.opcode === 'flippermove_steer');
+  assert.deepStrictEqual(steer.inputs.STEERING, [1, [4, '50']]);
+  assert.strictEqual(steer.fields.STEERING, undefined, 'STEERING should be promoted to input, not stay as a field');
+});
+
+test('decodeInput: flippermove_steer inline STEERING demotes back to a field', () => {
+  const ctx = env();
+  const sb3 = {
+    S: {
+      opcode: 'flippermove_steer',
+      next: null, parent: null,
+      inputs: {
+        STEERING: [1, [4, '-25']],
+        VALUE:    [1, [4, '1']],
+      },
+      fields: { UNIT: ['rotations', null] },
+      shadow: false, topLevel: true,
+      x: 0, y: 0,
+    },
+  };
+  const state = ctx.LLSP3.blocks.sb3BlocksToBlocklyState(sb3);
+  const top = state.blocks.blocks[0];
+  assert.strictEqual(top.type, 'flippermove_steer');
+  assert.strictEqual(top.fields && top.fields.STEERING, '-25');
+  assert.strictEqual(top.inputs && top.inputs.STEERING, undefined);
 });
 
 test('emitBlock: all field values are strings (Scratch 3 spec)', () => {

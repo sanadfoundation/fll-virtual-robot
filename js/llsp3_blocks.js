@@ -74,6 +74,14 @@
       { opcode: 'flippermove_movement-port-selector',
         fieldName: 'field_flippermove_movement-port-selector',
         defaultValue: 'AB' },
+    // STEERING is a custom field (FieldSteering) on the Blockly side, but
+    // Spike serializes it as an input with a math_number shadow. Promote
+    // field → input on export, demote inline [1, [4, "<n>"]] → field on
+    // import.
+    'flippermove_steer|STEERING':
+      { opcode: 'math_number', fieldName: 'NUM', defaultValue: '0' },
+    'flippermove_startSteer|STEERING':
+      { opcode: 'math_number', fieldName: 'NUM', defaultValue: '0' },
 
     // ── flipperevents ─────────────────────────────────────────────────────
     'flipperevents_whenColor|PORT':

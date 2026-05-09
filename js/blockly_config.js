@@ -372,7 +372,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippermove_steer',
     message0: 'move %1 for %2 %3',
     args0: [
-      { type: 'input_value',    name: 'STEERING', check: ['Number','String'] },
+      { type: 'field_steering', name: 'STEERING', value: 0 },
       { type: 'input_value',    name: 'VALUE',    check: ['Number','String'] },
       { type: 'field_dropdown', name: 'UNIT',     options: _MOTOR_UNITS },
     ],
@@ -381,8 +381,8 @@ const SPIKE_BLOCKS = [
   },
 
   { type: 'flippermove_startSteer',
-    message0: 'start moving at steering %1',
-    args0: [{ type: 'input_value', name: 'STEERING', check: ['Number','String'] }],
+    message0: 'start moving %1',
+    args0: [{ type: 'field_steering', name: 'STEERING', value: 0 }],
     inputsInline: true, previousStatement: null, nextStatement: null,
     colour: C_MOVEMENT, tooltip: 'Start moving with steering.',
   },
@@ -1275,7 +1275,7 @@ function registerGenerators(Blockly) {
   };
 
   js['flippermove_steer'] = (block) => {
-    const steer = val(block, 'STEERING', '0');
+    const steer = String(Number(block.getFieldValue('STEERING')) || 0);
     const v     = val(block, 'VALUE', '10');
     const unit  = block.getFieldValue('UNIT');
     let distMM;
@@ -1286,7 +1286,7 @@ function registerGenerators(Blockly) {
   };
 
   js['flippermove_startSteer'] = (block) => {
-    const steer = val(block, 'STEERING', '0');
+    const steer = String(Number(block.getFieldValue('STEERING')) || 0);
     return `{ const _s = (${steer})/100; window.sim._animateTank(_moveSpeed/100*(1+_s), _moveSpeed/100*(1-_s), 5000); }\n`;
   };
 
@@ -1685,11 +1685,11 @@ const TOOLBOX_XML = `
     </block>
     <block type="flippermove_startMove"/>
     <block type="flippermove_steer">
-      ${_shadowNum('STEERING', 0)}
+      <field name="STEERING">0</field>
       ${_shadowNum('VALUE', 1)}
     </block>
     <block type="flippermove_startSteer">
-      ${_shadowNum('STEERING', 30)}
+      <field name="STEERING">30</field>
     </block>
     <block type="flippermove_stopMove"/>
     <block type="flippermove_movementSpeed">
@@ -1955,6 +1955,38 @@ function _buildToolboxXml(extensionsVisible) {
 // ── Compact Zelos renderer ───────────────────────────────────────────────────
 // Subclass Zelos's ConstantProvider to tighten paddings around fields and
 // between rows so blocks read closer to LEGO's own SPIKE Prime IDE density.
+// Custom field that displays a steering value (-100..100) as
+// "left: NN" / "straight" / "right: NN", matching SPIKE Education's
+// inline steering widget. The underlying value is still a plain number,
+// so getFieldValue('STEERING') gives back the integer.
+let _steeringFieldRegistered = false;
+function _registerSteeringField(Blockly) {
+  if (_steeringFieldRegistered) return;
+  if (!(Blockly.FieldNumber && Blockly.fieldRegistry)) return;
+
+  class FieldSteering extends Blockly.FieldNumber {
+    constructor(value, min, max, precision, validator, config) {
+      super(value, min ?? -100, max ?? 100, precision ?? 1, validator, config);
+    }
+    static fromJson(options) {
+      return new FieldSteering(
+        options.value, options.min, options.max, options.precision, undefined, options,
+      );
+    }
+    // Override the on-block display: the underlying value stays numeric so
+    // generators / sb3 round-trip continue to see a plain number.
+    getText_() {
+      const n = Number(this.getValue());
+      if (!Number.isFinite(n) || Math.abs(n) < 1) return 'straight';
+      const dir = n > 0 ? 'right' : 'left';
+      return dir + ': ' + Math.abs(Math.round(n));
+    }
+  }
+
+  Blockly.fieldRegistry.register('field_steering', FieldSteering);
+  _steeringFieldRegistered = true;
+}
+
 // Registered once on first initBlockly() call.
 let _compactRendererRegistered = false;
 function _registerCompactRenderer(Blockly) {
@@ -1964,11 +1996,11 @@ function _registerCompactRenderer(Blockly) {
   class SpikeConstantProvider extends Blockly.zelos.ConstantProvider {
     init() {
       super.init();
-      // LEGO blocks are tighter horizontally and a touch shorter vertically.
+      // Tighter horizontal padding still fits more text on a row, but the
+      // vertical pill height is restored to match SPIKE Education's measured
+      // 32-px field pill (Zelos' default).
       this.FIELD_BORDER_RECT_X_PADDING = 4;     // Zelos default: 5
-      this.FIELD_BORDER_RECT_Y_PADDING = 3;     // Zelos default: 5
       this.BETWEEN_FIELDS_PADDING      = 4;     // Zelos default: 6
-      this.MIN_BLOCK_HEIGHT            = 28;    // Zelos default: 40
       this.SMALL_PADDING               = 4;     // Zelos default: 8
       this.MEDIUM_PADDING              = 6;     // Zelos default: 8
       this.MEDIUM_LARGE_PADDING        = 6;     // Zelos default: 12
@@ -2019,7 +2051,7 @@ const DEFAULT_BLOCKLY_XML = `
             <next>
               <block type="flippermove_steer">
                 <field name="UNIT">rotations</field>
-                <value name="STEERING"><shadow type="math_number"><field name="NUM">50</field></shadow></value>
+                <field name="STEERING">50</field>
                 <value name="VALUE"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
                 <next>
                   <block type="flippermove_move">
@@ -2043,6 +2075,7 @@ const DEFAULT_BLOCKLY_XML = `
 function initBlockly(divId, themeName, initialXml) {
   if (typeof Blockly === 'undefined') return null;
 
+  _registerSteeringField(Blockly);
   Blockly.defineBlocksWithJsonArray(SPIKE_BLOCKS.map(_withEmblem));
   registerGenerators(Blockly);
   _registerCompactRenderer(Blockly);
