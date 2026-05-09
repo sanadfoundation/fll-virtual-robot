@@ -52,8 +52,8 @@ test('steeringToWheels: zero speed produces zero output regardless of steering',
 //
 // Outputs: vx, vy in mm/s along world axes; angVel in rad/s.
 //
-// Sign-flip rule from CLAUDE.md: positive angVel ⇒ canvas heading INCREASES,
-// which is the direction a right turn (left wheel faster) should rotate.
+// Math y-up: positive angVel ⇒ heading INCREASES (CCW = left turn).
+// Right turn (left wheel faster) ⇒ rightSpd-leftSpd < 0 ⇒ angVel < 0.
 
 const SPEED   = 900;   // mm/s, matches MM_PER_MS_100 * 1000
 const TRACK_W = 112;   // mm, matches simulator constant
@@ -72,21 +72,21 @@ test('wheelsToBodyVelocity: straight forward at heading π/2 → +y only', () =>
   assert.ok(close(v.angVel, 0),        `angVel=${v.angVel}`);
 });
 
-test('wheelsToBodyVelocity: pure right pivot ⇒ +angVel, zero linear', () => {
+test('wheelsToBodyVelocity: pure right pivot ⇒ -angVel, zero linear', () => {
   const v = k.wheelsToBodyVelocity(1, -1, 0, SPEED, TRACK_W);
   assert.ok(close(v.vx, 0,    1e-9), `vx=${v.vx}`);
   assert.ok(close(v.vy, 0,    1e-9), `vy=${v.vy}`);
-  assert.ok(v.angVel > 0, `right pivot must produce +angVel, got ${v.angVel}`);
+  assert.ok(v.angVel < 0, `right pivot must produce -angVel (CW = math-negative), got ${v.angVel}`);
   // Magnitude check: |angVel| = 2*SPEED / TRACK_W
-  assert.ok(close(v.angVel, 2 * SPEED / TRACK_W), `angVel=${v.angVel}`);
+  assert.ok(close(v.angVel, -2 * SPEED / TRACK_W), `angVel=${v.angVel}`);
 });
 
-test('wheelsToBodyVelocity: pure left pivot ⇒ -angVel, zero linear', () => {
+test('wheelsToBodyVelocity: pure left pivot ⇒ +angVel, zero linear', () => {
   const v = k.wheelsToBodyVelocity(-1, 1, 0, SPEED, TRACK_W);
   assert.ok(close(v.vx, 0, 1e-9));
   assert.ok(close(v.vy, 0, 1e-9));
-  assert.ok(v.angVel < 0, `left pivot must produce -angVel, got ${v.angVel}`);
-  assert.ok(close(v.angVel, -2 * SPEED / TRACK_W));
+  assert.ok(v.angVel > 0, `left pivot must produce +angVel (CCW = math-positive), got ${v.angVel}`);
+  assert.ok(close(v.angVel, 2 * SPEED / TRACK_W));
 });
 
 test('wheelsToBodyVelocity: stationary inputs produce zero everything', () => {
@@ -100,13 +100,13 @@ test('wheelsToBodyVelocity: linear speed is the average of left and right', () =
   // Right arc (lv=1, rv=0.5) at heading 0 ⇒ vx = (1.0 + 0.5)/2 * SPEED = 675
   const v = k.wheelsToBodyVelocity(1.0, 0.5, 0, SPEED, TRACK_W);
   assert.ok(close(v.vx, 0.75 * SPEED, 1e-9), `vx=${v.vx}`);
-  assert.ok(v.angVel > 0, 'right arc must spin body positively');
+  assert.ok(v.angVel < 0, 'right arc must spin body negatively (CW = math-negative)');
 });
 
-test('wheelsToBodyVelocity: heading -π/2 (north, canvas-Y-down) drives -y', () => {
-  const v = k.wheelsToBodyVelocity(1, 1, -Math.PI / 2, SPEED, TRACK_W);
+test('wheelsToBodyVelocity: heading π/2 (north, math-y-up) drives +y', () => {
+  const v = k.wheelsToBodyVelocity(1, 1, Math.PI / 2, SPEED, TRACK_W);
   assert.ok(close(v.vx, 0,      1e-9), `vx=${v.vx}`);
-  assert.ok(close(v.vy, -SPEED, 1e-9), `vy=${v.vy}`);
+  assert.ok(close(v.vy, SPEED,  1e-9), `vy=${v.vy}`);
 });
 
 // ── computeMoveDuration ──────────────────────────────────────────────────────

@@ -9,8 +9,8 @@ test('executeCommand: read_sensors returns initial robot state', async () => {
   const result = await sim.executeCommand({ type: 'read_sensors' });
 
   assert.strictEqual(result.x,       350);
-  assert.strictEqual(result.y,       980);
-  assert.strictEqual(result.heading, -90);
+  assert.strictEqual(result.y,       163);
+  assert.strictEqual(result.heading, 90);
   assert.strictEqual(result.stopped, false);
 });
 
@@ -37,7 +37,7 @@ test('executeCommand: sequential commands each resolve before the next', async (
 
   const r1 = await sim.executeCommand({ type: 'read_sensors' });
   order.push('read_sensors');
-  assert.strictEqual(r1.y, 980);
+  assert.strictEqual(r1.y, 163);
 
   const r2 = await sim.executeCommand({
     type: 'move', pair_id: 0, steering: 0, speed: 1000, amount: 360, unit: 'degrees',

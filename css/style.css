@@ -1061,3 +1061,21 @@ li.CodeMirror-hint-active {
 
 .version-banner-dismiss:hover { color: var(--text); }
 
+/* Cursor-following position readout over the field canvas. JS positions it
+ * absolutely within .canvas-wrap and toggles the [hidden] attribute. */
+.canvas-wrap { position: relative; }
+
+#canvas-hover {
+  position: absolute;
+  pointer-events: none;
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border2);
+  font: 11px/14px var(--font-code);
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  z-index: 10;
+}
+#canvas-hover[hidden] { display: none; }
+

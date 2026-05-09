@@ -73,29 +73,42 @@ const COLOR_INT_MAP = {
 
 // ── FLL Mat field elements ───────────────────────────────────────────────────
 
+// All `y` values are math y-up (origin bottom-left). For rectangles, (x, y) is
+// the bottom-left corner. Conversions from the old canvas-top-left values:
+//   rect:   newY = FIELD_H_MM - oldY - h
+//   line:   newY = FIELD_H_MM - oldY
+//   circle: newY = FIELD_H_MM - oldY
 const FIELD_OBJECTS = [
-  // Home area
-  { type: 'rect', x: 80, y: 780, w: 600, h: 300, fill: 'rgba(100,160,255,0.18)', stroke: '#4488ff', lw: 3, label: 'HOME' },
+  // Home area (was canvas y=780, h=300 ⇒ math y = 1143-780-300 = 63)
+  { type: 'rect', x: 80, y: 63, w: 600, h: 300, fill: 'rgba(100,160,255,0.18)', stroke: '#4488ff', lw: 3, label: 'HOME' },
   // Mission areas — sensorColor defines what the color sensor reads inside each zone
-  { type: 'rect', x: 900,  y: 100,  w: 200, h: 200, fill: 'rgba(255,200,100,0.2)', stroke: '#f0a830', lw: 2, sensorColor: 'yellow' },
-  { type: 'rect', x: 1600, y: 100,  w: 200, h: 200, fill: 'rgba(100,220,150,0.2)', stroke: '#30c060', lw: 2, sensorColor: 'green'  },
-  { type: 'rect', x: 1900, y: 700,  w: 200, h: 200, fill: 'rgba(220,100,100,0.2)', stroke: '#cc4444', lw: 2, sensorColor: 'red'    },
-  // Colored lines on the mat
-  { type: 'line', x1: 0,    y1: 680, x2: 2362, y2: 680, stroke: '#222', lw: 4, sensorColor: 'black' },
-  { type: 'circle', x: 1181, y: 571, r: 80, fill: 'rgba(200,200,200,0.2)', stroke: '#888', lw: 2 },
-  // Launch line
-  { type: 'line', x1: 0,    y1: 1000, x2: 680, y2: 1000, stroke: '#222', lw: 3, sensorColor: 'black' },
+  // (was canvas y=100, h=200 ⇒ math y = 1143-100-200 = 843)
+  { type: 'rect', x: 900,  y: 843, w: 200, h: 200, fill: 'rgba(255,200,100,0.2)', stroke: '#f0a830', lw: 2, sensorColor: 'yellow' },
+  { type: 'rect', x: 1600, y: 843, w: 200, h: 200, fill: 'rgba(100,220,150,0.2)', stroke: '#30c060', lw: 2, sensorColor: 'green'  },
+  // (was canvas y=700, h=200 ⇒ math y = 1143-700-200 = 243)
+  { type: 'rect', x: 1900, y: 243, w: 200, h: 200, fill: 'rgba(220,100,100,0.2)', stroke: '#cc4444', lw: 2, sensorColor: 'red'    },
+  // Colored lines on the mat (was canvas y=680 ⇒ math y = 1143-680 = 463)
+  { type: 'line', x1: 0,    y1: 463, x2: 2362, y2: 463, stroke: '#222', lw: 4, sensorColor: 'black' },
+  // Centre circle (was canvas y=571 ⇒ math y = 1143-571 = 572)
+  { type: 'circle', x: 1181, y: 572, r: 80, fill: 'rgba(200,200,200,0.2)', stroke: '#888', lw: 2 },
+  // Launch line (was canvas y=1000 ⇒ math y = 1143-1000 = 143)
+  { type: 'line', x1: 0,    y1: 143, x2: 680, y2: 143, stroke: '#222', lw: 3, sensorColor: 'black' },
 ];
 
 // ── Mission obstacles ────────────────────────────────────────────────────────
 // Dynamic bodies in the Box2D world. The robot pushes them on contact.
 // `x, y` are spawn coordinates (mm); `w, h` are footprint (mm).
 
-// Spawn coordinates picked to centre each obstacle on the matching coloured
-// mission zone in FIELD_OBJECTS: '1' on the green sensor zone, '2' on the red.
+// `(x, y)` is the obstacle CENTER (passed to addObstacleBox → Box2D body
+// position, which is always center-of-mass). Spawn coordinates picked to
+// centre each obstacle on the matching coloured mission zone in FIELD_OBJECTS:
+// '1' on the green sensor zone (centre math y = 843+100 = 943),
+// '2' on the red sensor zone   (centre math y = 243+100 = 343).
+//   was canvas y=200 ⇒ math y = 1143-200 = 943
+//   was canvas y=800 ⇒ math y = 1143-800 = 343
 const OBSTACLES = [
-  { x: 1700, y: 200, w: 100, h: 100, fill: '#9b59b6', stroke: '#5e2c79', label: '1' },
-  { x: 2000, y: 800, w: 120, h: 120, fill: '#e67e22', stroke: '#a04d10', label: '2' },
+  { x: 1700, y: 943, w: 100, h: 100, fill: '#9b59b6', stroke: '#5e2c79', label: '1' },
+  { x: 2000, y: 343, w: 120, h: 120, fill: '#e67e22', stroke: '#a04d10', label: '2' },
 ];
 
 // ── Robot state ──────────────────────────────────────────────────────────────
@@ -103,8 +116,8 @@ const OBSTACLES = [
 function makeRobotState() {
   return {
     x: 350,          // mm from left edge
-    y: 980,          // mm from top edge
-    heading: -90,    // degrees, -90 = facing up (north)
+    y: 163,          // mm from bottom edge (math y-up)
+    heading: 90,     // degrees: 0=east, 90=north, 180=west, 270=south
     motors: { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 },
     sensors: {
       colorValue: 'none',
@@ -153,6 +166,12 @@ class RobotSimulator {
 
     this._resize();
     window.addEventListener('resize', () => this._resize());
+
+    this._hoverEl = document.getElementById('canvas-hover');
+    if (this._hoverEl) {
+      this.canvas.addEventListener('mousemove', e => this._handleHover(e));
+      this.canvas.addEventListener('mouseleave', () => { this._hoverEl.hidden = true; });
+    }
 
     this._raf = null;
     this._drawLoop();
@@ -242,6 +261,7 @@ class RobotSimulator {
 
     ctx.clearRect(0, 0, W, H);
     this._drawField(ctx, W, H, s);
+    this._drawRuler(ctx, s);
     this._drawTrail(ctx);
     this._drawObstacles(ctx, s);
     this._drawRobot(ctx, s);
@@ -253,8 +273,10 @@ class RobotSimulator {
     for (const o of this._obstacles) {
       const pose = this.physics.readPose(o.body);
       ctx.save();
-      ctx.translate(pose.x * s, pose.y * s);
-      ctx.rotate(pose.angle);
+      // pose.{x, y, angle} are math y-up. Canvas y = FIELD_H_MM - pose.y.
+      // Math heading is CCW-positive; canvas ctx.rotate is visually CW; negate.
+      ctx.translate(pose.x * s, (FIELD_H_MM - pose.y) * s);
+      ctx.rotate(-pose.angle);
 
       ctx.shadowColor   = 'rgba(0,0,0,0.25)';
       ctx.shadowBlur    = 6 * s;
@@ -299,15 +321,18 @@ class RobotSimulator {
       ctx.beginPath(); ctx.moveTo(0, y*s); ctx.lineTo(W, y*s); ctx.stroke();
     }
 
-    // Field objects
+    // Field objects. FIELD_OBJECTS uses math y-up; convert to canvas y here.
+    // Rectangles: math (x, y) is bottom-left ⇒ canvas top-left = (x, FIELD_H_MM - y - h).
+    // Lines / circles: math y ⇒ canvas y = FIELD_H_MM - y.
     for (const obj of FIELD_OBJECTS) {
       ctx.save();
       if (obj.type === 'rect') {
+        const canvasY = (FIELD_H_MM - obj.y - obj.h) * s;
         ctx.fillStyle   = obj.fill   || 'transparent';
         ctx.strokeStyle = obj.stroke || 'transparent';
         ctx.lineWidth   = (obj.lw || 1) * s;
         ctx.beginPath();
-        ctx.roundRect(obj.x*s, obj.y*s, obj.w*s, obj.h*s, 4*s);
+        ctx.roundRect(obj.x*s, canvasY, obj.w*s, obj.h*s, 4*s);
         if (obj.fill)   ctx.fill();
         if (obj.stroke) ctx.stroke();
         if (obj.label) {
@@ -315,21 +340,25 @@ class RobotSimulator {
           ctx.font = `bold ${11*s}px sans-serif`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(obj.label, (obj.x + obj.w/2)*s, (obj.y + obj.h/2)*s);
+          // Label centre: x is unchanged; canvas-y centre = (FIELD_H_MM - y - h/2) * s.
+          ctx.fillText(obj.label, (obj.x + obj.w/2)*s, (FIELD_H_MM - obj.y - obj.h/2)*s);
         }
       } else if (obj.type === 'line') {
+        const canvasY1 = (FIELD_H_MM - obj.y1) * s;
+        const canvasY2 = (FIELD_H_MM - obj.y2) * s;
         ctx.strokeStyle = obj.stroke;
         ctx.lineWidth   = (obj.lw || 1) * s;
         ctx.beginPath();
-        ctx.moveTo(obj.x1*s, obj.y1*s);
-        ctx.lineTo(obj.x2*s, obj.y2*s);
+        ctx.moveTo(obj.x1*s, canvasY1);
+        ctx.lineTo(obj.x2*s, canvasY2);
         ctx.stroke();
       } else if (obj.type === 'circle') {
+        const canvasY = (FIELD_H_MM - obj.y) * s;
         ctx.fillStyle   = obj.fill   || 'transparent';
         ctx.strokeStyle = obj.stroke || 'transparent';
         ctx.lineWidth   = (obj.lw || 1) * s;
         ctx.beginPath();
-        ctx.arc(obj.x*s, obj.y*s, obj.r*s, 0, Math.PI*2);
+        ctx.arc(obj.x*s, canvasY, obj.r*s, 0, Math.PI*2);
         if (obj.fill)   ctx.fill();
         if (obj.stroke) ctx.stroke();
       }
@@ -340,6 +369,100 @@ class RobotSimulator {
     ctx.strokeStyle = '#444';
     ctx.lineWidth = 3;
     ctx.strokeRect(0, 0, W, H);
+  }
+
+  // Ruler. Math y-up convention:
+  //   • Y-axis ticks at the left edge, labels read 0 at bottom up to ~1100 at top.
+  //   • X-axis ticks and labels at the BOTTOM edge (so both axes meet at the
+  //     bottom-left origin — full math-convention symmetry).
+  //   • Origin marker `0,0 mm` in the bottom-left corner.
+  // For each math-y tick, canvas y = (FIELD_H_MM - mm) * s.
+  _drawRuler(ctx, s) {
+    const ruler = window.ruler;
+    const xTicks = ruler.tickPositions(FIELD_W_MM, 200, 100);
+    const yTicks = ruler.tickPositions(FIELD_H_MM, 200, 100);
+    const H = FIELD_H_MM * s;
+
+    ctx.save();
+    ctx.lineWidth = 1;
+
+    // Bottom edge X-axis — minors first, then majors paint over any overlap.
+    ctx.strokeStyle = '#555';
+    for (const mm of xTicks.minor) {
+      const px = mm * s;
+      ctx.beginPath();
+      ctx.moveTo(px, H);
+      ctx.lineTo(px, H - 5);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = '#333';
+    for (const mm of xTicks.major) {
+      const px = mm * s;
+      ctx.beginPath();
+      ctx.moveTo(px, H);
+      ctx.lineTo(px, H - 9);
+      ctx.stroke();
+    }
+
+    // Left edge Y-axis. Math-y mm ⇒ canvas y = (FIELD_H_MM - mm) * s.
+    ctx.strokeStyle = '#555';
+    for (const mm of yTicks.minor) {
+      const py = (FIELD_H_MM - mm) * s;
+      ctx.beginPath();
+      ctx.moveTo(0, py);
+      ctx.lineTo(5, py);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = '#333';
+    for (const mm of yTicks.major) {
+      const py = (FIELD_H_MM - mm) * s;
+      ctx.beginPath();
+      ctx.moveTo(0, py);
+      ctx.lineTo(9, py);
+      ctx.stroke();
+    }
+
+    // Major-tick labels. Skip 0 (covered by the origin marker below).
+    ctx.font = '9px ui-monospace, monospace';
+    ctx.textBaseline = 'middle';
+
+    // Bottom labels (centered on each major tick, ~11 px above the edge)
+    ctx.textAlign = 'center';
+    for (const mm of xTicks.major) {
+      if (mm === 0) continue;
+      const px = mm * s;
+      const text = String(mm);
+      const tw = ctx.measureText(text).width;
+      ctx.fillStyle = 'rgba(240,232,208,0.85)';
+      ctx.fillRect(px - tw / 2 - 2, H - 17, tw + 4, 12);
+      ctx.fillStyle = '#333';
+      ctx.fillText(text, px, H - 11);
+    }
+
+    // Left labels (~11 px right of the edge, vertically centered on each tick)
+    ctx.textAlign = 'left';
+    for (const mm of yTicks.major) {
+      if (mm === 0) continue;
+      const py = (FIELD_H_MM - mm) * s;
+      const text = String(mm);
+      const tw = ctx.measureText(text).width;
+      ctx.fillStyle = 'rgba(240,232,208,0.85)';
+      ctx.fillRect(9, py - 6, tw + 4, 12);
+      ctx.fillStyle = '#333';
+      ctx.fillText(text, 11, py);
+    }
+
+    // Origin marker — bottom-left in math convention.
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'bottom';
+    const originText = '0,0 mm';
+    const otw = ctx.measureText(originText).width;
+    ctx.fillStyle = 'rgba(240,232,208,0.85)';
+    ctx.fillRect(4, H - 15, otw + 4, 11);
+    ctx.fillStyle = '#333';
+    ctx.fillText(originText, 6, H - 5);
+
+    ctx.restore();
   }
 
   _drawTrail(ctx) {
@@ -366,9 +489,10 @@ class RobotSimulator {
     tctx.save();
     this._trailStrokeStyle(tctx, s);
     tctx.beginPath();
-    tctx.moveTo(this.trail[0].x * s, this.trail[0].y * s);
+    // trail.{x,y} are math; canvas y = FIELD_H_MM - y.
+    tctx.moveTo(this.trail[0].x * s, (FIELD_H_MM - this.trail[0].y) * s);
     for (let i = 1; i < this.trail.length; i++) {
-      tctx.lineTo(this.trail[i].x * s, this.trail[i].y * s);
+      tctx.lineTo(this.trail[i].x * s, (FIELD_H_MM - this.trail[i].y) * s);
       const dx = (this.trail[i].x - this.trail[i-1].x) * s;
       const dy = (this.trail[i].y - this.trail[i-1].y) * s;
       this._trailArc += Math.hypot(dx, dy);
@@ -387,8 +511,9 @@ class RobotSimulator {
     this._trailStrokeStyle(tctx, s);
     tctx.lineDashOffset = -this._trailArc;
     tctx.beginPath();
-    tctx.moveTo(prevX * s, prevY * s);
-    tctx.lineTo(x * s, y * s);
+    // (prevX, prevY) and (x, y) are math; canvas y = FIELD_H_MM - y.
+    tctx.moveTo(prevX * s, (FIELD_H_MM - prevY) * s);
+    tctx.lineTo(x * s, (FIELD_H_MM - y) * s);
     tctx.stroke();
     tctx.restore();
     const dx = (x - prevX) * s;
@@ -399,10 +524,14 @@ class RobotSimulator {
   _drawRobot(ctx, s) {
     const r = this.robot;
     ctx.save();
-    ctx.translate(r.x * s, r.y * s);
-    // +90° offset: robot is drawn with "forward" pointing along local -Y (up),
-    // but heading=0 in our system means "right" (+X). Adding 90° aligns them.
-    ctx.rotate((r.heading + 90) * Math.PI / 180);
+    // r.y is math y-up; canvas y = FIELD_H_MM - r.y.
+    ctx.translate(r.x * s, (FIELD_H_MM - r.y) * s);
+    // Math heading: 0=east, 90=north. Robot is drawn with forward = local -Y.
+    // ctx.rotate is visually CW (angle increases visually CW), but math heading
+    // is CCW (angle increases CCW), so we negate: rotation = 90 - heading.
+    // heading=90 (north) ⇒ rotation=0 ⇒ front points canvas-up (north). ✓
+    // heading=0  (east)  ⇒ rotation=90° CW ⇒ front points canvas-right (east). ✓
+    ctx.rotate((90 - r.heading) * Math.PI / 180);
 
     const bw = ROBOT_BODY_W * s;
     const bh = ROBOT_BODY_H * s;
@@ -533,6 +662,33 @@ class RobotSimulator {
       const c = COLOR_MAP[s.colorValue];
       swatch.style.background = c || 'transparent';
     }
+  }
+
+  _handleHover(event) {
+    const rect = this.canvas.getBoundingClientRect();
+    const canvasMm = window.ruler.clientToMM(event.clientX, event.clientY, rect, this._scale);
+    // canvasMm.y is canvas-relative; convert to math y for display.
+    const x = canvasMm.x;
+    const y = FIELD_H_MM - canvasMm.y;
+    const cursorX = event.clientX - rect.left;
+    const cursorY = event.clientY - rect.top;
+
+    this._hoverEl.textContent = `x=${Math.round(x)} mm  y=${Math.round(y)} mm`;
+    this._hoverEl.hidden = false;
+
+    // Read overlay dimensions after textContent set so size reflects content
+    const ow = this._hoverEl.offsetWidth;
+    const oh = this._hoverEl.offsetHeight;
+    const { left, top } = window.ruler.placeHoverOverlay(
+      cursorX, cursorY, this.canvas.width, this.canvas.height, ow, oh, 12,
+    );
+    // The overlay is absolutely positioned inside .canvas-wrap; the canvas
+    // sits at some offset within that wrap (combination of flex centering and
+    // marginLeft/Top from _resize). Read the offset directly from the rects
+    // so the overlay tracks the canvas regardless of how it was centered.
+    const wrapRect = this.canvas.parentElement.getBoundingClientRect();
+    this._hoverEl.style.left = (left + rect.left - wrapRect.left) + 'px';
+    this._hoverEl.style.top  = (top  + rect.top  - wrapRect.top)  + 'px';
   }
 
   stop() {

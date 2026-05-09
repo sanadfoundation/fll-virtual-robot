@@ -74,14 +74,14 @@ test('motor_time: defaults velocity to 500 when omitted', async () => {
   sim.isRunning = true;
   // No pair → non-drive path; just verify it doesn't throw with default velocity.
   await sim._execCmd({ type: 'motor_time', port: 'A', time_ms: 100 });
-  assert.strictEqual(sim.robot.y, 980, 'non-drive motor should not move robot');
+  assert.strictEqual(sim.robot.y, 163, 'non-drive motor should not move robot');
 });
 
 test('motor_time: defaults time_ms to 1000 when omitted', async () => {
   const sim = createSim();
   sim.isRunning = true;
   await sim._execCmd({ type: 'motor_time', port: 'A', velocity: 500 });
-  assert.strictEqual(sim.robot.y, 980, 'non-drive motor should not move robot');
+  assert.strictEqual(sim.robot.y, 163, 'non-drive motor should not move robot');
 });
 
 // ── hub_display (set bitmap) ────────────────────────────────────────────────
@@ -121,7 +121,7 @@ test('beep: state unchanged after invocation', async () => {
   const sim = createSim();
   await sim._execCmd({ type: 'beep', note: 60, duration: 0.05 });
   assert.strictEqual(sim.robot.x, 350);
-  assert.strictEqual(sim.robot.y, 980);
+  assert.strictEqual(sim.robot.y, 163);
 });
 
 // ── _animateSingleMotor non-pair path ───────────────────────────────────────
@@ -135,8 +135,8 @@ test('_animateSingleMotor: non-pair port leaves robot pose unchanged', async () 
   assert.strictEqual(sim._findPairForPort('A'), null, 'precondition: A unpaired');
   await sim._animateSingleMotor('A', 0.5, 100);
   assert.strictEqual(sim.robot.x, 350);
-  assert.strictEqual(sim.robot.y, 980);
-  assert.strictEqual(sim.robot.heading, -90);
+  assert.strictEqual(sim.robot.y, 163);
+  assert.strictEqual(sim.robot.heading, 90);
 });
 
 test('_animateSingleMotor: paired port routes velocity to the matching wheel only', async () => {

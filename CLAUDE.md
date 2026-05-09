@@ -15,13 +15,13 @@ No build step, no package manager. Dependencies load from CDN.
 - **Blockly bypasses the worker.** Generators emit JS that calls `window.sim._animateTank` / `_animateSingleMotor` directly via `AsyncFunction`. Set `sim.isRunning = true` before Blockly code runs (`js/main.js:runBlockly`).
 - **`port.A..F = 0..5` (int, matches docs).** `_port_id()` in the bridge translates ints or `'A'..'F'` strings to wire letters. The simulator's `pairMap` and `motors` state are keyed on `'A'..'F'` strings; Blockly generators emit those same strings. Don't unify these — the boundary translation is intentional.
 - **Steering: `> 0` is a right turn = left wheel faster.** `lv = spd × (1 + steer)`, `rv = spd × (1 - steer)`. Same convention in `_execCmd('move')`, Blockly generators, and the `motor_pair.move` docstring.
-- **Canvas Y increases downward**, so `_animateTank` has a sign flip on the heading update. Don't "fix" it.
+- **Internal coords are math y-up.** Origin bottom-left, y increases upward, headings are math (CCW positive). Canvas rendering converts math → canvas at the boundary in `_drawField`, `_drawRobot`, `_drawTrail` family, `_drawRuler`, `_handleHover` (`canvasY = FIELD_H_MM - mathY` for points/lines/circles; `(FIELD_H_MM - y - h)` for rectangle top-left). `_animateTank` and `_sensorPosition` are convention-agnostic — don't introduce flips there.
 - **Blockly 10 API:** `Blockly.utils.xml.textToDom` (the old `Blockly.Xml.textToDom` was removed).
 - **MicroPython has no `traceback` module.** Errors surface as `ExcType: message`.
 
 ## Field
 
-2362 × 1143 mm. Robot spawn `(350, 980)` heading `-90°` (north). Heading: `0° = east`, `90° = south`.
+2362 × 1143 mm. Origin bottom-left (math y-up). Robot spawn `(350, 163)` heading `90°` (north). Heading: `0° = east`, `90° = north`, `180° = west`, `270° = south`.
 
 ## Key files
 

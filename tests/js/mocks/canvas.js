@@ -10,6 +10,7 @@ function makeCtx2D() {
     save: noop, restore: noop,
     translate: noop, rotate: noop,
     setLineDash: noop, fillText: noop,
+    measureText: () => ({ width: 0 }),
     roundRect: noop, drawImage: noop,
     lineDashOffset: 0,
     fillStyle: '', strokeStyle: '', lineWidth: 1,
@@ -26,6 +27,7 @@ function makeCanvas() {
     width: 2362, height: 1143,
     style: { marginLeft: '', marginTop: '' },
     parentElement: { clientWidth: 2364, clientHeight: 1145 },
+    addEventListener: () => {},
   };
 }
 

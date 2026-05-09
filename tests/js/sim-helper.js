@@ -9,6 +9,9 @@ const { TextEncoder, TextDecoder } = require('util');
 const KINEMATICS_CODE = fs.readFileSync(
   path.resolve(__dirname, '../../js/kinematics.js'), 'utf8',
 );
+const RULER_CODE = fs.readFileSync(
+  path.resolve(__dirname, '../../js/ruler.js'), 'utf8',
+);
 const SIM_CODE = fs.readFileSync(
   path.resolve(__dirname, '../../js/simulator.js'), 'utf8',
 );
@@ -31,6 +34,8 @@ function createSim(windowOverrides) {
   // the context object itself, so the UMD assigns to `context.kinematics`
   // rather than `context.window.kinematics`. Bridge them.
   context.window.kinematics = context.kinematics;
+  vm.runInContext(RULER_CODE, context);
+  context.window.ruler = context.ruler;
   vm.runInContext(SIM_CODE, context);
 
   const sim = new context.window.RobotSimulator('robot-canvas');

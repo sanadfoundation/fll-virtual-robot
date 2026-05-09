@@ -8,8 +8,8 @@ test('_sensorState: returns correct initial values', () => {
   const sim   = createSim();
   const state = sim._sensorState();
   assert.strictEqual(state.x,           350);
-  assert.strictEqual(state.y,           980);
-  assert.strictEqual(state.heading,     -90);
+  assert.strictEqual(state.y,           163);
+  assert.strictEqual(state.heading,     90);
   assert.strictEqual(state.color,       'none');
   assert.strictEqual(state.distance_mm, 300);
   assert.strictEqual(state.stopped,     false);
