@@ -46,6 +46,15 @@
     return { major: 200, minor: 100 };
   }
 
+  // mm value → display string for a given unit. mm displays as a whole
+  // number (matching the simulator's internal precision); cm and inches use
+  // 1 decimal (matching what the rest of the simulator's UI shows).
+  function formatPosition(mm, unit) {
+    if (unit === 'mm') return `${Math.round(mm)} mm`;
+    if (unit === 'in') return `${(mm / 25.4).toFixed(1)} in`;
+    return `${(mm / 10).toFixed(1)} cm`;
+  }
+
   // Cursor pixel coordinates → field mm coordinates. `rect` is the canvas's
   // getBoundingClientRect() (we read only `left` and `top`); `scale` is the
   // simulator's mm→px factor.
@@ -67,5 +76,5 @@
     return { left, top };
   }
 
-  return { tickPositions, tickPitchFor, clientToMM, placeHoverOverlay };
+  return { tickPositions, tickPitchFor, formatPosition, clientToMM, placeHoverOverlay };
 });

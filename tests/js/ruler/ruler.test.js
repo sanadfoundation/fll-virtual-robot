@@ -59,6 +59,32 @@ test('tickPitchFor: in → 254/25.4 mm pitches (10″ major, 1″ minor)', () =>
   assert.deepEqual(r.tickPitchFor('in'), { major: 254, minor: 25.4 });
 });
 
+// ── formatPosition ──────────────────────────────────────────────────────────
+
+test('formatPosition: 980 mm in cm → "98.0 cm"', () => {
+  assert.strictEqual(r.formatPosition(980, 'cm'), '98.0 cm');
+});
+
+test('formatPosition: 980 mm in mm → "980 mm"', () => {
+  assert.strictEqual(r.formatPosition(980, 'mm'), '980 mm');
+});
+
+test('formatPosition: 980 mm in inches → "38.6 in"', () => {
+  assert.strictEqual(r.formatPosition(980, 'in'), '38.6 in');
+});
+
+test('formatPosition: 0 mm in cm → "0.0 cm"', () => {
+  assert.strictEqual(r.formatPosition(0, 'cm'), '0.0 cm');
+});
+
+test('formatPosition: 0 mm in mm → "0 mm" (no decimals)', () => {
+  assert.strictEqual(r.formatPosition(0, 'mm'), '0 mm');
+});
+
+test('formatPosition: exactly 25.4 mm in inches → "1.0 in"', () => {
+  assert.strictEqual(r.formatPosition(25.4, 'in'), '1.0 in');
+});
+
 // ── clientToMM ──────────────────────────────────────────────────────────────
 
 test('clientToMM: cursor at canvas top-left → (0, 0) mm', () => {
