@@ -154,6 +154,16 @@ class RobotSimulator {
 
     this._stopRequested  = false;
 
+    // Force-sensor pipeline state. emaN is the smoothed physics force in Newtons;
+    // manualStartMs is the timestamp the user pressed the Hub-panel button (null
+    // = released); the public combined value lives on robot.sensors.forceN.
+    this._emaN          = 0;
+    this._manualStartMs = null;
+    this._FORCE_ALPHA   = 0.4;
+    this._FORCE_DECAY   = 0.5;
+    this._FORCE_RAMP_MS = 1000;
+    this._FORCE_MAX_N   = 10;
+
     // Box2D physics — initialised asynchronously. Spike commands and reset()
     // both await `_physicsReady` before touching the world.
     this.physics      = null;
@@ -994,7 +1004,9 @@ class RobotSimulator {
       );
 
       this.physics.setKinematicVelocity(this.robotBody, v.vx, v.vy, v.angVel);
-      this.physics.step(physDt_s);
+      const stepResult = this.physics.step(physDt_s);
+      const impulseJ   = (stepResult && stepResult.force_impulses && stepResult.force_impulses.C) || 0;
+      this._applyForceImpulse(impulseJ, physDt_s, impulseJ > 0);
 
       const pose = this.physics.readPose(this.robotBody);
       const prevX = this.robot.x;
@@ -1060,6 +1072,22 @@ class RobotSimulator {
       if (p.left === port || p.right === port) return p;
     }
     return null;
+  }
+
+  // Single tick of the force-sensor pipeline. impulseJ is the sum of normal
+  // impulses (kg·m/s) on the port-C bumper from this Box2D step; dt_s is the
+  // step length. hadContact = impulseJ > 0. Returns nothing; mutates
+  // _emaN and robot.sensors.forceN.
+  _applyForceImpulse(impulseJ, dt_s, hadContact) {
+    const FSL = window.forceSensorLogic;
+    const instantN = (dt_s > 0) ? (impulseJ / dt_s) : 0;
+    this._emaN = FSL.emaStep(
+      this._emaN, instantN, hadContact, this._FORCE_ALPHA, this._FORCE_DECAY,
+    );
+    const manualN = FSL.manualRamp(
+      this._manualStartMs, performance.now(), this._FORCE_RAMP_MS, this._FORCE_MAX_N,
+    );
+    this.robot.sensors.forceN = FSL.combine(this._emaN, manualN);
   }
 
   // ── SAB sensor snapshot ──────────────────────────────────────────────────────
