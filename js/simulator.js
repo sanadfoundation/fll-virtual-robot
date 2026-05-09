@@ -684,9 +684,9 @@ class RobotSimulator {
       ctx.textBaseline = 'middle';
       ctx.strokeStyle  = 'rgba(255,255,255,0.9)';
       ctx.lineWidth    = Math.max(3.5, 4 * s);
-      const cm = (sens.distanceMM / 10).toFixed(1);
-      ctx.strokeText(`${cm} cm`, labelX, labelY);
-      ctx.fillText  (`${cm} cm`, labelX, labelY);
+      const mm = Math.round(sens.distanceMM);
+      ctx.strokeText(`${mm} mm`, labelX, labelY);
+      ctx.fillText  (`${mm} mm`, labelX, labelY);
     }
     ctx.restore();
   }

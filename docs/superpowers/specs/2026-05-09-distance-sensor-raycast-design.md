@@ -19,9 +19,9 @@ engine that can answer "what's in front of the robot" via raycasting.
   tolerance).
 - Out-of-range (≥ 2000 mm or no hit) returns `-1` to user code, matching the
   existing Python bridge contract.
-- A subtle on-canvas overlay shows the ray and a numeric distance label during
-  animation, so students can see what their sensor reads without inspecting the
-  Hub panel.
+- A subtle on-canvas overlay shows the ray and a numeric distance label (mm,
+  matching the ruler ticks) during animation, so students can see what their
+  sensor reads without inspecting the Hub panel.
 - Mechanism is reusable: future sensors (color lookahead, line-follow assist)
   can call the same primitive.
 
@@ -316,9 +316,9 @@ _drawDistanceSensorRay(ctx, s) {
     ctx.textBaseline = 'middle';
     ctx.strokeStyle = 'rgba(255,255,255,0.9)';
     ctx.lineWidth   = Math.max(3.5, 4 * s);
-    const cm = (sens.distanceMM / 10).toFixed(1);
-    ctx.strokeText(`${cm} cm`, labelX, labelY);
-    ctx.fillText  (`${cm} cm`, labelX, labelY);
+    const mm = Math.round(sens.distanceMM);
+    ctx.strokeText(`${mm} mm`, labelX, labelY);
+    ctx.fillText  (`${mm} mm`, labelX, labelY);
   }
   ctx.restore();
 }

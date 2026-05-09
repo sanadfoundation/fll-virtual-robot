@@ -150,8 +150,8 @@ test('_drawDistanceSensorRay: in-range draws line, hit dot, and label', () => {
   // Stroke for the ray + arc for the hit dot + fill/stroke for the label.
   assert.ok(ctx.calls.some(c => c.op === 'stroke'),    'stroked the ray');
   assert.ok(ctx.calls.some(c => c.op === 'arc'),       'arced the hit dot');
-  assert.ok(ctx.calls.some(c => c.op === 'fillText'  && /50\.0 cm/.test(c.args[0])),
-            'rendered the cm label');
+  assert.ok(ctx.calls.some(c => c.op === 'fillText'  && /500 mm/.test(c.args[0])),
+            'rendered the mm label');
 });
 
 test('_drawDistanceSensorRay: out-of-range draws faint dashed ray, no label', () => {
