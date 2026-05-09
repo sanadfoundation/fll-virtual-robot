@@ -814,11 +814,15 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
 }
 
 /* Settings section sits below Ports — mirror .port-header's top divider so
-   the visual rhythm between sections stays consistent. */
+   the visual rhythm between sections stays consistent. The h3's standard
+   bottom border is dropped: with only one row beneath, the underline reads
+   as visual noise; the top divider alone is enough section separation. */
 .settings-section h3 {
   margin-top: 12px;
   padding-top: 10px;
+  padding-bottom: 0;
   border-top: 1px solid var(--border);
+  border-bottom: none;
 }
 
 .port-row {
