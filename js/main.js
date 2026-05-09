@@ -51,6 +51,7 @@ window.appendOutput = appendOutput;
 
 const THEME_KEY   = 'fll-vr-theme';
 const SPEED_KEY   = 'fll-vr-speed';
+const UNITS_KEY   = 'fll-vr-units';
 const PYCODE_KEY  = 'fll-vr-python-code';
 const BLOCKLY_KEY = 'fll-vr-blockly-xml';
 const TAB_KEY     = 'fll-vr-tab';
@@ -59,6 +60,8 @@ const DIRTY_KEY   = 'fll-vr-dirty';
 
 const DEFAULT_THEME = 'light';
 const DEFAULT_SPEED = 1;
+const DEFAULT_UNITS = 'cm';
+const VALID_UNITS   = ['cm', 'mm', 'in'];
 const DEFAULT_TAB   = 'blocks';
 const DEFAULT_NAME  = 'Untitled-Project';
 
@@ -377,6 +380,21 @@ function applyStoredSpeed() {
   updateSpeed(speed, { persist: false });
 }
 
+// ── Units selector ────────────────────────────────────────────────────────────
+
+function updateUnits(unit, options) {
+  if (sim) sim.setUnits(unit);
+  if (!options || options.persist !== false) lsSet(UNITS_KEY, unit);
+}
+
+function applyStoredUnits() {
+  const stored = lsGet(UNITS_KEY);
+  const unit = VALID_UNITS.includes(stored) ? stored : DEFAULT_UNITS;
+  const select = document.getElementById('units-select');
+  if (select) select.value = unit;
+  updateUnits(unit, { persist: false });
+}
+
 // ── Defaults ──────────────────────────────────────────────────────────────────
 
 function handleDefaults() {
@@ -393,6 +411,11 @@ function handleDefaults() {
   const slider = document.getElementById('speed-slider');
   if (slider) slider.value = String(DEFAULT_SPEED);
   updateSpeed(DEFAULT_SPEED);
+
+  // Units
+  const unitsSelect = document.getElementById('units-select');
+  if (unitsSelect) unitsSelect.value = DEFAULT_UNITS;
+  updateUnits(DEFAULT_UNITS);
 
   // Python code — drop any stored override so future default changes flow
   // through automatically. The setValue() also fires the save handler, which
@@ -589,7 +612,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const speedSlider = document.getElementById('speed-slider');
   if (speedSlider) speedSlider.addEventListener('input', e => updateSpeed(e.target.value));
+
+  const unitsSelect = document.getElementById('units-select');
+  if (unitsSelect) unitsSelect.addEventListener('change', e => updateUnits(e.target.value));
+
   applyStoredSpeed();
+  applyStoredUnits();
   applyStoredTab();
 
   if (window.LLSP3 && window.LLSP3.ui && typeof window.LLSP3.ui.init === 'function') {
