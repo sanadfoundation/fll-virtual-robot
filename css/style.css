@@ -1049,9 +1049,9 @@ li.CodeMirror-hint-active {
   align-items: center;
   gap: 12px;
   padding: 6px 16px;
-  background: var(--surface2);
-  border-bottom: 1px solid var(--border);
-  color: var(--text);
+  background: #fde047;
+  border-bottom: 1px solid #eab308;
+  color: #1a1a1a;
   font-family: var(--font-ui);
   font-size: 13px;
 }
@@ -1060,6 +1060,7 @@ li.CodeMirror-hint-active {
 
 .version-banner-msg {
   flex: 1;
+  font-weight: 700;
 }
 
 .version-banner-reload {
@@ -1078,7 +1079,7 @@ li.CodeMirror-hint-active {
 
 .version-banner-dismiss {
   background: transparent;
-  color: var(--text-mid);
+  color: #525252;
   border: none;
   padding: 4px 8px;
   cursor: pointer;
@@ -1086,7 +1087,7 @@ li.CodeMirror-hint-active {
   line-height: 1;
 }
 
-.version-banner-dismiss:hover { color: var(--text); }
+.version-banner-dismiss:hover { color: #1a1a1a; }
 
 /* Cursor-following position readout over the field canvas. JS positions it
  * absolutely within .canvas-wrap and toggles the [hidden] attribute. */
