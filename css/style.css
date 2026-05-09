@@ -367,18 +367,16 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
   fill: #ffffff !important;
 }
 
-/* Make dropdown text dark so it stays legible on the now-white pill. Zelos
-   (and our spike_compact subclass) injects its own theme-scoped rule of the
-   form  .{renderer}-renderer.{theme}-theme .blocklyDropdownText  with
-   fill:#fff !important, so we have to match its specificity to override.
-   The theme name is driven by initBlockly's themeName argument
-   ('spike-light' / 'spike-dark'). */
-.spike_compact-renderer.spike-light-theme .blocklyDropdownText,
-.spike_compact-renderer.spike-light-theme .blocklyEditableText > text,
-.spike_compact-renderer.spike-light-theme .blocklyNonEditableText > text,
-.spike_compact-renderer.spike-dark-theme .blocklyDropdownText,
-.spike_compact-renderer.spike-dark-theme .blocklyEditableText > text,
-.spike_compact-renderer.spike-dark-theme .blocklyNonEditableText > text {
+/* Editable / non-editable text fields (number pills, string pills) render
+   on a white background, so their text needs to be dark to stay legible.
+   Dropdown text is excluded — its rect is transparent (the block colour
+   shows through), so Zelos' theme-scoped white-fill rule on
+   .blocklyDropdownText wins, which matches Spike. The theme name is
+   driven by initBlockly's themeName argument ('spike-light' / 'spike-dark'). */
+.spike_compact-renderer.spike-light-theme .blocklyEditableText    > text:not(.blocklyDropdownText),
+.spike_compact-renderer.spike-light-theme .blocklyNonEditableText > text:not(.blocklyDropdownText),
+.spike_compact-renderer.spike-dark-theme  .blocklyEditableText    > text:not(.blocklyDropdownText),
+.spike_compact-renderer.spike-dark-theme  .blocklyNonEditableText > text:not(.blocklyDropdownText) {
   fill: #2a2a3e !important;
 }
 
