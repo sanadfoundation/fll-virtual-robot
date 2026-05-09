@@ -370,7 +370,7 @@ const SPIKE_BLOCKS = [
   },
 
   { type: 'flippermove_steer',
-    message0: 'move at steering %1 for %2 %3',
+    message0: 'move %1 for %2 %3',
     args0: [
       { type: 'input_value',    name: 'STEERING', check: ['Number','String'] },
       { type: 'input_value',    name: 'VALUE',    check: ['Number','String'] },
@@ -438,7 +438,7 @@ const SPIKE_BLOCKS = [
 
   { type: 'flipperlight_lightDisplayText',
     message0: 'write %1',
-    args0: [{ type: 'input_value', name: 'TEXT', check: ['String','Number'] }],
+    args0: [{ type: 'field_input', name: 'TEXT', text: 'Hello' }],
     inputsInline: true, previousStatement: null, nextStatement: null,
     colour: C_LIGHT, tooltip: 'Scroll text on the 5×5 light matrix.',
   },
@@ -1323,7 +1323,7 @@ function registerGenerators(Blockly) {
   };
 
   js['flipperlight_lightDisplayText'] = (block) => {
-    const text = val(block, 'TEXT', "'Hello'");
+    const text = JSON.stringify(block.getFieldValue('TEXT') || 'Hello');
     return `window.sim._showText(String(${text}));\n`;
   };
 
@@ -1711,7 +1711,7 @@ const TOOLBOX_XML = `
       ${_shadowText('MATRIX', '9909999099000009000909990')}
     </block>
     <block type="flipperlight_lightDisplayText">
-      ${_shadowText('TEXT', 'Hello')}
+      <field name="TEXT">Hello</field>
     </block>
     <block type="flipperlight_lightDisplayOff"/>
     <block type="flipperlight_lightDisplaySetBrightness">
@@ -2028,7 +2028,7 @@ const DEFAULT_BLOCKLY_XML = `
                     <value name="VALUE"><shadow type="math_number"><field name="NUM">20</field></shadow></value>
                     <next>
                       <block type="flipperlight_lightDisplayText">
-                        <value name="TEXT"><shadow type="text"><field name="TEXT">Done!</field></shadow></value>
+                        <field name="TEXT">Done!</field>
                       </block>
                     </next>
                   </block>

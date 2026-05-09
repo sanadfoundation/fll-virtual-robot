@@ -345,23 +345,44 @@ test('encodeInput: trivial math_number shadow becomes inline primitive [1, [4, "
   assert.strictEqual(mn.length, 0, 'no separate math_number blocks emitted for trivial shadows');
 });
 
-test('encodeInput: trivial text shadow becomes inline [1, [10, "<text>"]]', () => {
+test('encodeInput: lightDisplayText TEXT field is promoted to inline [1, [10, "<text>"]]', () => {
   const ctx = env();
+  // The Blockly model holds TEXT as a field_input (no quote glyphs); the
+  // SHADOW_CONTRACT promotes it back to a text-shadow input on export so
+  // Spike's strict sb3 validator accepts it.
   const state = {
     blocks: { languageVersion: 0, blocks: [{
       type: 'flipperlight_lightDisplayText',
       id: 'L',
       x: 0, y: 0,
-      inputs: {
-        TEXT: { shadow: { type: 'text', id: 'T1', fields: { TEXT: 'Done!' } } },
-      },
+      fields: { TEXT: 'Done!' },
     }] }
   };
   const out = ctx.LLSP3.blocks.blocklyStateToSb3Blocks(state);
   const ld = Object.values(out).find(b => b.opcode === 'flipperlight_lightDisplayText');
   assert.deepStrictEqual(ld.inputs.TEXT, [1, [10, 'Done!']]);
+  assert.strictEqual(ld.fields.TEXT, undefined, 'TEXT should be promoted to input, not stay as a field');
   const txt = Object.values(out).filter(b => b.opcode === 'text');
   assert.strictEqual(txt.length, 0);
+});
+
+test('decodeInput: lightDisplayText inline [1, [10, "<text>"]] demotes back to TEXT field', () => {
+  const ctx = env();
+  const sb3 = {
+    L: {
+      opcode: 'flipperlight_lightDisplayText',
+      next: null, parent: null,
+      inputs: { TEXT: [1, [10, 'Hello world']] },
+      fields: {},
+      shadow: false, topLevel: true,
+      x: 0, y: 0,
+    },
+  };
+  const state = ctx.LLSP3.blocks.sb3BlocksToBlocklyState(sb3);
+  const top = state.blocks.blocks[0];
+  assert.strictEqual(top.type, 'flipperlight_lightDisplayText');
+  assert.strictEqual(top.fields && top.fields.TEXT, 'Hello world');
+  assert.strictEqual(top.inputs && top.inputs.TEXT, undefined);
 });
 
 test('encodeInput: math_number shadow with nested block stays in verbose form', () => {

@@ -154,6 +154,12 @@
       { opcode: 'flipperlight_led-selector',
         fieldName: 'field_flipperlight_led-selector',
         defaultValue: '100 100 100 100' },
+    // Spike serializes lightDisplayText TEXT as an inline text-shadow input,
+    // but our Blockly model holds it as a field_input (no quote glyphs). On
+    // export we promote field → input shadow; on import we demote inline
+    // text primitive → field via tryDemoteInputToField.
+    'flipperlight_lightDisplayText|TEXT':
+      { opcode: 'text', fieldName: 'TEXT', defaultValue: 'Hello' },
 
     // ── flippersound ──────────────────────────────────────────────────────
     'flippersound_playSoundUntilDone|SOUND':
@@ -173,7 +179,6 @@
   const STRING_INPUT_KEYS = new Set([
     'flipperlight_lightDisplayImageOnForTime|MATRIX',
     'flipperlight_lightDisplayImageOn|MATRIX',
-    'flipperlight_lightDisplayText|TEXT',
     'flipperlight_ultrasonicLightUp|VALUE',
   ]);
 
@@ -285,15 +290,23 @@
         ? blklyFields[fieldName]
         : contract.defaultValue;
 
-      const synthId = genSb3Id();
-      out[synthId] = {
-        opcode: contract.opcode,
-        next: null, parent: id,
-        inputs: {},
-        fields: { [contract.fieldName]: [String(value), null] },
-        shadow: true, topLevel: false,
-      };
-      node.inputs[fieldName] = [1, synthId];
+      // Spike's strict sb3 validator drops the verbose (separate-block) form
+      // for trivial primitive shadows, so prefer the inline encoding when the
+      // contract opcode is a known primitive (text, math_number, ...).
+      const inlineEntry = PRIMITIVE_TYPE_BY_OPCODE[contract.opcode];
+      if (inlineEntry) {
+        node.inputs[fieldName] = [1, [inlineEntry[0], String(value)]];
+      } else {
+        const synthId = genSb3Id();
+        out[synthId] = {
+          opcode: contract.opcode,
+          next: null, parent: id,
+          inputs: {},
+          fields: { [contract.fieldName]: [String(value), null] },
+          shadow: true, topLevel: false,
+        };
+        node.inputs[fieldName] = [1, synthId];
+      }
       handledFieldNames.add(fieldName);
     }
 
@@ -413,11 +426,19 @@
   }
 
   function tryDemoteInputToField(sb3, value, contract) {
-    // Demotion only applies to shadow-only inputs (tag 1) where the slot
-    // resolves to a real shadow block (string id), not an inline primitive.
+    // Demotion applies to shadow-only inputs (tag 1) in either form:
+    //   [1, "<id>"]              — separate shadow block
+    //   [1, [<ptype>, "<val>"]]  — inline primitive (math_number / text / ...)
     if (!Array.isArray(value)) return undefined;
     if (value[0] !== 1) return undefined;
     const slot = value[1];
+    if (Array.isArray(slot)) {
+      const ptype = slot[0];
+      const pval  = slot[1];
+      if (contract.opcode === 'text' && ptype === 10) return String(pval);
+      if (contract.opcode === 'math_number' && (ptype === 4 || ptype === 5 || ptype === 6 || ptype === 7 || ptype === 8)) return String(pval);
+      return undefined;
+    }
     if (typeof slot !== 'string') return undefined;
     const shadow = sb3[slot];
     if (!shadow || shadow.opcode !== contract.opcode) return undefined;
