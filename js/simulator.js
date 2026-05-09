@@ -981,6 +981,19 @@ class RobotSimulator {
     };
   }
 
+  // Distance sensor world-space mount in math y-up: 88 mm forward of robot
+  // center along heading. Matches the dot drawn at body-local (0, -bh/2 + 12)
+  // in _drawRobot. Returned angleRad is the ray direction (= heading).
+  _distanceSensorMount(robot) {
+    const forward    = ROBOT_BODY_H / 2 - 12;           // 88 mm
+    const headingRad = robot.heading * Math.PI / 180;
+    return {
+      x: robot.x + forward * Math.cos(headingRad),
+      y: robot.y + forward * Math.sin(headingRad),
+      angleRad: headingRad,
+    };
+  }
+
   _colorAtPosition(x, y) {
     for (const obj of FIELD_OBJECTS) {
       if (!obj.sensorColor) continue;
