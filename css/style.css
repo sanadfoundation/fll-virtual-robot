@@ -771,7 +771,7 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
 .units-select {
   background: var(--surface2);
   color: var(--text);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border2);
   font-family: var(--font-code);
   font-size: 11px;
   padding: 2px 4px;
