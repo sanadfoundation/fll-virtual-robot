@@ -33,7 +33,6 @@ These cascade — fixing the counter unblocks the four reporters and the relativ
 ### Sensor stubs that need real values
 
 - **Motion sensor.** `tilt_angles()`, `acceleration()`, `angular_velocity()`, `quaternion()`, `up_face()`, `gesture()`, `tap_count()` all return frozen constants. Highest-value fix: drive `tilt_angles()` from the simulator heading so heading-locked driving works (this replaces the previously-listed `get_yaw_angle()` item, which doesn't exist in v3 — the canonical reader is `tilt_angles()`).
-- **Force sensor.** `force()` / `pressed()` / `raw()` always return 0 / False / 0. Drive `pressed()` from on-screen / keyboard input so the existing Blockly blocks become functional.
 - **Hub button.** `pressed(button)` always returns 0; needs real ms-held duration tied to keyboard or on-screen buttons.
 - **Color sensor.** `rgbi(port)` returns intensity = 0; should be the mean of R, G, B.
 
@@ -69,7 +68,6 @@ Motor-block gaps (grouped together for easier scanning):
 
 Sensor-block gaps (block UI exists but the underlying API is stubbed):
 
-- **Functional force-sensor blocks** — see *Force sensor* above.
 - **Functional hub-button blocks** — see *Hub button* above.
 
 Other:
