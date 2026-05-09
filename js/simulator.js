@@ -28,6 +28,8 @@ const WHEEL_CIRC_MM = Math.PI * WHEEL_DIA_MM;
 const TRACK_W_MM    = 112;  // center-to-center
 const ROBOT_BODY_W  = 160;  // body width without wheels
 const ROBOT_BODY_H  = 200;  // body front-to-back
+const BUMPER_DEPTH_MM = 10;   // front-to-back
+const BUMPER_WIDTH_MM = 30;   // lateral
 const MM_PER_MS_100 = 0.9;  // robot speed at 100% (mm per ms)
 const DIST_SENSOR_MAX_MM    = 2000;  // matches LEGO Spike hardware spec
 const DIST_SENSOR_OOR_VALUE = 9999;  // wire sentinel; py/spike_bridge.py:308 maps ≥9999 → -1
@@ -209,6 +211,20 @@ class RobotSimulator {
       ROBOT_BODY_W / 2,
       { x: this.robot.x, y: this.robot.y },
       this.robot.heading * Math.PI / 180,
+    );
+
+    // Front bumper for the force sensor on port C. Welded to the robot body in
+    // body-local frame: forward edge of the chassis is at +ROBOT_BODY_H/2 along
+    // body-local +X; bumper centre sits BUMPER_DEPTH_MM/2 ahead of that, so the
+    // bumper occupies [chassis-front, chassis-front + BUMPER_DEPTH_MM]. Keyed
+    // per-port so the listener can disambiguate when more sensors land later.
+    this.physics.addBumper(
+      this.robotBody,
+      BUMPER_DEPTH_MM / 2,
+      BUMPER_WIDTH_MM / 2,
+      ROBOT_BODY_H / 2 + BUMPER_DEPTH_MM / 2,
+      0,
+      { kind: 'force_sensor', port: 'C' },
     );
 
     this._obstacles = OBSTACLES.map(cfg => ({
