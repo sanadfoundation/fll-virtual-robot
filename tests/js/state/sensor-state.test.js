@@ -35,3 +35,27 @@ test('_sensorState: reflects updated robot position', () => {
   assert.strictEqual(state.y,       500);
   assert.strictEqual(state.heading, 45);
 });
+
+test('_sensorState: includes force_dn / force_pressed / force_raw', () => {
+  const sim = createSim();
+  const s = sim._sensorState();
+  assert.ok('force_dn'      in s, 'force_dn key present');
+  assert.ok('force_pressed' in s, 'force_pressed key present');
+  assert.ok('force_raw'     in s, 'force_raw key present');
+});
+
+test('_sensorState: zero forceN → 0 / false / 0', () => {
+  const s = createSim()._sensorState();
+  assert.strictEqual(s.force_dn,      0);
+  assert.strictEqual(s.force_pressed, false);
+  assert.strictEqual(s.force_raw,     0);
+});
+
+test('_sensorState: 5 N → 50 / true / ~2047', () => {
+  const sim = createSim();
+  sim.robot.sensors.forceN = 5;
+  const s = sim._sensorState();
+  assert.strictEqual(s.force_dn,      50);
+  assert.strictEqual(s.force_pressed, true);
+  assert.ok(s.force_raw >= 2040 && s.force_raw <= 2055, `raw=${s.force_raw}`);
+});

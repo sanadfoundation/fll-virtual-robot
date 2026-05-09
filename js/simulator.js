@@ -1050,14 +1050,18 @@ class RobotSimulator {
 
   _sensorState() {
     const r = this.robot;
+    const f = window.forceSensorLogic.forceToReadings(r.sensors.forceN);
     return {
-      x:           r.x,
-      y:           r.y,
-      heading:     r.heading,
-      color:       r.sensors.colorValue,
-      distance_mm: r.sensors.distanceMM,
-      motors:      { ...r.motors },
-      stopped:     false,
+      x:             r.x,
+      y:             r.y,
+      heading:       r.heading,
+      color:         r.sensors.colorValue,
+      distance_mm:   r.sensors.distanceMM,
+      motors:        { ...r.motors },
+      force_dn:      f.dn,
+      force_pressed: f.pressed,
+      force_raw:     f.raw,
+      stopped:       false,
     };
   }
 
