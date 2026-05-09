@@ -19,7 +19,7 @@ let editor              = null;   // Monaco editor instance
 let blocklyWs           = null;   // Blockly workspace
 let pendingBlocklyXml   = null;   // Saved XML to restore after a re-inject (theme switch)
 let sim                 = null;   // RobotSimulator instance
-let currentMode         = 'python'; // 'python' | 'blocks'
+let currentMode         = 'blocks'; // 'python' | 'blocks'
 let pyReady             = false;
 let projectName         = 'Untitled-Project';
 let dirty               = false;
@@ -59,7 +59,7 @@ const DIRTY_KEY   = 'fll-vr-dirty';
 
 const DEFAULT_THEME = 'light';
 const DEFAULT_SPEED = 1;
-const DEFAULT_TAB   = 'python';
+const DEFAULT_TAB   = 'blocks';
 const DEFAULT_NAME  = 'Untitled-Project';
 
 function lsGet(key) {
