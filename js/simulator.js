@@ -751,6 +751,13 @@ class RobotSimulator {
     // Port rows. PORT_CONFIG is module-scope; use this._portConfig.
     for (const port of ['A', 'B', 'C', 'D', 'E', 'F']) {
       const cfg = this._portConfig[port];
+
+      // Force sensor: dedicated widget on port C with fill bar + value label.
+      if (cfg.kind === 'force_sensor') {
+        this._paintForceSensorWidget(port);
+        continue;
+      }
+
       const valueEl = el('port-value-' + port);
       if (!valueEl) continue;
 
@@ -771,6 +778,21 @@ class RobotSimulator {
     if (swatch) {
       const c = COLOR_MAP[s.colorValue];
       swatch.style.background = c || 'transparent';
+    }
+  }
+
+  _paintForceSensorWidget(port) {
+    const fillEl = document.getElementById('port-force-fill-' + port);
+    const valEl  = document.getElementById('port-force-value-' + port);
+    const btnEl  = document.getElementById('port-force-' + port);
+    const f = this.robot.sensors.forceN || 0;
+    const pct = Math.max(0, Math.min(100, (f / 10) * 100));
+    if (fillEl) fillEl.style.width = pct.toFixed(1) + '%';
+    if (valEl)  valEl.textContent  = f.toFixed(1) + ' N';
+    if (btnEl) {
+      const state = f >= 7 ? 'hard' : f >= 0.5 ? 'pressed' : 'idle';
+      const ds = btnEl.dataset;
+      if (ds && ds.state !== state) ds.state = state;
     }
   }
 
