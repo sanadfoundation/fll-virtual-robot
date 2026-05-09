@@ -385,7 +385,7 @@ Expected: 2 fails (`undefined !== null`), other tests pass.
 
 - [ ] **Step 2.3: Add the two constants near the top of `js/simulator.js`**
 
-Add immediately after `MM_PER_MS_100` (currently at line 31):
+Add immediately after `MM_PER_MS_100` (around line 31):
 
 ```javascript
 const DIST_SENSOR_MAX_MM    = 2000;  // matches LEGO Spike hardware spec
@@ -394,7 +394,7 @@ const DIST_SENSOR_OOR_VALUE = 9999;  // wire sentinel; py/spike_bridge.py:308 ma
 
 - [ ] **Step 2.4: Add the two new fields to `makeRobotState`**
 
-Modify `makeRobotState` (currently at line 103-115). The `sensors` object becomes:
+Modify `makeRobotState` (around line 116). The `sensors` object becomes:
 
 ```javascript
     sensors: {
@@ -429,6 +429,8 @@ hardware; DIST_SENSOR_OOR_VALUE=9999 honors the existing bridge contract."
 - Modify: `js/simulator.js`
 - Create: `tests/js/sensors/distance_sensor_mount.test.js`
 
+The math y-up frame makes this trivial: the mount is `forward × heading-unit-vector` away from the robot center, where `forward = ROBOT_BODY_H/2 − 12 = 88 mm`. The ray direction is the heading itself.
+
 - [ ] **Step 3.1: Create `tests/js/sensors/distance_sensor_mount.test.js` with the cardinal-heading cases**
 
 ```javascript
@@ -440,9 +442,8 @@ const { createSim } = require('../sim-helper');
 
 const close = (a, b, tol = 1e-9) => Math.abs(a - b) <= tol;
 
-// 88 mm = ROBOT_BODY_H/2 - 12 = 100 - 12. The dot in _drawRobot is drawn at
-// body-local (0, -bh/2 + 12) before the +90° canvas rotate; the mount is the
-// world-space projection of that point given current heading.
+// 88 mm = ROBOT_BODY_H/2 - 12 = 100 - 12. Math y-up: heading 0=east, 90=north,
+// 180=west, 270=south. Mount = robot + 88 × (cos(heading), sin(heading)).
 
 test('_distanceSensorMount: heading 0° (east) → 88 mm east of center', () => {
   const sim = createSim();
@@ -453,22 +454,13 @@ test('_distanceSensorMount: heading 0° (east) → 88 mm east of center', () => 
   assert.ok(close(m.angleRad, 0));
 });
 
-test('_distanceSensorMount: heading 90° (south) → 88 mm south of center', () => {
+test('_distanceSensorMount: heading 90° (north) → 88 mm north of center', () => {
   const sim = createSim();
   sim.robot.x = 1000; sim.robot.y = 500; sim.robot.heading = 90;
   const m = sim._distanceSensorMount(sim.robot);
   assert.ok(close(m.x, 1000, 1e-6), `m.x=${m.x}`);
   assert.ok(close(m.y, 588,  1e-6), `m.y=${m.y}`);
   assert.ok(close(m.angleRad, Math.PI / 2));
-});
-
-test('_distanceSensorMount: heading -90° (north) → 88 mm north of center', () => {
-  const sim = createSim();
-  sim.robot.x = 1000; sim.robot.y = 500; sim.robot.heading = -90;
-  const m = sim._distanceSensorMount(sim.robot);
-  assert.ok(close(m.x, 1000, 1e-6), `m.x=${m.x}`);
-  assert.ok(close(m.y, 412,  1e-6), `m.y=${m.y}`);
-  assert.ok(close(m.angleRad, -Math.PI / 2));
 });
 
 test('_distanceSensorMount: heading 180° (west) → 88 mm west of center', () => {
@@ -480,13 +472,22 @@ test('_distanceSensorMount: heading 180° (west) → 88 mm west of center', () =
   assert.ok(close(m.angleRad, Math.PI));
 });
 
-test('_distanceSensorMount: default spawn (350, 980) heading -90° → mount at (350, 892)', () => {
-  // Sanity check against the spec's worked example.
+test('_distanceSensorMount: heading 270° (south) → 88 mm south of center', () => {
   const sim = createSim();
-  // Default heading is -90 from makeRobotState; default x=350, y=980.
+  sim.robot.x = 1000; sim.robot.y = 500; sim.robot.heading = 270;
+  const m = sim._distanceSensorMount(sim.robot);
+  assert.ok(close(m.x, 1000, 1e-6), `m.x=${m.x}`);
+  assert.ok(close(m.y, 412,  1e-6), `m.y=${m.y}`);
+  assert.ok(close(m.angleRad, 3 * Math.PI / 2));
+});
+
+test('_distanceSensorMount: default spawn (350, 163) heading 90° → mount at (350, 251)', () => {
+  // Sanity check against the spec's worked example.
+  // Default heading is 90 (north) from makeRobotState; default x=350, y=163.
+  const sim = createSim();
   const m = sim._distanceSensorMount(sim.robot);
   assert.ok(close(m.x, 350, 1e-6));
-  assert.ok(close(m.y, 892, 1e-6));
+  assert.ok(close(m.y, 251, 1e-6));
 });
 ```
 
@@ -497,19 +498,19 @@ Expected: 5 fails (`sim._distanceSensorMount is not a function`).
 
 - [ ] **Step 3.3: Add `_distanceSensorMount` to `js/simulator.js`**
 
-Insert as a new method on `RobotSimulator`, immediately after the existing `_sensorPosition` (currently lines 815-822). Keep them adjacent — they're parallel utilities:
+Insert as a new method on `RobotSimulator`, immediately after the existing `_sensorPosition` (around line 971 — the parallel utility for the color sensor). The math y-up convention makes the formula straightforward — mount = robot + forward × heading-unit-vector:
 
 ```javascript
-  // Distance sensor world-space mount: front-center, 12 mm inset from the
-  // front edge. Mirrors the dot drawn in _drawRobot at body-local
-  // (0, -bh/2 + 12) before the +90° canvas-rotate offset.
+  // Distance sensor world-space mount in math y-up: 88 mm forward of robot
+  // center along heading. Matches the dot drawn at body-local (0, -bh/2 + 12)
+  // in _drawRobot. Returned angleRad is the ray direction (= heading).
   _distanceSensorMount(robot) {
-    const localY = -(ROBOT_BODY_H / 2) + 12;
-    const rotRad = (robot.heading + 90) * Math.PI / 180;
+    const forward    = ROBOT_BODY_H / 2 - 12;           // 88 mm
+    const headingRad = robot.heading * Math.PI / 180;
     return {
-      x: robot.x - localY * Math.sin(rotRad),
-      y: robot.y + localY * Math.cos(rotRad),
-      angleRad: robot.heading * Math.PI / 180,
+      x: robot.x + forward * Math.cos(headingRad),
+      y: robot.y + forward * Math.sin(headingRad),
+      angleRad: headingRad,
     };
   }
 ```
@@ -564,9 +565,11 @@ function withStubPhysics(sim, castRayResult) {
   return calls;
 }
 
+// Math y-up: from default mount (350, 251) heading 90° (north), 500 mm
+// forward lands at (350, 751). Normal (0, -1) faces back toward the sensor.
 const HIT_AT_500 = {
   hit: true, distanceMm: 500,
-  point: { x: 350, y: 480 }, normal: { x: 0, y: 1 },
+  point: { x: 350, y: 751 }, normal: { x: 0, y: -1 },
 };
 const NO_HIT = {
   hit: false, distanceMm: 2000, point: null, normal: null,
@@ -593,14 +596,15 @@ test('_updateDistanceSensor: no-op when robotBody is null', () => {
 
 test('_updateDistanceSensor: passes mount origin and heading-radians to castRay', () => {
   const sim = createSim();
-  // Default spawn (350, 980) heading -90° → mount (350, 892), angleRad -π/2.
+  // Default spawn (350, 163) heading 90° (math y-up, north).
+  // Mount = (350, 163 + 88) = (350, 251). angleRad = π/2.
   const calls = withStubPhysics(sim, NO_HIT);
   sim._updateDistanceSensor();
   assert.strictEqual(calls.length, 1);
   const c = calls[0];
   assert.ok(close(c.originMm.x, 350, 1e-6));
-  assert.ok(close(c.originMm.y, 892, 1e-6));
-  assert.ok(close(c.directionRad, -Math.PI / 2));
+  assert.ok(close(c.originMm.y, 251, 1e-6));
+  assert.ok(close(c.directionRad, Math.PI / 2));
   assert.strictEqual(c.maxDistMm, 2000);
   assert.strictEqual(c.opts.excludeBody, sim.robotBody);
 });
@@ -610,9 +614,9 @@ test('_updateDistanceSensor: hit → sets distanceMM, distanceHit, distanceOrigi
   withStubPhysics(sim, HIT_AT_500);
   sim._updateDistanceSensor();
   assert.strictEqual(sim.robot.sensors.distanceMM, 500);
-  assert.deepStrictEqual(sim.robot.sensors.distanceHit, { x: 350, y: 480 });
+  assert.deepStrictEqual(sim.robot.sensors.distanceHit, { x: 350, y: 751 });
   assert.ok(close(sim.robot.sensors.distanceOrigin.x, 350, 1e-6));
-  assert.ok(close(sim.robot.sensors.distanceOrigin.y, 892, 1e-6));
+  assert.ok(close(sim.robot.sensors.distanceOrigin.y, 251, 1e-6));
 });
 
 test('_updateDistanceSensor: miss → distanceMM = 9999, distanceHit = null', () => {
@@ -683,7 +687,7 @@ Insert as a new method on `RobotSimulator`, immediately after `_distanceSensorMo
 
 - [ ] **Step 4.4: Update the two getters to call `_updateDistanceSensor`**
 
-Find (currently lines 897-898):
+Find (around lines 1053-1054):
 
 ```javascript
   getDistanceSensorValue()    { return this.robot.sensors.distanceMM; }
@@ -732,7 +736,7 @@ There's no good unit test seam here (the vm context's `physics` is null), so thi
 
 - [ ] **Step 5.1: Add the per-step call in `_animateTank`**
 
-Find (currently lines 750-751 in `js/simulator.js`):
+Find (around lines 906-907 in `js/simulator.js`):
 
 ```javascript
       const sp = this._sensorPosition(this.robot);
@@ -813,9 +817,10 @@ test('_drawDistanceSensorRay: no-op when distanceOrigin is null', () => {
 
 test('_drawDistanceSensorRay: in-range draws line, hit dot, and label', () => {
   const sim = createSim();
+  // Math y-up: robot facing north, sensor 251 mm up, hit 500 mm further up.
   sim.robot.sensors.distanceMM     = 500;
-  sim.robot.sensors.distanceHit    = { x: 350, y: 480 };
-  sim.robot.sensors.distanceOrigin = { x: 350, y: 980 };
+  sim.robot.sensors.distanceHit    = { x: 350, y: 751 };
+  sim.robot.sensors.distanceOrigin = { x: 350, y: 251 };
   const ctx = fakeCtx();
   sim._drawDistanceSensorRay(ctx, 1);
   // Stroke for the ray + arc for the hit dot + fill/stroke for the label.
@@ -829,23 +834,40 @@ test('_drawDistanceSensorRay: out-of-range draws faint dashed ray, no label', ()
   const sim = createSim();
   sim.robot.sensors.distanceMM     = 9999;
   sim.robot.sensors.distanceHit    = null;
-  sim.robot.sensors.distanceOrigin = { x: 350, y: 980 };
+  sim.robot.sensors.distanceOrigin = { x: 350, y: 251 };
   const ctx = fakeCtx();
   sim._drawDistanceSensorRay(ctx, 1);
   assert.ok(ctx.calls.some(c => c.op === 'stroke'), 'stroked the dashed ray');
   assert.ok(!ctx.calls.some(c => c.op === 'fillText'), 'no label out-of-range');
   assert.ok(!ctx.calls.some(c => c.op === 'arc'),      'no hit dot out-of-range');
 });
+
+test('_drawDistanceSensorRay: converts math y-up to canvas y-down at the boundary', () => {
+  // Math (350, 251) → canvas (350, 1143-251) = (350, 892) for s=1.
+  // Math (350, 751) → canvas (350, 1143-751) = (350, 392).
+  const sim = createSim();
+  sim.robot.sensors.distanceMM     = 500;
+  sim.robot.sensors.distanceHit    = { x: 350, y: 751 };
+  sim.robot.sensors.distanceOrigin = { x: 350, y: 251 };
+  const ctx = fakeCtx();
+  sim._drawDistanceSensorRay(ctx, 1);
+  const moveTo = ctx.calls.find(c => c.op === 'moveTo');
+  const lineTo = ctx.calls.find(c => c.op === 'lineTo');
+  assert.strictEqual(moveTo.args[0], 350);
+  assert.strictEqual(moveTo.args[1], 892);   // canvas y for math y=251
+  assert.strictEqual(lineTo.args[0], 350);
+  assert.strictEqual(lineTo.args[1], 392);   // canvas y for math y=751
+});
 ```
 
 - [ ] **Step 6.2: Run the test file — fails because `_drawDistanceSensorRay` doesn't exist**
 
 Run: `node --test tests/js/sensors/distance_sensor.test.js`
-Expected: 3 new fails (`sim._drawDistanceSensorRay is not a function`); other 9 still pass.
+Expected: 4 new fails (`sim._drawDistanceSensorRay is not a function`); other 9 still pass.
 
 - [ ] **Step 6.3: Add `_drawDistanceSensorRay` to `js/simulator.js`**
 
-Insert as a new method on `RobotSimulator`, immediately after `_drawRobot` (currently ends around line 498):
+Insert as a new method on `RobotSimulator`, immediately after `_drawRobot` (around line 627). All math values (origin, hit, label position) are in math y-up; canvas-y conversion (`FIELD_H_MM - mathY`) happens at each `ctx` call site, matching `_drawField` / `_drawTrail`:
 
 ```javascript
   _drawDistanceSensorRay(ctx, s) {
@@ -864,22 +886,26 @@ Insert as a new method on `RobotSimulator`, immediately after `_drawRobot` (curr
       endY = o.y + Math.sin(a) * DIST_SENSOR_MAX_MM;
     }
 
+    // Math y-up → canvas y-down at the rendering boundary.
+    const cy = (mathY) => (FIELD_H_MM - mathY) * s;
+
     ctx.save();
     ctx.strokeStyle = inRange ? 'rgba(86,212,192,0.85)' : 'rgba(86,212,192,0.18)';
     ctx.lineWidth   = 1.5 * s;
     ctx.setLineDash(inRange ? [] : [4 * s, 4 * s]);
     ctx.beginPath();
-    ctx.moveTo(o.x * s, o.y * s);
-    ctx.lineTo(endX * s, endY * s);
+    ctx.moveTo(o.x * s,  cy(o.y));
+    ctx.lineTo(endX * s, cy(endY));
     ctx.stroke();
 
     if (inRange) {
       ctx.fillStyle = 'rgba(86,212,192,0.95)';
       ctx.beginPath();
-      ctx.arc(endX * s, endY * s, 3 * s, 0, Math.PI * 2);
+      ctx.arc(endX * s, cy(endY), 3 * s, 0, Math.PI * 2);
       ctx.fill();
 
       // Mid-ray label, perpendicular-offset so the line doesn't run through it.
+      // Perpendicular is computed in math frame; canvas conversion at ctx calls.
       const mx = (o.x + endX) / 2, my = (o.y + endY) / 2;
       const a  = this.robot.heading * Math.PI / 180;
       const px = -Math.sin(a) * 14, py = Math.cos(a) * 14;
@@ -890,8 +916,8 @@ Insert as a new method on `RobotSimulator`, immediately after `_drawRobot` (curr
       ctx.strokeStyle  = 'rgba(255,255,255,0.85)';
       ctx.lineWidth    = 3 * s;
       const cm = (sens.distanceMM / 10).toFixed(1);
-      ctx.strokeText(`${cm} cm`, (mx + px) * s, (my + py) * s);
-      ctx.fillText  (`${cm} cm`, (mx + px) * s, (my + py) * s);
+      ctx.strokeText(`${cm} cm`, (mx + px) * s, cy(my + py));
+      ctx.fillText  (`${cm} cm`, (mx + px) * s, cy(my + py));
     }
     ctx.restore();
   }
@@ -899,7 +925,7 @@ Insert as a new method on `RobotSimulator`, immediately after `_drawRobot` (curr
 
 - [ ] **Step 6.4: Wire `_drawDistanceSensorRay` into `_draw`**
 
-Find (currently lines 237-249 in `js/simulator.js`):
+Find (around lines 256-269 in `js/simulator.js`):
 
 ```javascript
   _draw() {
@@ -910,6 +936,7 @@ Find (currently lines 237-249 in `js/simulator.js`):
 
     ctx.clearRect(0, 0, W, H);
     this._drawField(ctx, W, H, s);
+    this._drawRuler(ctx, s);
     this._drawTrail(ctx);
     this._drawObstacles(ctx, s);
     this._drawRobot(ctx, s);
@@ -917,7 +944,7 @@ Find (currently lines 237-249 in `js/simulator.js`):
   }
 ```
 
-Add `this._drawDistanceSensorRay(ctx, s);` between `_drawRobot` and `_updateSensorPanel`:
+Add `this._drawDistanceSensorRay(ctx, s);` between `_drawRobot` and `_updateSensorPanel` so the ray sits visually on top of the robot/obstacles but below the panel update:
 
 ```javascript
     this._drawRobot(ctx, s);
@@ -996,13 +1023,13 @@ This is the only verification of end-to-end physics correctness — the unit tes
 Run: `python3 -m http.server 8787`
 Expected: `Serving HTTP on :: port 8787 (http://[::]:8787/) ...`
 
-- [ ] **Step 8.2: Open `http://localhost:8787` in a browser. Confirm the canvas loads with the robot at the bottom-left**
+- [ ] **Step 8.2: Open `http://localhost:8787` in a browser. Confirm the canvas loads with the robot near the bottom of the field, facing visually up**
 
-Expected: robot rendered facing up (heading -90°). No console errors.
+Expected: robot at math `(350, 163)`, heading `90°` (north). No console errors.
 
 - [ ] **Step 8.3: Default-spawn distance reading**
 
-Verify the Hub panel's port F reads near `89.2 cm` (default mount at `(350, 892)` → top wall at `y=0` → 892 mm). The on-canvas ray should be a teal solid line from the robot's nose to the top edge with `89.2 cm` (or close) labeled mid-ray.
+Verify the Hub panel's port F reads near `89.2 cm` (default mount at math `(350, 251)` → north wall at math `y = 1143` → 892 mm). The on-canvas ray should be a teal solid line from the robot's nose to the upper edge of the canvas with `89.2 cm` (or close) labeled mid-ray.
 
 - [ ] **Step 8.4: Distance reading shrinks during a forward drive**
 
@@ -1014,13 +1041,13 @@ import distance_sensor, motor_pair, runloop
 
 async def main():
     motor_pair.pair(motor_pair.PAIR_1, port.A, port.B)
-    await motor_pair.move_for_degrees(motor_pair.PAIR_1, 600)  # ≈ 293 mm forward
+    await motor_pair.move_for_degrees(motor_pair.PAIR_1, 600)  # ≈ 293 mm forward (north)
     print('distance now:', distance_sensor.distance(port.F))
 
 runloop.run(main())
 ```
 
-Run. Expected: robot drives forward; label on canvas shrinks live during motion (from ~89 cm down to ~60 cm); final printed distance ≈ `600` (892 − 293). Within ~10 mm tolerance.
+Run. Expected: robot drives north; label on canvas shrinks live during motion (from ~89 cm down to ~60 cm); final printed distance ≈ `600` (892 − 293). Within ~10 mm tolerance.
 
 - [ ] **Step 8.5: Drive into an obstacle and confirm the hit point lands on its edge**
 
@@ -1032,20 +1059,21 @@ import distance_sensor, motor_pair, runloop
 
 async def main():
     motor_pair.pair(motor_pair.PAIR_1, port.A, port.B)
-    # Tank-turn in place ~180° (right tread forward, left back) so the
-    # robot faces roughly east, then drive forward toward obstacle '1'.
+    # Tank-turn in place to face roughly east (heading 90→0, a right turn).
+    # Right turn = left tread forward, right tread back.
     await motor_pair.move_tank_for_degrees(motor_pair.PAIR_1, 200, 360, -360)
-    await motor_pair.move_for_degrees(motor_pair.PAIR_1, 2000)
+    # Drive east toward obstacle '1' at (1700, 943). Robot is around (350, 163).
+    await motor_pair.move_for_degrees(motor_pair.PAIR_1, 3000)
     print('distance:', distance_sensor.distance(port.F))
 
 runloop.run(main())
 ```
 
-Run. Expected: robot rotates, then drives until its raycast hits an obstacle or wall. Hit dot on the canvas lands on the impacted surface; distance label shows the closing distance. Final printed distance reflects whatever's directly in front when motion stops. Steering values may need a nudge to land squarely in front of the purple "1" obstacle — the goal is to *see the ray hit something*, not to land precisely.
+Run. Expected: robot rotates ~90° right, then drives east until its raycast hits the east wall (or an obstacle if one is in its path). Hit dot on the canvas lands on the impacted surface; distance label shows the closing distance. Final printed distance reflects whatever's directly in front when motion stops. Steering values may need a nudge to aim more precisely at obstacle '1' — the goal is to *see the ray hit something*, not to land precisely.
 
 - [ ] **Step 8.6: Out-of-range visual (faint dashed ray, no label)**
 
-Paste:
+Reset the simulator (so the robot returns to default spawn). Paste:
 
 ```python
 from hub import port
@@ -1053,17 +1081,17 @@ import motor_pair, runloop
 
 async def main():
     motor_pair.pair(motor_pair.PAIR_1, port.A, port.B)
-    # Tank-turn ~90° right (from heading -90° to 0°, facing east).
-    await motor_pair.move_tank_for_degrees(motor_pair.PAIR_1, 100, 360, -360)
+    # Tank-turn ~90° right (heading 90 → 0, facing east).
+    await motor_pair.move_tank_for_degrees(motor_pair.PAIR_1, 200, 360, -360)
 
 runloop.run(main())
 ```
 
-Run. The robot should rotate to face roughly east. With the robot at `(350, ~980)` facing east, the right wall is ~2012 mm away, beyond the 2000 mm cap.
+Run. The robot should rotate to face roughly east while still at math `(350, 163)`. Mount becomes `(438, 163)`, ray points east toward the east wall at `x = 2362`. Distance ≈ 2362 − 438 = 1924 mm, **just under 2000 mm**, so this case should still be in range.
 
-Expected on canvas: a faint dashed teal ray extending east from the robot's nose, no label, ending at the 2 m mark (well short of the right wall). If the rotation overshoots/undershoots and the robot ends up facing into something within range, tweak the tank-turn degrees and re-run.
+Tweak: replace the Python with one that drives the robot to math `(200, 163)` first (so the east wall ends up > 2000 mm away). Or adjust the rotation so the ray points slightly off-east into a longer line of sight (e.g., heading 5–10°).
 
-To verify the Python-side `-1` sentinel, append this read:
+Either way, expected on canvas when out of range: a faint dashed teal ray extending in the heading direction, no label, ending at the 2 m mark. To verify the Python-side `-1` sentinel:
 
 ```python
 import distance_sensor
@@ -1071,7 +1099,7 @@ from hub import port
 print('distance:', distance_sensor.distance(port.F))
 ```
 
-Run that snippet *after* the rotation completes (separate run, since the bridge state is preserved between runs). Expected: prints `distance: -1`.
+Run that snippet *after* the rotation completes (separate run, since the bridge state is preserved between runs). Expected once the ray clears 2000 mm: prints `distance: -1`.
 
 - [ ] **Step 8.7: Stop the dev server**
 

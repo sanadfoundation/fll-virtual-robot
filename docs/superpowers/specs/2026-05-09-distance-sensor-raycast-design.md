@@ -49,6 +49,18 @@ Boundary: `simulator.js` continues to know nothing about `b2*` types. The new
 `World2D.castRay` takes mm-space inputs and returns mm-space outputs only.
 Future sensors reuse it without learning Box2D.
 
+### Coordinate frame
+
+The internal frame is **math y-up** (origin bottom-left, +y north, headings
+math: `0=east, 90=north, 180=west, 270=south`, CCW positive). Box2D operates
+in this same frame — `_animateTank` writes `pose.y` straight into `robot.y`
+without flipping. `_distanceSensorMount` and `_updateDistanceSensor` produce
+math-y values; only `_drawDistanceSensorRay` converts to canvas y-down at the
+rendering boundary (`canvasY = FIELD_H_MM - mathY`), matching the existing
+`_drawField`, `_drawTrail`, etc.
+
+Robot defaults: spawn `(350, 163)`, heading `90°` (north).
+
 ### Component interactions
 
 ![Distance sensor component interactions](2026-05-09-distance-sensor-raycast-interactions.svg)
@@ -161,19 +173,31 @@ const DIST_SENSOR_OOR_VALUE = 9999;  // wire sentinel; bridge maps ≥9999 → -
 
 ### Mount math
 
+In the math y-up frame, the front of the robot is just `forward × (heading
+unit vector)` away from the robot center, where `forward = ROBOT_BODY_H/2 −
+12 = 88 mm` (matches the dot drawn at body-local `(0, -bh/2 + 12)` in
+`_drawRobot`). The ray direction is the heading itself.
+
 ```js
-// Front-center, 12 mm inset from the front edge — matches the dot drawn in
-// _drawRobot (body-local (0, -bh/2 + 12) before the +90° canvas offset).
 _distanceSensorMount(robot) {
-  const localY = -(ROBOT_BODY_H / 2) + 12;
-  const rotRad = (robot.heading + 90) * Math.PI / 180;
+  const forward    = ROBOT_BODY_H / 2 - 12;            // 88 mm
+  const headingRad = robot.heading * Math.PI / 180;
   return {
-    x: robot.x - localY * Math.sin(rotRad),
-    y: robot.y + localY * Math.cos(rotRad),
-    angleRad: robot.heading * Math.PI / 180,
+    x: robot.x + forward * Math.cos(headingRad),
+    y: robot.y + forward * Math.sin(headingRad),
+    angleRad: headingRad,
   };
 }
 ```
+
+Verify against the cardinals (math y-up):
+
+| heading | mount offset | mount example (robot at (1000, 500)) |
+|---|---|---|
+| 0° (east)  | (+88, 0)  | (1088, 500) |
+| 90° (north) | (0, +88)  | (1000, 588) |
+| 180° (west) | (−88, 0)  | (912, 500) |
+| 270° (south) | (0, −88)  | (1000, 412) |
 
 ### Update method (single source of truth)
 
@@ -229,6 +253,9 @@ this work — it's a separate behavioral change that stands on its own.
 
 Drawn in **world coordinates** (no robot-local transform), inside `_draw`
 right after `_drawRobot` so the ray sits visually in front of the robot.
+All math values (origin, hit, label perpendicular) are computed in math y-up
+and converted to canvas y-down at the `ctx.moveTo` / `ctx.lineTo` /
+`ctx.arc` / `ctx.fillText` boundary, matching `_drawField` / `_drawTrail`.
 
 ```js
 _drawDistanceSensorRay(ctx, s) {
@@ -238,32 +265,39 @@ _drawDistanceSensorRay(ctx, s) {
   const inRange = sens.distanceMM < DIST_SENSOR_OOR_VALUE;
 
   let endX, endY;
-  if (inRange) { endX = sens.distanceHit.x; endY = sens.distanceHit.y; }
-  else {
+  if (inRange) {
+    endX = sens.distanceHit.x;
+    endY = sens.distanceHit.y;
+  } else {
     const a = this.robot.heading * Math.PI / 180;
     endX = o.x + Math.cos(a) * DIST_SENSOR_MAX_MM;
     endY = o.y + Math.sin(a) * DIST_SENSOR_MAX_MM;
   }
+
+  // Math y-up → canvas y-down at the rendering boundary.
+  const cy = (mathY) => (FIELD_H_MM - mathY) * s;
 
   ctx.save();
   ctx.strokeStyle = inRange ? 'rgba(86,212,192,0.85)' : 'rgba(86,212,192,0.18)';
   ctx.lineWidth   = 1.5 * s;
   ctx.setLineDash(inRange ? [] : [4*s, 4*s]);
   ctx.beginPath();
-  ctx.moveTo(o.x * s, o.y * s);
-  ctx.lineTo(endX * s, endY * s);
+  ctx.moveTo(o.x * s,   cy(o.y));
+  ctx.lineTo(endX * s,  cy(endY));
   ctx.stroke();
 
   if (inRange) {
     ctx.fillStyle = 'rgba(86,212,192,0.95)';
     ctx.beginPath();
-    ctx.arc(endX * s, endY * s, 3 * s, 0, Math.PI * 2);
+    ctx.arc(endX * s, cy(endY), 3 * s, 0, Math.PI * 2);
     ctx.fill();
 
     // Mid-ray label, perpendicular-offset so the line doesn't run through it.
+    // Perpendicular is computed in math frame; canvas conversion happens at
+    // ctx call sites.
     const mx = (o.x + endX) / 2, my = (o.y + endY) / 2;
     const a  = this.robot.heading * Math.PI / 180;
-    const px = -Math.sin(a) * 14, py = Math.cos(a) * 14;  // 14 mm perpendicular
+    const px = -Math.sin(a) * 14, py = Math.cos(a) * 14;
     ctx.fillStyle    = '#1a1a1a';
     ctx.font         = `bold ${10 * s}px sans-serif`;
     ctx.textAlign    = 'center';
@@ -271,8 +305,8 @@ _drawDistanceSensorRay(ctx, s) {
     ctx.strokeStyle = 'rgba(255,255,255,0.85)';
     ctx.lineWidth   = 3 * s;
     const cm = (sens.distanceMM / 10).toFixed(1);
-    ctx.strokeText(`${cm} cm`, (mx + px) * s, (my + py) * s);
-    ctx.fillText  (`${cm} cm`, (mx + px) * s, (my + py) * s);
+    ctx.strokeText(`${cm} cm`, (mx + px) * s, cy(my + py));
+    ctx.fillText  (`${cm} cm`, (mx + px) * s, cy(my + py));
   }
   ctx.restore();
 }
@@ -328,10 +362,11 @@ Real `World2D` instance, real WASM (matches the existing
 
 Integration via `RobotSimulator`:
 
-1. Default spawn `(350, 980)` heading `-90°` (north). Top wall is at `y = 0`,
-   robot center at `y = 980`, sensor mount ~88 mm forward of center along
-   heading. Distance to top wall ≈ 980 − 88 = 892 mm. Verify
-   `getDistanceSensorValue()` reports 892 ± 5 mm after physics init.
+1. Default spawn `(350, 163)` heading `90°` (north, math y-up). North wall is
+   at `y = 1143`, robot center at `y = 163`, sensor mount 88 mm forward
+   (north) of center → mount at `y = 251`. Distance to north wall ≈
+   1143 − 251 = 892 mm. Verify `getDistanceSensorValue()` reports 892 ± 5 mm
+   after physics init.
 2. Move the robot 200 mm in front of an obstacle. Verify sensor returns
    ~200 mm ± 5 mm.
 3. Robot pointed at empty space beyond max range. Verify
@@ -342,12 +377,13 @@ Integration via `RobotSimulator`:
 
 ### `tests/js/sensors/distance_sensor_mount.test.js` (new)
 
-Pure-function test on `_distanceSensorMount` (no physics needed):
+Pure-function test on `_distanceSensorMount` (no physics needed). Math y-up
+convention: `0=east, 90=north, 180=west, 270=south`.
 
-1. Heading 0° (east): mount at `(robot.x + 88, robot.y)`, angle 0.
-2. Heading 90° (south): mount at `(robot.x, robot.y + 88)`, angle π/2.
-3. Heading -90° (north): mount at `(robot.x, robot.y - 88)`, angle -π/2.
-4. Heading 180° (west): mount at `(robot.x - 88, robot.y)`, angle π.
+1. Heading 0° (east):   mount at `(robot.x + 88, robot.y)`,   angle 0.
+2. Heading 90° (north): mount at `(robot.x, robot.y + 88)`,   angle π/2.
+3. Heading 180° (west): mount at `(robot.x - 88, robot.y)`,   angle π.
+4. Heading 270° (south): mount at `(robot.x, robot.y - 88)`,  angle 3π/2.
 
 (88 mm = `ROBOT_BODY_H / 2 - 12`.)
 
