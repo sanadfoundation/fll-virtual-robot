@@ -62,15 +62,7 @@
   <div class="spacer"></div>
 
   <div class="header-controls">
-    <div class="speed-control">
-      <span>Speed</span>
-      <input type="range" id="speed-slider" min="0.25" max="4" step="0.25" value="1">
-      <span id="speed-label">1x</span>
-    </div>
-    <button class="btn btn-theme" id="btn-theme" title="Toggle light/dark theme" aria-label="Toggle theme">
-      <span class="icon-moon">🌙</span><span class="icon-sun">☀️</span>
-    </button>
-    <button class="btn btn-reset" id="btn-defaults" title="Reset theme, speed, and editor contents to defaults">⟲ Defaults</button>
+    <button class="btn btn-feedback" id="btn-feedback" title="Send us feedback">💬 Feedback</button>
     <button class="btn btn-reset" id="btn-reset">↺ Reset</button>
     <button class="btn btn-stop"  id="btn-stop"  disabled>■ Stop</button>
     <button class="btn btn-run"   id="btn-run"   disabled>▶ Run</button>
@@ -173,6 +165,17 @@
 
       <div class="hub-section settings-section">
         <h3>Settings</h3>
+        <div class="speed-control">
+          <span>Speed</span>
+          <input type="range" id="speed-slider" min="0.25" max="4" step="0.25" value="1">
+          <span id="speed-label">1x</span>
+        </div>
+        <div class="sensor-row">
+          <span class="sensor-label">Theme</span>
+          <button class="btn btn-theme" id="btn-theme" title="Toggle light/dark theme" aria-label="Toggle theme">
+            <span class="icon-moon">🌙</span><span class="icon-sun">☀️</span>
+          </button>
+        </div>
         <div class="sensor-row">
           <span class="sensor-label">Units</span>
           <select id="units-select" class="units-select" aria-label="Position units">
@@ -181,6 +184,7 @@
             <option value="in">in</option>
           </select>
         </div>
+        <button class="btn btn-reset" id="btn-defaults" title="Reset theme, speed, and editor contents to defaults">⟲ Defaults</button>
       </div>
     </div>
   </aside>
@@ -214,6 +218,8 @@
 <script src="js/llsp3_io.js"></script>
 <script src="js/llsp3_ui.js"></script>
 <script src="js/main.js"></script>
+<script src="js/feedback.js"></script>
+<script>window.feedback && window.feedback.init();</script>
 <script src="js/version_check.js"></script>
 <script>window.versionCheck && window.versionCheck.init();</script>
 
