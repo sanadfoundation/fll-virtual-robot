@@ -1,11 +1,11 @@
-# Report an Issue — Design
+# Feedback — Design
 
 **Date:** 2026-05-10
 **Status:** Brainstormed, awaiting plan.
 
 ## Problem
 
-The simulator runs in classrooms full of students, teachers, and coaches who hit rough edges — bugs, confusing behavior, wishes — but have no path to tell us about it. The intended reporters do not have GitHub accounts, so "open an issue on GitHub" is not a realistic ask. We want a one-click "Report an Issue" entry point in the app that collects a short title + description and gets it in front of the maintainer, with enough version/environment metadata to be triageable.
+The simulator runs in classrooms full of students, teachers, and coaches who hit rough edges — bugs, confusing behavior, wishes — but have no path to tell us about it. The intended reporters do not have GitHub accounts, so "open an issue on GitHub" is not a realistic ask. We want a one-click "Feedback" entry point in the app that collects a short title + description and gets it in front of the maintainer, with enough version/environment metadata to be triageable.
 
 ## Goals
 
@@ -44,11 +44,11 @@ Responses land in the form's linked Google Sheet. Maintainer enables email notif
 
 Google Forms has no truly hidden field. The metadata fields are visible to reporters but prefilled. Reporters could edit them; that is acceptable — the prefilled value is a triage signal, not a security claim.
 
-### 2. `js/report_issue.js`
+### 2. `js/feedback.js`
 
-A new top-level module. Single responsibility: own the Report button click, build the prefilled iframe URL, open and close the modal. Target ~100 lines.
+A new top-level module. Single responsibility: own the Feedback button click, build the prefilled iframe URL, open and close the modal. Target ~100 lines.
 
-Public API on `window.reportIssue`:
+Public API on `window.feedback`:
 
 - `init()` — called from `main.js` after DOM ready. Wires the header button.
 - `open()` — opens the modal (used by `init`, exposed for future keyboard shortcuts).
@@ -66,7 +66,7 @@ const ENTRY_IDS = {
 };
 ```
 
-When `FORM_BASE_URL` is empty, `init()` hides the Report button and returns early. This means the code can ship before the maintainer has finished the Google Form setup with no broken UI.
+When `FORM_BASE_URL` is empty, `init()` hides the Feedback button and returns early. This means the code can ship before the maintainer has finished the Google Form setup with no broken UI.
 
 `buildPrefilledUrl()` reads:
 - `window.versionCheck` baseline SHA if available (added below), else empty string
@@ -80,13 +80,13 @@ When `FORM_BASE_URL` is empty, `init()` hides the Report button and returns earl
 Created in JS, not in `index.html` — keeps the HTML clean and avoids loading DOM that 99% of sessions won't use. On first `open()` call, the module appends:
 
 ```html
-<div class="report-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="report-modal-title">
-  <div class="report-modal">
-    <div class="report-modal-header">
-      <h2 id="report-modal-title">Report an Issue</h2>
-      <button class="report-modal-close" aria-label="Close">✕</button>
+<div class="feedback-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="feedback-modal-title">
+  <div class="feedback-modal">
+    <div class="feedback-modal-header">
+      <h2 id="feedback-modal-title">Feedback</h2>
+      <button class="feedback-modal-close" aria-label="Close">✕</button>
     </div>
-    <iframe class="report-modal-iframe" src="…prefilled URL…" title="Report an Issue form"></iframe>
+    <iframe class="feedback-modal-iframe" src="…prefilled URL…" title="Feedback form"></iframe>
   </div>
 </div>
 ```
@@ -97,7 +97,7 @@ A11y and UX:
 
 - Focus moves to the close button on open (the iframe content itself can't be focus-trapped from the parent page because of cross-origin).
 - ESC closes; backdrop click closes; close button closes.
-- `<body>` gets a `.report-modal-open` class while open to lock background scroll.
+- `<body>` gets a `.feedback-modal-open` class while open to lock background scroll.
 - The Google Form's own submission confirmation renders inside the iframe; the reporter clicks our X (or ESC) to close after they see the confirmation.
 
 ### 4. Header reorganization
@@ -110,7 +110,7 @@ Three controls move from header to the hub panel's Settings section:
 
 A new button is added to the header where they used to live:
 
-- `<button class="btn btn-report" id="btn-report" title="Report an issue with this app">🐛 Report</button>`
+- `<button class="btn btn-feedback" id="btn-feedback" title="Send us feedback">💬 Feedback</button>`
 
 DOM IDs of the moved controls are preserved, so existing event wiring in `js/main.js` (theme toggle, speed slider listener, defaults handler) continues to work unchanged. Only the markup location and the surrounding CSS change.
 
@@ -130,9 +130,9 @@ Settings
 ## Data flow
 
 ```
-[ Reporter clicks 🐛 Report ]
+[ Reporter clicks 💬 Feedback ]
             ↓
-[ report_issue.open() ]
+[ feedback.open() ]
             ↓
 [ buildPrefilledUrl() composes URL with current SHA + mode + UA ]
             ↓
@@ -153,29 +153,29 @@ The page itself does not see the submission event (cross-origin iframe). The rep
 
 **New files:**
 
-- `js/report_issue.js` — the module described above.
-- `tests/js/report_issue.test.js` — unit tests for `buildPrefilledUrl()` and the open/close DOM lifecycle.
+- `js/feedback.js` — the module described above.
+- `tests/js/feedback/feedback.test.js` — unit tests for `buildPrefilledUrl()` and the open/close DOM lifecycle.
 
 **Modified files:**
 
 - `index.html`
   - Remove `.speed-control`, `#btn-theme`, `#btn-defaults` from the header.
-  - Add `#btn-report` button in the freed header space, before the run-control cluster.
+  - Add `#btn-feedback` button in the freed header space, before the run-control cluster.
   - Add the three controls into `aside#sensor-panel .settings-section`, in the order shown above.
-  - Add `<script src="js/report_issue.js"></script>` immediately after `<script src="js/main.js"></script>` and immediately before `<script src="js/version_check.js"></script>`.
-  - Add an inline init line right after the new script tag: `<script>window.reportIssue && window.reportIssue.init();</script>` — matches the `versionCheck.init()` pattern already in the file.
+  - Add `<script src="js/feedback.js"></script>` immediately after `<script src="js/main.js"></script>` and immediately before `<script src="js/version_check.js"></script>`.
+  - Add an inline init line right after the new script tag: `<script>window.feedback && window.feedback.init();</script>` — matches the `versionCheck.init()` pattern already in the file.
 
 - `css/style.css`
-  - Add `.report-modal-backdrop`, `.report-modal`, `.report-modal-header`, `.report-modal-close`, `.report-modal-iframe` styles.
-  - Add `.btn-report` styling consistent with the existing meta-button family (matches `.btn-file` / `.btn-reset` tonally — not as prominent as `.btn-run`).
+  - Add `.feedback-modal-backdrop`, `.feedback-modal`, `.feedback-modal-header`, `.feedback-modal-close`, `.feedback-modal-iframe` styles.
+  - Add `.btn-feedback` styling consistent with the existing meta-button family (matches `.btn-file` / `.btn-reset` tonally — not as prominent as `.btn-run`).
   - Extend `.settings-section` rules so it cleanly stacks `.speed-control`, theme toggle, units row, and Defaults button.
-  - Body-scroll-lock class `.report-modal-open { overflow: hidden; }`.
+  - Body-scroll-lock class `.feedback-modal-open { overflow: hidden; }`.
 
 - `js/main.js`
-  - No changes required. `report_issue.js` self-wires via its own inline init, matching `version_check.js`.
+  - No changes required. `feedback.js` self-wires via its own inline init, matching `version_check.js`.
 
 - `js/version_check.js`
-  - Expose the baseline SHA on the `versionCheck` API so `report_issue.js` can read it without duplicating the fetch. Add `getBaselineSha()` returning `baselineSha`.
+  - Expose the baseline SHA on the `versionCheck` API so `feedback.js` can read it without duplicating the fetch. Add `getBaselineSha()` returning `baselineSha`.
 
 **Not changed:**
 
@@ -183,7 +183,7 @@ The page itself does not see the submission event (cross-origin iframe). The rep
 
 ## Testing
 
-**Unit (`tests/js/report_issue.test.js`):**
+**Unit (`tests/js/feedback/feedback.test.js`):**
 
 - `buildPrefilledUrl()` with all metadata present produces a URL with three `entry.X=value` params, each properly URL-encoded.
 - `buildPrefilledUrl()` with `FORM_BASE_URL` empty returns empty string.
@@ -194,13 +194,13 @@ The page itself does not see the submission event (cross-origin iframe). The rep
 
 **Manual verification:**
 
-- Click 🐛 Report → modal opens, form is visible, prefilled fields contain real SHA, current mode (`blocks` or `python` depending on active tab), and browser UA.
+- Click 💬 Feedback → modal opens, form is visible, prefilled fields contain real SHA, current mode (`blocks` or `python` depending on active tab), and browser UA.
 - ESC closes. Backdrop click closes. ✕ button closes.
 - Submit a test report → row appears in the linked Google Sheet within seconds with metadata intact.
 - Speed slider in hub panel still throttles simulation; theme button still toggles theme; Defaults button still resets theme/speed/editor content.
 - Hub panel collapse still works; new Settings controls hide with it.
-- Switch to the Python tab, open Report → "Mode" field shows `python`. Repeat from Blocks tab → shows `blocks`.
-- With `FORM_BASE_URL` cleared in `report_issue.js`, the 🐛 Report button does not appear in the header.
+- Switch to the Python tab, open Feedback → "Mode" field shows `python`. Repeat from Blocks tab → shows `blocks`.
+- With `FORM_BASE_URL` cleared in `feedback.js`, the 💬 Feedback button does not appear in the header.
 
 ## Operational setup (one-time, outside the code)
 
@@ -211,7 +211,7 @@ This setup is what the maintainer does after the code lands. Until step 4 is com
    - In Google Forms: ⋮ menu → **Get pre-filled link** → put placeholder values into the three metadata fields (`SHA_HERE`, `MODE_HERE`, `UA_HERE`) → **Get link** → copy the resulting URL.
    - Each metadata field appears in the URL as `entry.NNNNN=SHA_HERE`. Record the three numeric IDs.
 3. **Extract the embed URL.** Send → Embed `<>` → copy the iframe `src` attribute. That string is `FORM_BASE_URL`.
-4. **Paste both into `js/report_issue.js`:**
+4. **Paste both into `js/feedback.js`:**
    - `FORM_BASE_URL = '<embed src>';`
    - `ENTRY_IDS.sha       = 'entry.NNNNN';`
    - `ENTRY_IDS.mode      = 'entry.NNNNN';`
@@ -225,7 +225,7 @@ Optional: pin the Sheet in your Drive and bookmark it. This is now your triage i
 - **Google rate-limits or blocks the iframe in some networks (schools).** Mitigation: feature degrades cleanly — the iframe shows Google's own error, the surrounding modal still closes, the rest of the app is unaffected. Document in the BACKLOG that we'd revisit if schools report this.
 - **Reporters edit the prefilled metadata.** Acceptable; the field is a hint, not a guarantee. Triage filters can flag rows where the SHA doesn't match a known build.
 - **Spam.** Google's own anti-abuse handles it for now; if reports become spammy the Form settings can require a Google sign-in, raising friction but cleaning the inbox.
-- **The Form is deleted or its embed URL rotates.** Single point of failure. Mitigation: comment in `report_issue.js` documenting how to regenerate, plus the steps above duplicated in the project's `README.md` under "Maintainer notes" — out of scope here, noted as a follow-up.
+- **The Form is deleted or its embed URL rotates.** Single point of failure. Mitigation: comment in `feedback.js` documenting how to regenerate, plus the steps above duplicated in the project's `README.md` under "Maintainer notes" — out of scope here, noted as a follow-up.
 
 ## Out of scope (revisit triggers)
 
