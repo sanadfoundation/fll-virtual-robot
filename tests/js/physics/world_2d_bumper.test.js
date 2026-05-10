@@ -1,21 +1,35 @@
 'use strict';
 
 // Boundary-conversion + body-local-offset tests for World2D.addBumper.
-// Pumps the same stub Box2D module through World2D as the existing
-// world_2d_boundary tests; asserts the second fixture is welded to the robot
-// body at the right body-local offset and tagged with userData.
+// Pumps a stub Box2D module through World2D and asserts the second fixture
+// is welded to the robot body at the right body-local offset and recorded
+// in the world's bumper-pointer map.
+//
+// The stub mirrors box2d-wasm 7.0.0 in two relevant respects: PostSolve
+// would be called with emscripten pointers (not exercised here) and
+// fixtures don't round-trip JS objects through set_userData — so the bumper
+// is identified by pointer address via world._bumperPorts. The stub
+// exposes wrapPointer / getPointer / GetFixtureList for that pattern.
 
 const test   = require('node:test');
 const assert = require('node:assert');
 
 const close = (a, b, tol = 1e-9) => Math.abs(a - b) <= tol;
 
-// Inline-copy of the stub from world_2d_boundary.test.js, extended with
-// SetAsBox(centre, angle) capture (already present in the boundary stub) and
-// userData tracking on fixtures.
 function makeStubBox2d() {
   const calls = [];
   const log = (entry) => calls.push(entry);
+
+  // Pointer table: every JS object the stub hands out gets a unique int ptr.
+  let nextPtr = 1000;
+  const ptrToObj = new Map();
+  const objToPtr = new WeakMap();
+  function track(obj) {
+    const ptr = nextPtr++;
+    ptrToObj.set(ptr, obj);
+    objToPtr.set(obj, ptr);
+    return obj;
+  }
 
   function makeVec2(x = 0, y = 0) {
     return { x, y, get_x: () => x, get_y: () => y };
@@ -45,33 +59,37 @@ function makeStubBox2d() {
     }
   }
   class b2FixtureDef {
-    set_shape(s)         { this.shape = s; }
-    set_density(d)       { this.density = d; }
-    set_friction(f)      { this.friction = f; }
-    set_restitution(r)   { this.restitution = r; }
-    set_userData(u)      { this.userData = u; }
+    set_shape(s)       { this.shape = s; }
+    set_density(d)     { this.density = d; }
+    set_friction(f)    { this.friction = f; }
+    set_restitution(r) { this.restitution = r; }
   }
   let nextBodyId = 0;
   function makeBody(def) {
     const id = nextBodyId++;
-    return {
-      id, def, fixtures: [],
+    // Fixtures are stored in insertion order; GetFixtureList returns the
+    // most-recently-added (matching Box2D's linked-list "newest at head").
+    const fixtures = [];
+    return track({
+      id, def, fixtures,
       pos: makeVec2(def.props.position?.x || 0, def.props.position?.y || 0),
       angle: def.props.angle || 0,
-      SetTransform()        {},
-      SetLinearVelocity()   {},
-      SetAngularVelocity()  {},
-      SetAwake()            {},
+      SetTransform()       {},
+      SetLinearVelocity()  {},
+      SetAngularVelocity() {},
+      SetAwake()           {},
       GetPosition() { return this.pos; },
       GetAngle()    { return this.angle; },
       CreateFixture(fd) {
-        this.fixtures.push(fd);
-        log({ op: 'CreateFixture', body: id,
-              shape: fd.shape && { hx: fd.shape.hx, hy: fd.shape.hy,
-                                   cx: fd.shape.cx, cy: fd.shape.cy },
-              userData: fd.userData });
+        const fixture = track({
+          shape: fd.shape && { hx: fd.shape.hx, hy: fd.shape.hy,
+                               cx: fd.shape.cx, cy: fd.shape.cy },
+        });
+        fixtures.unshift(fixture);  // head = newest
+        log({ op: 'CreateFixture', body: id, shape: fixture.shape });
       },
-    };
+      GetFixtureList() { return fixtures[0] || null; },
+    });
   }
   class b2World {
     constructor() { this.bodies = []; }
@@ -88,7 +106,11 @@ function makeStubBox2d() {
     stub: {
       b2Vec2, b2BodyDef, b2PolygonShape, b2FixtureDef, b2World, JSContactListener,
       b2_kinematicBody: 'kinematic', b2_dynamicBody: 'dynamic',
+      b2Contact:        'b2Contact',
+      b2ContactImpulse: 'b2ContactImpulse',
       destroy: () => {},
+      wrapPointer: (ptr) => ptrToObj.get(ptr) || null,
+      getPointer:  (obj) => obj ? (objToPtr.get(obj) || 0) : 0,
     },
     calls,
   };
@@ -131,11 +153,22 @@ test('addBumper: body-local offset converted mm → m via SetAsBox centre', asyn
   assert.ok(close(fix.shape.cy, 0.000), `cy=${fix.shape.cy}`);
 });
 
-test('addBumper: userData round-trips on the fixture', async () => {
-  const { world, calls } = await makeWorld();
+test('addBumper: records new fixture pointer in _bumperPorts keyed on userData.port', async () => {
+  const { world, stub } = await makeWorld();
   const body = world.addRobot(100, 80, { x: 0, y: 0 });
-  const ud = { kind: 'force_sensor', port: 'C' };
-  world.addBumper(body, 5, 15, 105, 0, ud);
-  const fix = calls.filter(c => c.op === 'CreateFixture').pop();
-  assert.deepStrictEqual(fix.userData, ud);
+  assert.strictEqual(world._bumperPorts.size, 0);
+  world.addBumper(body, 5, 15, 105, 0, { kind: 'force_sensor', port: 'C' });
+  assert.strictEqual(world._bumperPorts.size, 1);
+  // The recorded pointer should resolve back to the head fixture of the body.
+  const headFixture = body.GetFixtureList();
+  const ptr = stub.getPointer(headFixture);
+  assert.strictEqual(world._bumperPorts.get(ptr), 'C',
+    'bumper fixture pointer maps to port C');
+});
+
+test('addBumper: skips recording when userData has no port', async () => {
+  const { world } = await makeWorld();
+  const body = world.addRobot(100, 80, { x: 0, y: 0 });
+  world.addBumper(body, 5, 15, 105, 0, undefined);
+  assert.strictEqual(world._bumperPorts.size, 0);
 });

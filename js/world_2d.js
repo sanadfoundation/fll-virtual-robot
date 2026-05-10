@@ -42,29 +42,38 @@ export class World2D {
     box2d.destroy(gravity);
 
     this._forceImpulses = {};
+    // Maps a fixture's emscripten pointer (int) → port string. Box2D's
+    // set_userData() stores an int, not a JS object — our metadata can't
+    // round-trip through the fixture. Instead we capture the bumper fixture's
+    // pointer at addBumper time and look it up in PostSolve by comparing
+    // pointer addresses via box2d.getPointer().
+    this._bumperPorts = new Map();
     this._listener = Object.assign(new box2d.JSContactListener(), {
-      PostSolve: (contact, impulse) => {
+      PostSolve: (contactPtr, impulsePtr) => {
+        // box2d-wasm hands the listener emscripten pointers (numbers), not
+        // JS objects. Wrap them back into typed wrappers before calling
+        // GetFixtureA / get_normalImpulses on them.
+        const contact = box2d.wrapPointer(contactPtr, box2d.b2Contact);
+        const impulse = box2d.wrapPointer(impulsePtr, box2d.b2ContactImpulse);
         const fa = contact.GetFixtureA();
         const fb = contact.GetFixtureB();
-        const udA = fa && fa.GetUserData ? fa.GetUserData() : null;
-        const udB = fb && fb.GetUserData ? fb.GetUserData() : null;
-        const ud = (udA && udA.kind === 'force_sensor') ? udA
-                 : (udB && udB.kind === 'force_sensor') ? udB
-                 : null;
-        if (!ud) return;
-        // box2d-wasm exposes normalImpulses as either a method (.get_normalImpulses())
-        // returning an array-like, or a property. Read whichever is available.
-        const arr = (typeof impulse.get_normalImpulses === 'function')
-          ? impulse.get_normalImpulses()
-          : impulse.normalImpulses;
+        const port = this._bumperPorts.get(box2d.getPointer(fa))
+                  || this._bumperPorts.get(box2d.getPointer(fb));
+        if (!port) return;
+        // b2ContactImpulse exposes per-manifold-point impulses as an indexed
+        // getter: impulse.get_normalImpulses(i) returns the i-th float (no
+        // explicit index returns element 0). count tells us how many points.
         const count = (typeof impulse.get_count === 'function')
           ? impulse.get_count()
-          : (arr && arr.length) || 0;
+          : 0;
         let sum = 0;
-        for (let i = 0; i < count; i++) {
-          sum += (typeof arr[i] === 'number') ? arr[i] : (arr.get && arr.get(i)) || 0;
+        if (typeof impulse.get_normalImpulses === 'function') {
+          for (let i = 0; i < count; i++) {
+            const v = impulse.get_normalImpulses(i);
+            if (typeof v === 'number') sum += v;
+          }
         }
-        this._forceImpulses[ud.port] = (this._forceImpulses[ud.port] || 0) + sum;
+        this._forceImpulses[port] = (this._forceImpulses[port] || 0) + sum;
       },
       // Required no-op overrides — some box2d-wasm builds will assert on missing methods.
       BeginContact: () => {},
@@ -162,9 +171,10 @@ export class World2D {
 
   // Welds a second collider to an existing body in body-local frame. Used to
   // attach the force-sensor bumper to the robot body. offset_mm is the centre
-  // of the bumper rectangle in body-local mm. userData (anything) is attached
-  // to the FixtureDef so the contact listener can identify the bumper at
-  // runtime via fixture.GetUserData().
+  // of the bumper rectangle in body-local mm. userData.port is recorded in
+  // _bumperPorts keyed on the new fixture's emscripten pointer so PostSolve
+  // can identify the bumper later — Box2D's set_userData stores an int and
+  // can't carry our JS metadata.
   addBumper(robotBody, hx_mm, hy_mm, offsetX_mm, offsetY_mm, userData) {
     const shape = new box2d.b2PolygonShape();
     const centre = new box2d.b2Vec2(offsetX_mm * M_PER_MM, offsetY_mm * M_PER_MM);
@@ -174,8 +184,13 @@ export class World2D {
     fd.set_shape(shape);
     fd.set_density(1);
     fd.set_friction(0.5);
-    if (userData !== undefined) fd.set_userData(userData);
     robotBody.CreateFixture(fd);
+    // In standard Box2D the newest fixture lands at the head of the body's
+    // fixture list. Capture its pointer for PostSolve attribution.
+    if (userData && userData.port) {
+      const fixture = robotBody.GetFixtureList();
+      this._bumperPorts.set(box2d.getPointer(fixture), userData.port);
+    }
 
     box2d.destroy(shape);
     box2d.destroy(centre);
