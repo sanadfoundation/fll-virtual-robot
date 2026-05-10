@@ -34,7 +34,30 @@
 
   // ── DOM-reading helper (filled in by Task 4) ──────────────────────────────
   function collectMetadata() {
-    throw new Error('not implemented');
+    let sha = '';
+    try {
+      if (root.versionCheck && typeof root.versionCheck.getBaselineSha === 'function') {
+        sha = root.versionCheck.getBaselineSha() || '';
+      }
+    } catch (e) { /* versionCheck dormant — sha stays empty */ }
+
+    let mode = '';
+    try {
+      const doc      = root.document;
+      const blocksEl = doc && doc.getElementById('tab-blocks');
+      const pythonEl = doc && doc.getElementById('tab-python');
+      if (blocksEl && blocksEl.classList.contains('active')) mode = 'blocks';
+      else if (pythonEl && pythonEl.classList.contains('active')) mode = 'python';
+    } catch (e) { /* DOM unavailable — mode stays empty */ }
+
+    let userAgent = '';
+    try {
+      if (root.navigator && typeof root.navigator.userAgent === 'string') {
+        userAgent = root.navigator.userAgent;
+      }
+    } catch (e) { /* navigator unavailable — userAgent stays empty */ }
+
+    return { sha, mode, userAgent };
   }
 
   // ── Modal lifecycle (filled in by Task 5) ─────────────────────────────────
@@ -49,6 +72,7 @@
     open,
     close,
     buildPrefilledUrl,
+    collectMetadata,
     _FORM_BASE_URL: FORM_BASE_URL,
     _ENTRY_IDS:     ENTRY_IDS,
   };
