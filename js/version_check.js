@@ -24,6 +24,10 @@
   let dismissedSha = null;
   let bannerEl     = null;
 
+  function getBaselineSha() {
+    return baselineSha;
+  }
+
   // ── Storage ───────────────────────────────────────────────────────────────
   function readDismissed() {
     try { return root.localStorage && root.localStorage.getItem(DISMISSED_KEY); }
@@ -163,7 +167,7 @@
     bootstrap();
   }
 
-  const api = { shouldShowBanner, parseVersionPayload, init };
+  const api = { shouldShowBanner, parseVersionPayload, init, getBaselineSha };
 
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = api;
