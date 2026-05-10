@@ -1,0 +1,857 @@
+# Report an Issue — Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Add an in-app 🐛 Report button that opens a modal containing an embedded Google Form. Reporters with no GitHub account submit `title` + `body`; the version SHA, editor mode, and user agent are pre-filled. Header is decluttered by moving speed slider, theme toggle, and Defaults button into the hub panel's Settings section.
+
+**Architecture:** New module `js/report_issue.js` (browser/node-friendly wrapper, mirrors `js/version_check.js`). Pure URL-builder is unit-tested via `node:test` + `vm`. DOM injection, modal lifecycle, and event handlers are verified manually (no JSDOM in this repo — matches `js/version_check.js` convention). `js/version_check.js` gains a `getBaselineSha()` accessor so the report module reads the SHA without duplicating the fetch. UI reorganization is one commit at the end so the markup move + CSS + new button land coherently.
+
+**Tech Stack:** Vanilla browser JS (no build step). `node:test` for unit tests, loading modules via `vm.createContext`. Embedded Google Form (no new CDN dependency, no backend).
+
+**Reference spec:** [`docs/superpowers/specs/2026-05-10-report-an-issue-design.md`](../specs/2026-05-10-report-an-issue-design.md).
+
+---
+
+## File Structure
+
+| File | New / Modified | Responsibility |
+|---|---|---|
+| `js/report_issue.js` | new | Module: URL builder, metadata collector, modal open/close, event wiring. Exposes `window.reportIssue` with `init`, `open`, `close`, `buildPrefilledUrl`. |
+| `tests/js/report_issue/helper.js` | new | Loads `js/report_issue.js` into a `vm` context (mirrors `tests/js/version_check/helper.js`). |
+| `tests/js/report_issue/report_issue.test.js` | new | Unit tests for `buildPrefilledUrl`. |
+| `js/version_check.js` | modify | Add `getBaselineSha()` to the public API. |
+| `tests/js/version_check/version_check.test.js` | modify | Add a test for `getBaselineSha()` (returns `null` before bootstrap). |
+| `index.html` | modify | Move speed/theme/defaults markup from header into hub panel Settings section. Add `#btn-report` button to header. Add `<script src="js/report_issue.js"></script>` + inline init line. |
+| `css/style.css` | modify | Modal styles, `.btn-report` style, expanded `.settings-section` layout. |
+
+---
+
+## Task 1: Module skeleton
+
+**Files:**
+- Create: `js/report_issue.js`
+
+- [ ] **Step 1: Create the skeleton with the project's module-pattern wrapper**
+
+Create `js/report_issue.js`:
+
+```javascript
+'use strict';
+
+(function (root) {
+  // ── Configuration (paste values here after Google Form setup) ─────────────
+  // Until FORM_BASE_URL is non-empty, init() hides the Report button so the
+  // feature is dormant in production. See docs/superpowers/specs/2026-05-10-report-an-issue-design.md
+  // section "Operational setup" for how to obtain these values.
+  const FORM_BASE_URL = '';
+  const ENTRY_IDS = {
+    sha:       '',
+    mode:      '',
+    userAgent: '',
+  };
+
+  // ── Pure helper (filled in by Task 2) ─────────────────────────────────────
+  function buildPrefilledUrl(/* formBaseUrl, entryIds, metadata */) {
+    throw new Error('not implemented');
+  }
+
+  // ── DOM-reading helper (filled in by Task 4) ──────────────────────────────
+  function collectMetadata() {
+    throw new Error('not implemented');
+  }
+
+  // ── Modal lifecycle (filled in by Task 5) ─────────────────────────────────
+  function open()  {}
+  function close() {}
+
+  // ── Bootstrap (filled in by Task 5) ───────────────────────────────────────
+  function init() {}
+
+  const api = {
+    init,
+    open,
+    close,
+    buildPrefilledUrl,
+    _FORM_BASE_URL: FORM_BASE_URL,
+    _ENTRY_IDS:     ENTRY_IDS,
+  };
+
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = api;
+  }
+  if (root) {
+    root.reportIssue = api;
+  }
+})(typeof window !== 'undefined' ? window : globalThis);
+```
+
+The `_FORM_BASE_URL` / `_ENTRY_IDS` underscore-prefixed fields are exposed so tests can override them without touching module-level constants. Other code MUST NOT read these.
+
+- [ ] **Step 2: Commit**
+
+```bash
+git add js/report_issue.js
+git commit -m "feat(report-issue): add module skeleton"
+```
+
+---
+
+## Task 2: `buildPrefilledUrl()` (TDD)
+
+**Files:**
+- Create: `tests/js/report_issue/helper.js`
+- Create: `tests/js/report_issue/report_issue.test.js`
+- Modify: `js/report_issue.js`
+
+- [ ] **Step 1: Create the test helper**
+
+Create `tests/js/report_issue/helper.js`:
+
+```javascript
+'use strict';
+
+const vm   = require('vm');
+const fs   = require('fs');
+const path = require('path');
+
+const SRC = fs.readFileSync(
+  path.resolve(__dirname, '../../../js/report_issue.js'),
+  'utf8',
+);
+
+function loadReportIssue() {
+  const root = {};
+  const context = vm.createContext({
+    window: root,
+    globalThis: root,
+    console,
+  });
+  vm.runInContext(SRC, context);
+  return root.reportIssue;
+}
+
+module.exports = { loadReportIssue };
+```
+
+- [ ] **Step 2: Write the failing tests**
+
+Create `tests/js/report_issue/report_issue.test.js`:
+
+```javascript
+'use strict';
+
+const test   = require('node:test');
+const assert = require('node:assert');
+const { loadReportIssue } = require('./helper');
+
+const BASE_URL  = 'https://docs.google.com/forms/d/e/FORM_ID/viewform?embedded=true';
+const ENTRY_IDS = {
+  sha:       'entry.111',
+  mode:      'entry.222',
+  userAgent: 'entry.333',
+};
+
+test('buildPrefilledUrl: returns empty string when formBaseUrl is empty', () => {
+  const { buildPrefilledUrl } = loadReportIssue();
+  const url = buildPrefilledUrl('', ENTRY_IDS, { sha: 'abc', mode: 'blocks', userAgent: 'UA' });
+  assert.strictEqual(url, '');
+});
+
+test('buildPrefilledUrl: appends all three entry params when present', () => {
+  const { buildPrefilledUrl } = loadReportIssue();
+  const url = buildPrefilledUrl(BASE_URL, ENTRY_IDS, {
+    sha: 'abc123',
+    mode: 'python',
+    userAgent: 'Mozilla/5.0',
+  });
+  assert.ok(url.startsWith(BASE_URL + '&'));
+  assert.ok(url.includes('entry.111=abc123'));
+  assert.ok(url.includes('entry.222=python'));
+  assert.ok(url.includes('entry.333=Mozilla%2F5.0'));
+});
+
+test('buildPrefilledUrl: URL-encodes special characters', () => {
+  const { buildPrefilledUrl } = loadReportIssue();
+  const url = buildPrefilledUrl(BASE_URL, ENTRY_IDS, {
+    sha: 'abc',
+    mode: 'blocks',
+    userAgent: 'Mozilla/5.0 (Mac OS X) Chrome/120.0 Safari/537.36',
+  });
+  // Spaces → %20, slashes → %2F, parens → %28/%29
+  assert.ok(url.includes('Mozilla%2F5.0%20%28Mac%20OS%20X%29'));
+});
+
+test('buildPrefilledUrl: skips entry whose ID is empty', () => {
+  const { buildPrefilledUrl } = loadReportIssue();
+  const partialIds = { sha: 'entry.111', mode: '', userAgent: 'entry.333' };
+  const url = buildPrefilledUrl(BASE_URL, partialIds, {
+    sha: 'abc',
+    mode: 'blocks',
+    userAgent: 'UA',
+  });
+  assert.ok(url.includes('entry.111=abc'));
+  assert.ok(!url.includes('entry.222'));
+  assert.ok(!url.includes('=blocks'));
+  assert.ok(url.includes('entry.333=UA'));
+});
+
+test('buildPrefilledUrl: skips entry whose value is missing or empty', () => {
+  const { buildPrefilledUrl } = loadReportIssue();
+  const url = buildPrefilledUrl(BASE_URL, ENTRY_IDS, {
+    sha: 'abc',
+    mode: '',
+    userAgent: undefined,
+  });
+  assert.ok(url.includes('entry.111=abc'));
+  assert.ok(!url.includes('entry.222='));
+  assert.ok(!url.includes('entry.333='));
+});
+
+test('buildPrefilledUrl: never emits a trailing & or && separator', () => {
+  const { buildPrefilledUrl } = loadReportIssue();
+  const url = buildPrefilledUrl(BASE_URL, ENTRY_IDS, {
+    sha: 'abc',
+    mode: '',
+    userAgent: 'UA',
+  });
+  assert.ok(!url.includes('&&'));
+  assert.ok(!url.endsWith('&'));
+});
+```
+
+- [ ] **Step 3: Run the tests to confirm they fail**
+
+```bash
+node --test tests/js/report_issue/report_issue.test.js
+```
+
+Expected: all tests fail with `Error: not implemented`.
+
+- [ ] **Step 4: Implement `buildPrefilledUrl`**
+
+Replace the stub in `js/report_issue.js`:
+
+```javascript
+  function buildPrefilledUrl(formBaseUrl, entryIds, metadata) {
+    if (!formBaseUrl) return '';
+    const ids  = entryIds || {};
+    const meta = metadata || {};
+    const params = [];
+    function maybeAdd(idKey, valueKey) {
+      const id    = ids[idKey];
+      const value = meta[valueKey];
+      if (!id || !value) return;
+      params.push(id + '=' + encodeURIComponent(value));
+    }
+    maybeAdd('sha',       'sha');
+    maybeAdd('mode',      'mode');
+    maybeAdd('userAgent', 'userAgent');
+    if (params.length === 0) return formBaseUrl;
+    return formBaseUrl + '&' + params.join('&');
+  }
+```
+
+- [ ] **Step 5: Re-run the tests and confirm they pass**
+
+```bash
+node --test tests/js/report_issue/report_issue.test.js
+```
+
+Expected: all 6 tests pass.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add js/report_issue.js tests/js/report_issue/
+git commit -m "feat(report-issue): URL builder with prefilled metadata params"
+```
+
+---
+
+## Task 3: Expose `getBaselineSha()` on `versionCheck`
+
+**Files:**
+- Modify: `js/version_check.js`
+- Modify: `tests/js/version_check/version_check.test.js`
+
+- [ ] **Step 1: Write the failing test**
+
+Append to `tests/js/version_check/version_check.test.js`:
+
+```javascript
+test('getBaselineSha: returns null before bootstrap', () => {
+  const { getBaselineSha } = loadVersionCheck();
+  assert.strictEqual(getBaselineSha(), null);
+});
+```
+
+- [ ] **Step 2: Run to confirm it fails**
+
+```bash
+node --test tests/js/version_check/version_check.test.js
+```
+
+Expected: fails with `TypeError: getBaselineSha is not a function` (or similar).
+
+- [ ] **Step 3: Add `getBaselineSha()` to `js/version_check.js`**
+
+Inside the IIFE, after the `baselineSha` declaration (around the existing `let baselineSha = null;` line), add:
+
+```javascript
+  function getBaselineSha() {
+    return baselineSha;
+  }
+```
+
+In the `api` object near the bottom of the file, add `getBaselineSha`:
+
+```javascript
+  const api = { shouldShowBanner, parseVersionPayload, init, getBaselineSha };
+```
+
+- [ ] **Step 4: Re-run the test and confirm it passes**
+
+```bash
+node --test tests/js/version_check/version_check.test.js
+```
+
+Expected: all version_check tests pass, including the new one.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add js/version_check.js tests/js/version_check/version_check.test.js
+git commit -m "feat(version-check): expose baseline SHA accessor"
+```
+
+---
+
+## Task 4: `collectMetadata()` helper
+
+**Files:**
+- Modify: `js/report_issue.js`
+
+This helper reads the live state at modal-open time. It hits the DOM and `navigator`, so it is verified manually (no JSDOM in this repo — matching `js/version_check.js` precedent).
+
+- [ ] **Step 1: Replace the `collectMetadata` stub in `js/report_issue.js`**
+
+```javascript
+  function collectMetadata() {
+    let sha = '';
+    try {
+      if (root.versionCheck && typeof root.versionCheck.getBaselineSha === 'function') {
+        sha = root.versionCheck.getBaselineSha() || '';
+      }
+    } catch (e) { /* versionCheck dormant — sha stays empty */ }
+
+    let mode = '';
+    try {
+      const doc      = root.document;
+      const blocksEl = doc && doc.getElementById('tab-blocks');
+      const pythonEl = doc && doc.getElementById('tab-python');
+      if (blocksEl && blocksEl.classList.contains('active')) mode = 'blocks';
+      else if (pythonEl && pythonEl.classList.contains('active')) mode = 'python';
+    } catch (e) { /* DOM unavailable — mode stays empty */ }
+
+    let userAgent = '';
+    try {
+      if (root.navigator && typeof root.navigator.userAgent === 'string') {
+        userAgent = root.navigator.userAgent;
+      }
+    } catch (e) { /* navigator unavailable — userAgent stays empty */ }
+
+    return { sha, mode, userAgent };
+  }
+```
+
+Expose it on the API object for future-proofing and easier manual debugging from DevTools:
+
+```javascript
+  const api = {
+    init,
+    open,
+    close,
+    buildPrefilledUrl,
+    collectMetadata,
+    _FORM_BASE_URL: FORM_BASE_URL,
+    _ENTRY_IDS:     ENTRY_IDS,
+  };
+```
+
+- [ ] **Step 2: Confirm existing tests still pass**
+
+```bash
+node --test tests/js/report_issue/report_issue.test.js
+```
+
+Expected: 6 tests still pass (this task doesn't change the URL builder).
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add js/report_issue.js
+git commit -m "feat(report-issue): collect SHA, mode, user-agent at open time"
+```
+
+---
+
+## Task 5: Modal lifecycle — `open`, `close`, `init`
+
+**Files:**
+- Modify: `js/report_issue.js`
+
+This task implements DOM injection, scroll lock, and the ESC/backdrop/close-button handlers. Not unit-tested (matches `ensureBanner` in `js/version_check.js`); verified manually in Task 7.
+
+- [ ] **Step 1: Add private modal state inside the IIFE**
+
+In `js/report_issue.js`, after the configuration constants block, add:
+
+```javascript
+  let modalEl       = null;
+  let escHandler    = null;
+```
+
+- [ ] **Step 2: Replace the `open` / `close` / `init` stubs**
+
+```javascript
+  function buildModalDom() {
+    const doc = root.document;
+    if (!doc) return null;
+
+    const backdrop = doc.createElement('div');
+    backdrop.className = 'report-modal-backdrop';
+    backdrop.setAttribute('role', 'dialog');
+    backdrop.setAttribute('aria-modal', 'true');
+    backdrop.setAttribute('aria-labelledby', 'report-modal-title');
+    backdrop.hidden = true;
+
+    const modal = doc.createElement('div');
+    modal.className = 'report-modal';
+
+    const header = doc.createElement('div');
+    header.className = 'report-modal-header';
+
+    const title = doc.createElement('h2');
+    title.id = 'report-modal-title';
+    title.textContent = 'Report an Issue';
+    header.appendChild(title);
+
+    const closeBtn = doc.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'report-modal-close';
+    closeBtn.setAttribute('aria-label', 'Close');
+    closeBtn.textContent = '✕';
+    closeBtn.addEventListener('click', close);
+    header.appendChild(closeBtn);
+
+    const iframe = doc.createElement('iframe');
+    iframe.className = 'report-modal-iframe';
+    iframe.title = 'Report an Issue form';
+
+    modal.appendChild(header);
+    modal.appendChild(iframe);
+    backdrop.appendChild(modal);
+
+    // Backdrop click closes; clicks inside the modal must not bubble.
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) close();
+    });
+
+    doc.body.appendChild(backdrop);
+    return { backdrop, iframe, closeBtn };
+  }
+
+  function open() {
+    const doc = root.document;
+    if (!doc) return;
+    if (!modalEl) modalEl = buildModalDom();
+    if (!modalEl) return;
+
+    const url = buildPrefilledUrl(FORM_BASE_URL, ENTRY_IDS, collectMetadata());
+    if (!url) return; // form not configured — refuse to open
+
+    modalEl.iframe.src = url;
+    modalEl.backdrop.hidden = false;
+    doc.body.classList.add('report-modal-open');
+
+    escHandler = (e) => {
+      if (e.key === 'Escape') close();
+    };
+    doc.addEventListener('keydown', escHandler);
+
+    // Move focus to the close button so ESC/keyboard users can dismiss
+    // without first tabbing into the cross-origin iframe.
+    try { modalEl.closeBtn.focus(); } catch (e) { /* focus may fail in some envs */ }
+  }
+
+  function close() {
+    const doc = root.document;
+    if (!doc || !modalEl) return;
+    modalEl.backdrop.hidden = true;
+    modalEl.iframe.src = 'about:blank'; // stop the form from holding network/UI state
+    doc.body.classList.remove('report-modal-open');
+    if (escHandler) {
+      doc.removeEventListener('keydown', escHandler);
+      escHandler = null;
+    }
+  }
+
+  function init() {
+    const doc = root.document;
+    if (!doc) return;
+    const btn = doc.getElementById('btn-report');
+    if (!btn) return;
+    if (!FORM_BASE_URL) {
+      // Feature dormant until the maintainer fills in the constants.
+      btn.hidden = true;
+      return;
+    }
+    btn.addEventListener('click', open);
+  }
+```
+
+- [ ] **Step 3: Confirm tests still pass**
+
+```bash
+node --test tests/js/report_issue/report_issue.test.js
+```
+
+Expected: 6 tests still pass.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add js/report_issue.js
+git commit -m "feat(report-issue): modal open/close + bootstrap"
+```
+
+---
+
+## Task 6: CSS — modal, button, expanded settings
+
+**Files:**
+- Modify: `css/style.css`
+
+- [ ] **Step 1: Add the `.btn-report` style**
+
+Append after the existing `.btn-file` rules (search for the comment `/* ── Buttons ─` or the block defining `.btn-file`; place this near them so meta-button styles cluster):
+
+```css
+/* ── Report button ─────────────────────────────────────── */
+.btn-report {
+  background: var(--surface2);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.btn-report:hover  { background: var(--surface3); color: var(--text); }
+.btn-report:active { transform: translateY(1px); }
+```
+
+(Adjust variable names if the existing buttons use different vars — read `:root` declarations near the top of `style.css` first to confirm `--surface2`, `--surface3`, `--text-dim`, `--text`, `--border` exist. If they don't, copy whatever `.btn-file` uses.)
+
+- [ ] **Step 2: Add the modal styles**
+
+Append at the bottom of `css/style.css`:
+
+```css
+/* ── Report Issue modal ────────────────────────────────── */
+.report-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.report-modal-backdrop[hidden] { display: none; }
+
+.report-modal {
+  width: min(640px, calc(100vw - 32px));
+  height: min(80vh, calc(100vh - 64px));
+  background: var(--surface1, #fff);
+  border: 1px solid var(--border, #333);
+  border-radius: 8px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.report-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border, #333);
+}
+.report-modal-header h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text, inherit);
+}
+
+.report-modal-close {
+  background: transparent;
+  color: var(--text-dim, #888);
+  border: 0;
+  font-size: 18px;
+  line-height: 1;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.report-modal-close:hover { background: var(--surface3, rgba(0,0,0,0.08)); color: var(--text, inherit); }
+
+.report-modal-iframe {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: var(--surface1, #fff);
+}
+
+body.report-modal-open { overflow: hidden; }
+```
+
+If any `var(--xxx, fallback)` reference doesn't match what's already in the file, drop the fallback. The fallbacks are only there in case the theme variable name is different — read the top of `style.css` once and align.
+
+- [ ] **Step 3: Adjust `.settings-section` so it lays out the new controls**
+
+Search for the existing `.settings-section` rule in `style.css`. If it doesn't exist or is minimal, append:
+
+```css
+.settings-section .speed-control,
+.settings-section .sensor-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  gap: 8px;
+}
+
+.settings-section .speed-control span:first-child {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.settings-section .btn-theme,
+.settings-section .btn-reset {
+  width: 100%;
+  justify-content: center;
+}
+
+.settings-section .btn-reset { margin-top: 8px; }
+```
+
+If `.settings-section` already styles its rows differently, harmonize with what's there — the goal is each control rendered on its own row with a label on the left.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add css/style.css
+git commit -m "ui(report-issue): modal + btn-report styles, settings-section layout"
+```
+
+---
+
+## Task 7: HTML — move controls, add button, wire script
+
+**Files:**
+- Modify: `index.html`
+
+This is the visible change. Markup move + new button + script tag, all in one commit so the UI never lands in a half-broken state.
+
+- [ ] **Step 1: Remove three controls from the header**
+
+In `index.html`, find the `<div class="header-controls">` block (around line 64). Remove:
+
+```html
+    <div class="speed-control">
+      <span>Speed</span>
+      <input type="range" id="speed-slider" min="0.25" max="4" step="0.25" value="1">
+      <span id="speed-label">1x</span>
+    </div>
+    <button class="btn btn-theme" id="btn-theme" title="Toggle light/dark theme" aria-label="Toggle theme">
+      <span class="icon-moon">🌙</span><span class="icon-sun">☀️</span>
+    </button>
+    <button class="btn btn-reset" id="btn-defaults" title="Reset theme, speed, and editor contents to defaults">⟲ Defaults</button>
+```
+
+- [ ] **Step 2: Add the Report button in the same `<div class="header-controls">` block, before the run-control trio**
+
+Insert immediately before `<button class="btn btn-reset" id="btn-reset">↺ Reset</button>`:
+
+```html
+    <button class="btn btn-report" id="btn-report" title="Report an issue with this app">🐛 Report</button>
+```
+
+After this step, the `<div class="header-controls">` block contains only: Report, Reset, Stop, Run.
+
+- [ ] **Step 3: Add the three moved controls into the Settings section of the hub panel**
+
+Find `<div class="hub-section settings-section">` (around line 174). Replace the entire block with:
+
+```html
+      <div class="hub-section settings-section">
+        <h3>Settings</h3>
+        <div class="speed-control">
+          <span>Speed</span>
+          <input type="range" id="speed-slider" min="0.25" max="4" step="0.25" value="1">
+          <span id="speed-label">1x</span>
+        </div>
+        <div class="sensor-row">
+          <span class="sensor-label">Theme</span>
+          <button class="btn btn-theme" id="btn-theme" title="Toggle light/dark theme" aria-label="Toggle theme">
+            <span class="icon-moon">🌙</span><span class="icon-sun">☀️</span>
+          </button>
+        </div>
+        <div class="sensor-row">
+          <span class="sensor-label">Units</span>
+          <select id="units-select" class="units-select" aria-label="Position units">
+            <option value="cm">cm</option>
+            <option value="mm">mm</option>
+            <option value="in">in</option>
+          </select>
+        </div>
+        <button class="btn btn-reset" id="btn-defaults" title="Reset theme, speed, and editor contents to defaults">⟲ Defaults</button>
+      </div>
+```
+
+This keeps every existing DOM ID (`#speed-slider`, `#speed-label`, `#btn-theme`, `#btn-defaults`, `#units-select`) intact, so the wiring in `js/main.js` continues to work without changes.
+
+- [ ] **Step 4: Add the script tag + inline init**
+
+Find the existing line `<script src="js/version_check.js"></script>` near the bottom. Insert immediately *before* it:
+
+```html
+<script src="js/report_issue.js"></script>
+<script>window.reportIssue && window.reportIssue.init();</script>
+```
+
+The final tail of `index.html` should read:
+
+```html
+<script src="js/main.js"></script>
+<script src="js/report_issue.js"></script>
+<script>window.reportIssue && window.reportIssue.init();</script>
+<script src="js/version_check.js"></script>
+<script>window.versionCheck && window.versionCheck.init();</script>
+</body>
+</html>
+```
+
+`reportIssue.init()` runs after `main.js` has defined everything it needs, and before `versionCheck.init()` schedules its polling — order matches the existing convention.
+
+- [ ] **Step 5: Manual verification — start the dev server and sanity-check**
+
+```bash
+python3 -m http.server 8787
+```
+
+Open `http://localhost:8787/` and confirm:
+- Header shows: 🤖 FLL · 📂 Open · 💾 Save · 📝 project name · 🧱 Blocks / 🐍 Python · (spacer) · ↺ Reset · ■ Stop · ▶ Run. The 🐛 Report button is **hidden** (because `FORM_BASE_URL` is empty — this is the intended dormant state).
+- Hub panel Settings section shows: Speed slider, Theme toggle, Units dropdown, then a full-width ⟲ Defaults button.
+- Speed slider still throttles a running program (run a quick "move forward" program from the Blocks tab and drag the slider).
+- Theme toggle still toggles light/dark.
+- ⟲ Defaults still resets theme/speed/editor contents (try after editing some Python).
+- Units dropdown still changes the hub readouts.
+- Collapse the hub panel — Settings disappears with it (expected).
+
+If any of those regress, the markup move is at fault — re-check that DOM IDs are preserved exactly.
+
+- [ ] **Step 6: Temporarily test the modal end-to-end with a sandbox URL**
+
+This step verifies the modal lifecycle works *before* the maintainer has set up the real Google Form. Edit `js/report_issue.js`:
+
+```javascript
+const FORM_BASE_URL = 'https://example.com/?embedded=true';
+const ENTRY_IDS = {
+  sha:       'entry.111',
+  mode:      'entry.222',
+  userAgent: 'entry.333',
+};
+```
+
+Reload `http://localhost:8787/`. Confirm:
+- 🐛 Report button now appears in the header.
+- Click it → modal opens with `example.com` rendered in the iframe.
+- ESC closes the modal.
+- Clicking the dark backdrop (outside the modal frame) closes.
+- The ✕ button closes.
+- Background page does not scroll while modal is open.
+- Open DevTools → Network → click Report again → confirm the iframe URL contains `entry.111=...&entry.222=blocks&entry.333=Mozilla...` (or `python` if you're on the Python tab).
+
+Then **revert** the constants back to empty strings:
+
+```javascript
+const FORM_BASE_URL = '';
+const ENTRY_IDS = {
+  sha:       '',
+  mode:      '',
+  userAgent: '',
+};
+```
+
+Reload and confirm the Report button is hidden again. The real values get filled in during the operational setup (out of scope for this plan).
+
+- [ ] **Step 7: Run all JS tests one more time**
+
+```bash
+find tests/js -name '*.test.js' -print0 | xargs -0 node --test
+```
+
+Expected: all tests pass (the new ones + everything that was passing before).
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add index.html
+git commit -m "ui(report-issue): header reorg + Report button + script wiring"
+```
+
+---
+
+## Task 8: Update CLAUDE.md if needed
+
+**Files:**
+- Modify: `CLAUDE.md` (only if there's a relevant existing constraint to update)
+
+- [ ] **Step 1: Decide whether to add a CLAUDE.md note**
+
+Read `CLAUDE.md`. The "Constraints" section captures gotchas. The Report Issue module is straightforward — there is likely nothing to add. Skip this task entirely if there's no constraint that future-Claude would otherwise get wrong.
+
+If there *is* something — for example, if you discovered during implementation that the iframe needs a specific sandbox attribute, or that Google's iframe needs a particular Content-Security-Policy header that conflicts with a future change — add a one-liner under "Constraints" and commit:
+
+```bash
+git add CLAUDE.md
+git commit -m "docs(claude): note <constraint> from report-issue work"
+```
+
+Otherwise, no commit. This task exists so the implementer pauses and decides — not so they invent a constraint.
+
+---
+
+## Self-review checklist (for the implementer, after Task 7 commit)
+
+Run through this list before declaring the plan complete:
+
+- [ ] `find tests/js -name '*.test.js' -print0 | xargs -0 node --test` — all green.
+- [ ] `git log --oneline` shows seven commits (skeleton, URL builder, baseline SHA, collectMetadata, modal lifecycle, CSS, HTML+wiring) — one per task, plus optionally Task 8.
+- [ ] `js/report_issue.js` ends with the original `FORM_BASE_URL = ''` so the button is dormant in production.
+- [ ] No `index.html` ID was renamed during the move (`#speed-slider`, `#speed-label`, `#btn-theme`, `#btn-defaults`, `#units-select` all still present).
+- [ ] No new CDN `<script>` or `<link>` was added — feature is self-contained.
+- [ ] Manual: visiting the page with empty `FORM_BASE_URL` shows no 🐛 button and no console errors.
