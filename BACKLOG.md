@@ -114,6 +114,7 @@ Code (Python + Blockly), theme, speed, and active tab already persist via localS
 ## App Shell
 
 - **"Support us" link** — header/footer link to the Sanad Foundation donation / sponsorship page so users have a clear path to contribute.
+- **Feedback Google Form setup** — code for the in-app 💬 Feedback button is merged but dormant. To activate: create the Google Form (fields: Title, Description, Email, Version SHA, Mode, User Agent), then paste `FORM_BASE_URL` and the three `entry.NNNNN` IDs into `js/feedback.js`. Steps in `docs/superpowers/specs/2026-05-10-feedback-design.md` § "Operational setup".
 
 ---
 

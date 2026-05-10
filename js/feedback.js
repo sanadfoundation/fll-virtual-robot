@@ -13,6 +13,10 @@
   };
 
   // ── Pure helper (filled in by Task 2) ─────────────────────────────────────
+  // formBaseUrl MUST already contain a query string (e.g. "...?embedded=true")
+  // — Google Forms' embed URL always does. We append additional params with
+  // "&" separators on that assumption. A bare URL with no "?" would produce
+  // a malformed result.
   function buildPrefilledUrl(formBaseUrl, entryIds, metadata) {
     if (!formBaseUrl) return '';
     const ids  = entryIds || {};
