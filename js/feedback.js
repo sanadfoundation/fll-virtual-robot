@@ -13,8 +13,23 @@
   };
 
   // ── Pure helper (filled in by Task 2) ─────────────────────────────────────
-  function buildPrefilledUrl(/* formBaseUrl, entryIds, metadata */) {
-    throw new Error('not implemented');
+  function buildPrefilledUrl(formBaseUrl, entryIds, metadata) {
+    if (!formBaseUrl) return '';
+    const ids  = entryIds || {};
+    const meta = metadata || {};
+    const params = [];
+    function maybeAdd(idKey, valueKey) {
+      const id    = ids[idKey];
+      const value = meta[valueKey];
+      if (!id || !value) return;
+      // encodeURIComponent is standard; Google Forms accepts it
+      params.push(id + '=' + encodeURIComponent(value));
+    }
+    maybeAdd('sha',       'sha');
+    maybeAdd('mode',      'mode');
+    maybeAdd('userAgent', 'userAgent');
+    if (params.length === 0) return formBaseUrl;
+    return formBaseUrl + '&' + params.join('&');
   }
 
   // ── DOM-reading helper (filled in by Task 4) ──────────────────────────────
