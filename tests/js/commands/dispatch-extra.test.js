@@ -71,17 +71,22 @@ test('motor_time: with pair configured, routes through _animateTank', async () =
 
 test('motor_time: defaults velocity to 500 when omitted', async () => {
   const sim = createSim();
-  sim.isRunning = true;
-  // No pair → non-drive path; just verify it doesn't throw with default velocity.
+  const calls = withTankStub(sim);
+  // Port A's drive-left role routes single-motor commands through _animateTank
+  // even with no pair configured, so default velocity is observable there.
   await sim._execCmd({ type: 'motor_time', port: 'A', time_ms: 100 });
-  assert.strictEqual(sim.robot.y, 163, 'non-drive motor should not move robot');
+  assert.strictEqual(calls.length, 1);
+  assert.ok(close(calls[0].leftV, 0.5), `leftV=${calls[0].leftV}`);
+  assert.strictEqual(calls[0].rightV, 0);
 });
 
 test('motor_time: defaults time_ms to 1000 when omitted', async () => {
   const sim = createSim();
-  sim.isRunning = true;
+  const calls = withTankStub(sim);
   await sim._execCmd({ type: 'motor_time', port: 'A', velocity: 500 });
-  assert.strictEqual(sim.robot.y, 163, 'non-drive motor should not move robot');
+  assert.strictEqual(calls.length, 1);
+  // 500/1000 normalized × MM_PER_MS_100 (0.9) × 1000 ms = 450 mm of wheel travel.
+  assert.ok(close(calls[0].distMM, 450), `distMM=${calls[0].distMM}`);
 });
 
 // ── hub_display (set bitmap) ────────────────────────────────────────────────
@@ -124,19 +129,55 @@ test('beep: state unchanged after invocation', async () => {
   assert.strictEqual(sim.robot.y, 163);
 });
 
-// ── _animateSingleMotor non-pair path ───────────────────────────────────────
+// ── _animateSingleMotor port-role fallback ──────────────────────────────────
 
-test('_animateSingleMotor: non-pair port leaves robot pose unchanged', async () => {
+test('_animateSingleMotor: unpaired drive-left port pivots around right wheel', async () => {
+  // Real Spike: motor.run(port.A) with no motor_pair.pair() still spins the
+  // physical motor; if A is wired to the left wheel, the robot pivots around
+  // the stationary right wheel. PORT_CONFIG.A.role = 'drive-left' encodes that.
   const sim = createSim();
-  sim.isRunning = true;
-  // Port C is configured as 'empty' by default — pretend it's a motor for this test.
-  // We need a port that is configured as motor but is NOT in any pair. Use 'A'
-  // with no pair configured — A is motor by default, no pair set.
+  const calls = withTankStub(sim);
   assert.strictEqual(sim._findPairForPort('A'), null, 'precondition: A unpaired');
   await sim._animateSingleMotor('A', 0.5, 100);
+  assert.strictEqual(calls.length, 1);
+  assert.ok(close(calls[0].leftV, 0.5));
+  assert.strictEqual(calls[0].rightV, 0);
+  assert.strictEqual(calls[0].distMM, 100);
+});
+
+test('_animateSingleMotor: unpaired drive-right port pivots around left wheel', async () => {
+  const sim = createSim();
+  const calls = withTankStub(sim);
+  await sim._animateSingleMotor('B', -0.4, 80);
+  assert.strictEqual(calls.length, 1);
+  assert.strictEqual(calls[0].leftV, 0);
+  assert.ok(close(calls[0].rightV, -0.4));
+  assert.strictEqual(calls[0].distMM, 80);
+});
+
+test('_animateSingleMotor: auxiliary motor (no drive role) leaves robot pose unchanged', async () => {
+  const sim = createSim();
+  const calls = withTankStub(sim);
+  // Re-wire port C as a non-drive motor (e.g. an arm attachment).
+  sim._portConfig.C = { kind: 'motor' };
+  await sim._animateSingleMotor('C', 0.5, 100);
+  assert.strictEqual(calls.length, 0, 'auxiliary motor should not reach _animateTank');
   assert.strictEqual(sim.robot.x, 350);
   assert.strictEqual(sim.robot.y, 163);
   assert.strictEqual(sim.robot.heading, 90);
+});
+
+test('_animateSingleMotor: pairMap overrides PORT_CONFIG role', async () => {
+  // motor_pair.pair(PAIR_1, port.B, port.A) declares B=left, A=right — the
+  // override should beat the default A=drive-left mapping.
+  const sim = createSim();
+  const calls = withTankStub(sim);
+  sim.pairMap[0] = { left: 'B', right: 'A' };
+  await sim._animateSingleMotor('A', 1, 100);
+  assert.strictEqual(calls.length, 1);
+  assert.strictEqual(calls[0].leftV, 0, 'A is right wheel under override');
+  assert.ok(close(calls[0].rightV, 1));
+  assert.strictEqual(calls[0].distMM, 100);
 });
 
 test('_animateSingleMotor: paired port routes velocity to the matching wheel only', async () => {
@@ -144,7 +185,6 @@ test('_animateSingleMotor: paired port routes velocity to the matching wheel onl
   const calls = withTankStub(sim);
   sim.pairMap[0] = { left: 'A', right: 'B' };
   await sim._animateSingleMotor('A', 1, 100);
-  // Port A is the LEFT wheel — it gets the velocity, the right wheel stays at 0.
   assert.strictEqual(calls.length, 1);
   assert.ok(close(calls[0].leftV, 1));
   assert.strictEqual(calls[0].rightV, 0);

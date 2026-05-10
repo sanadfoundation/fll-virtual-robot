@@ -1006,18 +1006,36 @@ class RobotSimulator {
     // worker, so without this check a hand-edited XML or future block could
     // drive a wrong-port motor command past the Python validator.
     this._assertPortKind(port, 'motor');
-    // Determine if this is a drive motor based on pair configuration
+
+    // motor_pair.pair(...) is the runtime override; it wins over the canonical
+    // PORT_CONFIG roles so user-declared swaps (e.g. PAIR_1 = B,A) take effect.
     const pair = this._findPairForPort(port);
     if (pair) {
       const isLeft = pair.left === port;
       const leftV  = isLeft ? velocity : 0;
       const rightV = isLeft ? 0 : velocity;
       await this._animateTank(leftV, rightV, distMM);
-    } else {
-      // Non-drive motor: just wait proportional time
-      const ms = (distMM / MM_PER_MS_100) / Math.max(0.1, Math.abs(velocity));
-      await this._sleep(ms / this.speedMult);
+      return;
     }
+
+    // Real Spike doesn't require motor_pair.pair() for motor.run() to do
+    // something — the motor spins, and if it's wired to a wheel the robot
+    // pivots around the stationary wheel. PORT_CONFIG roles encode that
+    // wiring, so single-motor commands on drive ports route through tank
+    // physics with the off-side wheel held at zero.
+    const role = this._portConfig[port] && this._portConfig[port].role;
+    if (role === 'drive-left') {
+      await this._animateTank(velocity, 0, distMM);
+      return;
+    }
+    if (role === 'drive-right') {
+      await this._animateTank(0, velocity, distMM);
+      return;
+    }
+
+    // Auxiliary motor (arm / attachment with no wheel): pass time only.
+    const ms = (distMM / MM_PER_MS_100) / Math.max(0.1, Math.abs(velocity));
+    await this._sleep(ms / this.speedMult);
   }
 
   _findPairForPort(port) {

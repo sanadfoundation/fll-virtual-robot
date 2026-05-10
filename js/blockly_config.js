@@ -1203,7 +1203,12 @@ function registerGenerators(Blockly) {
   // valueToCode helper that supplies a literal default
   const val = (block, name, def = '0') => js.valueToCode(block, name, ORDER_NONE) || def;
 
-  const motorVDir = (dir) => dir === 'counterclockwise' ? -1 : 1;
+  // Direction sign for single-motor blocks. The dropdown label is the rotation
+  // direction of the wheel as the student sees it from outside the robot, so
+  // "clockwise" on the left wheel rolls the wheel backward — same convention a
+  // kid gets by watching the physical model. Drive-side ports translate that
+  // into wheel velocity via _animateSingleMotor + PORT_CONFIG roles.
+  const motorVDir = (dir) => dir === 'clockwise' ? -1 : 1;
   const moveDir   = (dir) => dir === 'back' ? -1 : 1;
 
   // ── Motor ──────────────────────────────────────────────────────────────────
@@ -1225,8 +1230,9 @@ function registerGenerators(Blockly) {
     const dir  = block.getFieldValue('DIRECTION');
     const pos  = val(block, 'POSITION', '0');
     let sign;
-    if (dir === 'clockwise') sign = '1';
-    else if (dir === 'counterclockwise') sign = '-1';
+    // Matches motorVDir: clockwise (kid-facing wheel view) = wheel backward.
+    if (dir === 'clockwise') sign = '-1';
+    else if (dir === 'counterclockwise') sign = '1';
     else sign = '(((window.sim.getMotorPosition("' + port + '") - ' + pos + ' + 540) % 360 - 180) > 0 ? -1 : 1)';
     return `await window.sim._animateSingleMotor('${port}', _motorSpeed/100*${sign}, (Math.abs(${pos}) / 360) * ${_WHEEL_CIRC_MM});\n`;
   };

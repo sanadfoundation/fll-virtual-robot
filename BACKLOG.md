@@ -1,10 +1,11 @@
 # Backlog
 
 Spike Prime simulator features still to be built. Scope is restricted to:
+
 - Spike Prime robot only
 - Python / Blockly programming and its effect on robot movement and interaction
 
-Grouped by theme; top of each group = highest value.
+Grouped by theme; within each group, top = highest impact.
 
 ---
 
@@ -12,34 +13,46 @@ Grouped by theme; top of each group = highest value.
 
 Reference: [LEGO Spike Python help](https://spike.legoeducation.com/prime/modal/help/lls-help-python) and the [Tufts Spike 3 mirror](https://tuftsceeo.github.io/SPIKEPythonDocs/SPIKE3.html).
 
-The individual motor API, `motor_pair.move_for_degrees` / `_for_time`, light matrix, beep, and the basic hub surface are in place. Remaining work, ordered by impact:
+The individual motor API, `motor_pair.move_for_degrees` / `_for_time`, light matrix, beep, and the basic hub surface are in place.
 
 ### Wrong / non-standard signatures
+
 - **`hub.button.was_pressed` is non-standard.** LEGO only has `pressed(button) -> int` returning ms held. Drop our `was_pressed`, make `pressed` return a real duration.
 - **`hub.speaker` is a non-standard alias.** Canonical name is `hub.sound`; align and drop the alias.
-- **`hub.light_matrix.show(pixels)` ignores its argument** — it always renders the `'CUSTOM'` glyph instead of the 25-pixel list.
-- **`motor.run_to_absolute_position` `direction` arg is plumbed but ignored.** Python forwards `CLOCKWISE` / `COUNTERCLOCKWISE` / `SHORTEST_PATH` / `LONGEST_PATH` over the bridge; the simulator picks the same path regardless.
+- **`hub.light_matrix.show(pixels)` ignores its argument** — always renders the `'CUSTOM'` glyph instead of the 25-pixel list.
+- **`motor.run_to_absolute_position` / `motor.run_to_relative_position` use distance, not position.** Both route through `_animateSingleMotor` with `distMM = (|target| / 360) × WHEEL_CIRC_MM`, so `run_to_absolute_position(port.A, 90)` drives 90° of wheel rotation instead of rotating to absolute 90°. The `direction` arg (`CLOCKWISE` / `COUNTERCLOCKWISE` / `SHORTEST_PATH` / `LONGEST_PATH`) is plumbed through Python but the simulator picks the same path regardless. SHORTEST / LONGEST additionally need the angle counter (see *Motor state stubs* below).
+
+### Motor state stubs
+
+These cascade — fixing the counter unblocks the four reporters and the relative-position offset.
+
+- **Motor angle counter never increments.** `_animateTank` and `_animateSingleMotor` advance the robot pose but never tick `robot.motors[port]`. The Hub panel surfaces this — A and B both read `0°` no matter how far the robot drives. Fix: increment per-port degrees from wheel mm-per-step (drive ports in `_animateTank`, unpaired motors in `_animateSingleMotor`).
+- **`absolute_position` / `relative_position` reporters** return the same counter; `reset_relative_position` is a no-op. (`velocity(port)` now returns the last commanded value via `_motor_velocities`.)
+- **`getMotorSpeed(port)` always returns 0** — hardcoded stub backing the `motor X speed` / `motor X power` Blockly reporters.
 
 ### Sensor stubs that need real values
+
 - **Motion sensor.** `tilt_angles()`, `acceleration()`, `angular_velocity()`, `quaternion()`, `up_face()`, `gesture()`, `tap_count()` all return frozen constants. Highest-value fix: drive `tilt_angles()` from the simulator heading so heading-locked driving works (this replaces the previously-listed `get_yaw_angle()` item, which doesn't exist in v3 — the canonical reader is `tilt_angles()`).
 - **Force sensor.** `force()` / `pressed()` / `raw()` always return 0 / False / 0. Drive `pressed()` from on-screen / keyboard input so the existing Blockly blocks become functional.
 - **Hub button.** `pressed(button)` always returns 0; needs real ms-held duration tied to keyboard or on-screen buttons.
-- **Motor angle counter never increments.** `_animateTank` and `_animateSingleMotor` advance robot pose but never tick `robot.motors[port]`. The Hub panel surfaces this — A and B both read `0°` no matter how far the robot drives. Fix: increment per-port degrees from wheel mm-per-step (drive ports in `_animateTank`, unpaired motors in `_animateSingleMotor`).
-- **Motor position counters.** `absolute_position` and `relative_position` return the same counter; `reset_relative_position` is a no-op. (`velocity(port)` now returns the last commanded value via `_motor_velocities`.)
 - **Color sensor.** `rgbi(port)` returns intensity = 0; should be the mean of R, G, B.
 
 ### Ignored kwargs
-- `stop = BRAKE / HOLD / COAST / CONTINUE / SMART_*` — accepted everywhere, applied nowhere.
-- `acceleration` / `deceleration` — accepted everywhere, applied nowhere; need ramps in `_animateTank` / `_animateSingleMotor`.
+
+- **`stop = BRAKE / HOLD / COAST / CONTINUE / SMART_*`** — accepted everywhere, applied nowhere. `_animateTank` snaps velocity to 0 at the end regardless of mode; coast in particular needs momentum to carry forward, hold should resist external pushes.
+- **`acceleration` / `deceleration`** — accepted everywhere, applied nowhere. Python kwargs (deg/s², default 1000) are dropped before the bridge payload is built in `py/spike_bridge.py`; `_animateTank` runs constant velocity for the full duration. Fix: forward the kwargs into the bridge payload, then implement a trapezoidal profile in `_animateTank` / `_animateSingleMotor` — convert deg/s² → mm/s² via `WHEEL_CIRC_MM/360`, ramp up to cruise, ramp down. When `t_accel + t_decel` would exceed total duration, fall back to a triangular profile with peak `v = sqrt(2·a·d·dist/(a+d))`. Per-step `maxV` feeds the existing `wheelsToBodyVelocity` call; no other physics changes needed.
 
 ### Broken control flow
+
 - **`runloop.until(fn, timeout)` is a no-op.** Any program that polls a condition exits immediately. Needs a real polling loop with timeout.
 
 ### Missing devices
+
 - **Center button light** — `hub.light.color(POWER, …)` exists; the LED itself never updates in the renderer.
 - **Named sound playback** — `app.sound.play("Cat" / "Dog" / …)` is a no-op. Lower priority than beep.
 
 ### Out-of-scope by design (document, don't fix)
+
 - `app.display` / `app.bargraph` / `app.linegraph` / `app.music` — Spike App UI surfaces with no analogue here; leave as no-ops.
 - `color_matrix` (3×3 LED attachment) — no plan to render.
 
@@ -48,11 +61,23 @@ The individual motor API, `motor_pair.move_for_degrees` / `_for_time`, light mat
 ## Programming Experience
 
 ### Blockly
-- **Functional force-sensor blocks** — block UI exists but the underlying API is a stub (see "Force sensor" above).
-- **Functional hub-button blocks** — same: UI exists, button state never changes.
+
+Motor-block gaps (grouped together for easier scanning):
+
+- **Acceleration / stop-method setter blocks are no-ops.** `set movement acceleration to slow/medium/fast`, `set motor … acceleration`, `set movement motors … at stop` and `set motor … at stop` assign to `_moveAccel` / `_motorAccel` / `_stopMethod` / `_motorStop` globals (declared in `js/blockly_config.js` ~line 2268) but the move generators (`flippermoremove_startDualSpeed`, `flippermoremotor_motorGoToRelativePosition`, etc.) never read them. Once `_animateTank` honours accel/decel/stop (see *Ignored kwargs*), wire the setter values through and map `slow/medium/fast` to concrete deg/s² values (verify against current LEGO firmware; rough order of magnitude ~250 / 1000 / 2000).
+- **Single-motor blue blocks: stop scope and continuous-run cap.** `flippermotor_motorStop` halts the whole program (`window.sim.stop()`) instead of stopping just one motor. `flippermotor_motorStartDirection` and `flippermoremotor_motorStartPower` emit a 5000 mm fire-and-forget — they should run until explicitly stopped. Needs per-port stop in the simulator and a continuous-run mode (e.g. `Infinity` distance or a separate command type).
+
+Sensor-block gaps (block UI exists but the underlying API is stubbed):
+
+- **Functional force-sensor blocks** — see *Force sensor* above.
+- **Functional hub-button blocks** — see *Hub button* above.
+
+Other:
+
 - **Blockly-to-app parity** — match the Spike Prime App's block set exactly.
 
 ### Python editor
+
 - **Inline error highlighting** — underline the offending line on MicroPython exceptions instead of console-only.
 - **Motion sensor autocomplete** — surface the gyro methods once they exist.
 
@@ -95,22 +120,27 @@ Code (Python + Blockly), theme, speed, and active tab already persist via localS
 ## 3D LDraw View
 
 Now that the step-interleaved execution model is in place, the 3D view can be built. Design decisions:
+
 - 3D **replaces** the 2D canvas (no toggle).
 - Scene: bundled LDraw robot model + FLL mat texture + user-uploaded LDraw mission models.
 - Camera presets only: Top, Iso, Follow (no free orbit).
 - Renderer: Three.js r168+ with `LDrawLoader` via importmap; no build step.
 - Collision / distance sensing: reuse the existing Box2D world for footprint collisions plus a forward raycast against mission geometry for the distance sensor.
 
+---
+
 ## Obstacle Courses
 
-- Leveraging a physics engine, we're able to model collisions
-- Able to change canvas maps, where each map has a start-to-finish goal, but having obstacles to avoid in-between
-- Possibility of random map generation if possible
+- Leveraging a physics engine, we're able to model collisions.
+- Able to change canvas maps, where each map has a start-to-finish goal but obstacles to avoid in-between.
+- Possibility of random map generation if feasible.
+
+---
 
 ## Random Noise Events
 
-- Like poking the robot away from its course and having it get back on track again
-- Or canvas friction increase or decrease in certain areas
+- Poking the robot away from its course and having it get back on track.
+- Canvas friction increase or decrease in certain areas.
 
 ---
 

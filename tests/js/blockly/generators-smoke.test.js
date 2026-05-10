@@ -187,6 +187,46 @@ test('motor stop generator emits motor_stop command (no animation)', () => {
     `motorStop should not animate, got: ${codeStr.slice(0, 100)}`);
 });
 
+// ── Direction-sign convention ──────────────────────────────────────────────
+// Dropdown label is the wheel's rotation viewed from outside the robot:
+// "clockwise" on a left-side wheel = wheel rolls backward = negative velocity.
+// Pin so the convention can't silently flip back.
+
+function makeBlockWith(overrides) {
+  return {
+    getFieldValue(name) {
+      if (name in overrides) return overrides[name];
+      if (name in FIELD_DEFAULTS) return FIELD_DEFAULTS[name];
+      return 'A';
+    },
+    getInputTargetBlock() { return null; },
+  };
+}
+
+test('motorTurnForDirection: clockwise emits negative velocity sign', () => {
+  const { Blockly } = setupGenerators();
+  const cw  = Blockly.JavaScript['flippermotor_motorTurnForDirection'](makeBlockWith({ DIRECTION: 'clockwise' }));
+  const ccw = Blockly.JavaScript['flippermotor_motorTurnForDirection'](makeBlockWith({ DIRECTION: 'counterclockwise' }));
+  assert.ok(cw.includes('_motorSpeed/100*-1'),  `clockwise should multiply velocity by -1, got: ${cw}`);
+  assert.ok(ccw.includes('_motorSpeed/100*1'),  `counterclockwise should multiply velocity by 1, got: ${ccw}`);
+});
+
+test('motorStartDirection: clockwise emits negative velocity sign', () => {
+  const { Blockly } = setupGenerators();
+  const cw  = Blockly.JavaScript['flippermotor_motorStartDirection'](makeBlockWith({ DIRECTION: 'clockwise' }));
+  const ccw = Blockly.JavaScript['flippermotor_motorStartDirection'](makeBlockWith({ DIRECTION: 'counterclockwise' }));
+  assert.ok(cw.includes('_motorSpeed/100*-1'),  `clockwise should multiply velocity by -1, got: ${cw}`);
+  assert.ok(ccw.includes('_motorSpeed/100*1'),  `counterclockwise should multiply velocity by 1, got: ${ccw}`);
+});
+
+test('motorGoDirectionToPosition: clockwise emits negative velocity sign', () => {
+  const { Blockly } = setupGenerators();
+  const cw  = Blockly.JavaScript['flippermotor_motorGoDirectionToPosition'](makeBlockWith({ DIRECTION: 'clockwise' }));
+  const ccw = Blockly.JavaScript['flippermotor_motorGoDirectionToPosition'](makeBlockWith({ DIRECTION: 'counterclockwise' }));
+  assert.ok(cw.includes('_motorSpeed/100*-1'),  `clockwise should multiply velocity by -1, got: ${cw}`);
+  assert.ok(ccw.includes('_motorSpeed/100*1'),  `counterclockwise should multiply velocity by 1, got: ${ccw}`);
+});
+
 test('display-text generator emits an appendOutput / hub_display call', () => {
   const { Blockly } = setupGenerators();
   const code = Blockly.JavaScript['flipperlight_lightDisplayText'](makeBlock());
