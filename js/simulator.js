@@ -1050,7 +1050,6 @@ class RobotSimulator {
   _yawDeciDeg() {
     // LEGO yaw is CW-positive; sim heading is CCW-positive. Negate, scale by 10.
     let d = -(this.robot.heading - this._yawZeroHeading_deg) * 10;
-    // Wrap to [-1800, +1800].
     d = ((d + 1800) % 3600 + 3600) % 3600 - 1800;
     return d;
   }
