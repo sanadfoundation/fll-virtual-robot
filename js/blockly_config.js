@@ -1528,11 +1528,13 @@ function registerGenerators(Blockly) {
 
   js['flippersensors_orientationAxis'] = (block) => {
     const axis = block.getFieldValue('AXIS');
-    if (axis === 'yaw') return [`(((window.sim.robot.heading % 360) + 360) % 360)`, ORDER_ATOMIC];
+    if (axis === 'yaw') return [`window.sim.getYaw()`, ORDER_ATOMIC];
+    // Top-down sim has no pitch/roll axis — always 0, matching LEGO docs for
+    // a flat-on-table hub.
     return [`0`, ORDER_ATOMIC];
   };
 
-  js['flippersensors_resetYaw'] = (_b) => `window.sim.robot.heading = -90;\n`;
+  js['flippersensors_resetYaw'] = (_b) => `window.sim.resetYaw();\n`;
 
   js['flippersensors_buttonIsPressed'] = (_b) => [`false`, ORDER_ATOMIC];
   js['flippersensors_timer']           = (_b) => [`((performance.now() - _timerMs) / 1000)`, ORDER_ATOMIC];
