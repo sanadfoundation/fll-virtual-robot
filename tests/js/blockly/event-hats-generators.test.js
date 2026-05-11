@@ -202,30 +202,47 @@ test('whenPressed pressure-changed: uses numeric !== edge', () => {
 
 // ── whenColor ──────────────────────────────────────────────────────────────
 
-test('whenColor: emits polling task with color comparison', () => {
+test('whenColor: black (OPTION=0) emits comparison against the "black" NAME', () => {
+  // The _COLORS Blockly dropdown stores integer codes ('0' for black, '9' for
+  // red, etc.). The simulator returns names. The generator must translate
+  // index → name before comparing.
   const code = setupAndRunGenerator(
     'flipperevents_whenColor',
-    { PORT: 'E', OPTION: 'red' },
+    { PORT: 'E', OPTION: '0' },
     "window.sim.stop();\n",
   );
   assert.ok(code.startsWith('_hats.push(async () => {'),
     `expected polling-task push`);
-  assert.ok(code.includes('window.sim.getColorSensorColor() === "red"') || code.includes("window.sim.getColorSensorColor() === 'red'"),
-    `expected color comparison, got:\n${code}`);
+  assert.ok(code.includes('window.sim.getColorSensorColor() === "black"') ||
+            code.includes("window.sim.getColorSensorColor() === 'black'"),
+    `expected getColorSensorColor() === 'black', got:\n${code}`);
   assert.ok(code.includes('window.sim.stop();'),
     `expected body inside try block`);
 });
 
-test('whenColor: color name is JSON-safe (no quote injection)', () => {
+test('whenColor: red (OPTION=9) emits comparison against the "red" NAME', () => {
   const code = setupAndRunGenerator(
     'flipperevents_whenColor',
-    { PORT: 'E', OPTION: "it's-pink" },
+    { PORT: 'E', OPTION: '9' },
     '',
   );
-  // Shouldn't produce a syntax error from the quote in the color name.
-  // The generator must JSON-quote the value.
-  assert.ok(code.includes(`"it's-pink"`) || code.includes(`'it\\'s-pink'`),
-    `expected safely-quoted color, got:\n${code}`);
+  assert.ok(code.includes('window.sim.getColorSensorColor() === "red"') ||
+            code.includes("window.sim.getColorSensorColor() === 'red'"),
+    `expected red NAME after index translation, got:\n${code}`);
+});
+
+test('whenColor: unknown OPTION falls back to "none" (never matches)', () => {
+  // Defensive: an index outside the LEGO color table maps to 'none', so the
+  // hat condition is always false rather than emitting an unmappable value
+  // that could match nothing forever or throw.
+  const code = setupAndRunGenerator(
+    'flipperevents_whenColor',
+    { PORT: 'E', OPTION: '99' },
+    '',
+  );
+  assert.ok(code.includes('window.sim.getColorSensorColor() === "none"') ||
+            code.includes("window.sim.getColorSensorColor() === 'none'"),
+    `expected 'none' fallback for unknown index, got:\n${code}`);
 });
 
 // ── whenDistance ───────────────────────────────────────────────────────────

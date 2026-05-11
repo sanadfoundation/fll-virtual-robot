@@ -1499,8 +1499,13 @@ function registerGenerators(Blockly) {
   };
 
   js['flipperevents_whenColor'] = (block) => {
-    const color = block.getFieldValue('OPTION');
-    return emitBoolHatPoll(block, `window.sim.getColorSensorColor() === ${JSON.stringify(color)}`);
+    // The OPTION field stores the LEGO integer color code (see _COLORS) — '0'
+    // for black, '9' for red, etc. The simulator's accessor returns the color
+    // NAME ('black', 'red', …), so translate via the same helper the
+    // flippersensors_isColor reporter uses.
+    const idx  = block.getFieldValue('OPTION');
+    const name = _colorIndexToName(idx);
+    return emitBoolHatPoll(block, `window.sim.getColorSensorColor() === ${JSON.stringify(name)}`);
   };
 
   js['flipperevents_whenDistance'] = (block) => {
