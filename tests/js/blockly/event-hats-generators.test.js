@@ -339,3 +339,34 @@ test('whenCondition: empty CONDITION falls back to false', () => {
   assert.ok(code.includes('const cur = !!(false);'),
     `expected false fallback, got:\n${code}`);
 });
+
+// ── Stub-warn hats ─────────────────────────────────────────────────────────
+
+const STUB_HATS = [
+  { type: 'flipperevents_whenButton',          msg: 'hub-button API isn'  },
+  { type: 'flipperevents_whenTilted',          msg: 'motion sensor isn'   },
+  { type: 'flipperevents_whenOrientation',     msg: 'motion sensor isn'   },
+  { type: 'flipperevents_whenGesture',         msg: 'motion sensor isn'   },
+  { type: 'event_whenbroadcastreceived',       msg: 'broadcast runtime isn' },
+];
+
+for (const { type, msg } of STUB_HATS) {
+  test(`${type}: emits stub-warn IIFE + no-op polling loop`, () => {
+    const env = makeBlocklyEnv();
+    env.window.initBlockly('blockly-div', 'light');
+    const block = makeHatBlock(type, {});
+    const code = env.Blockly.JavaScript[type](block);
+    // Warn IIFE
+    assert.ok(code.includes('window.appendOutput'),
+      `${type}: expected appendOutput call, got:\n${code}`);
+    assert.ok(code.includes(msg),
+      `${type}: expected reason mentioning "${msg}", got:\n${code}`);
+    // No-op polling loop so Promise.all winds down cleanly on isRunning=false
+    assert.ok(code.includes('_hats.push(async () => {'),
+      `${type}: expected _hats.push wrapping the no-op poll`);
+    assert.ok(code.includes('window.sim.isRunning'),
+      `${type}: expected isRunning loop guard`);
+    assert.ok(code.includes('requestAnimationFrame'),
+      `${type}: expected rAF yield`);
+  });
+}

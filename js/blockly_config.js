@@ -1536,6 +1536,29 @@ function registerGenerators(Blockly) {
     return emitBoolHatPoll(block, `!!(${inner})`);
   };
 
+  // Stub-warn: hats whose underlying API isn't implemented yet. They emit a
+  // one-line warning at program start and a no-op polling loop so they wind
+  // down with Promise.all when isRunning flips to false.
+  function emitStubWarnHat(kind, reason) {
+    return [
+      `;(function () {`,
+      `  var _msg = "[!] when ${kind}: ${reason} — this hat won't fire";`,
+      `  if (window.appendOutput) window.appendOutput(_msg, 'warn');`,
+      `  else if (typeof console !== 'undefined' && console.warn) console.warn(_msg);`,
+      `})();`,
+      `_hats.push(async () => {`,
+      `  while (window.sim.isRunning) { await new Promise(r => requestAnimationFrame(r)); }`,
+      `});`,
+      ``,
+    ].join('\n');
+  }
+
+  js['flipperevents_whenButton']      = () => emitStubWarnHat('button',      "hub-button API isn't implemented yet");
+  js['flipperevents_whenTilted']      = () => emitStubWarnHat('tilted',      "motion sensor isn't implemented yet");
+  js['flipperevents_whenOrientation'] = () => emitStubWarnHat('orientation', "motion sensor isn't implemented yet");
+  js['flipperevents_whenGesture']     = () => emitStubWarnHat('gesture',     "motion sensor isn't implemented yet");
+  js['event_whenbroadcastreceived']   = () => emitStubWarnHat('broadcast',   "broadcast runtime isn't implemented yet");
+
   js['event_broadcast'] = (block) => {
     const msg = val(block, 'BROADCAST_INPUT', "''");
     return `window.appendOutput('[broadcast] ' + String(${msg}), 'info');\n`;
