@@ -934,6 +934,12 @@ class RobotSimulator {
 
       case 'read_sensors':
         break;
+
+      case 'reset_yaw':
+        // angle_dDeg lets the program declare "yaw should read N here" without
+        // physically rotating the robot. Default 0 = zero current heading.
+        this.resetYaw((cmd.angle_dDeg || 0) / 10);
+        break;
     }
   }
 
@@ -1047,11 +1053,21 @@ class RobotSimulator {
     return null;
   }
 
-  _yawDeciDeg() {
-    // LEGO yaw is CW-positive; sim heading is CCW-positive. Negate, scale by 10.
-    let d = -(this.robot.heading - this._yawZeroHeading_deg) * 10;
-    d = ((d + 1800) % 3600 + 3600) % 3600 - 1800;
+  resetYaw(degrees = 0) {
+    // Record the current heading as the new yaw baseline. `degrees` lets the
+    // caller declare "yaw is N here" without physically rotating the robot.
+    this._yawZeroHeading_deg = this.robot.heading + degrees;
+  }
+
+  getYaw() {
+    // LEGO yaw, in degrees: CW-positive, signed, wrapped to (-180, 180].
+    let d = -(this.robot.heading - this._yawZeroHeading_deg);
+    d = ((d + 180) % 360 + 360) % 360 - 180;
     return d;
+  }
+
+  _yawDeciDeg() {
+    return Math.round(this.getYaw() * 10);
   }
 
   // ── SAB sensor snapshot ──────────────────────────────────────────────────────
