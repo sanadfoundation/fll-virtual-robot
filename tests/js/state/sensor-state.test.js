@@ -10,6 +10,7 @@ test('_sensorState: returns correct initial values', () => {
   assert.strictEqual(state.x,           350);
   assert.strictEqual(state.y,           163);
   assert.strictEqual(state.heading,     90);
+  assert.strictEqual(state.yaw_dDeg,    0);
   assert.strictEqual(state.color,       'none');
   assert.strictEqual(state.distance_mm, 9999);
   assert.strictEqual(state.stopped,     false);

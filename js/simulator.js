@@ -150,6 +150,7 @@ class RobotSimulator {
     this._portConfig = PORT_CONFIG;
 
     this._stopRequested  = false;
+    this._yawZeroHeading_deg = this.robot.heading;
 
     // Box2D physics — initialised asynchronously. Spike commands and reset()
     // both await `_physicsReady` before touching the world.
@@ -786,6 +787,7 @@ class RobotSimulator {
     this.trail   = [{ x: this.robot.x, y: this.robot.y }];
     this.pairMap = {};
     this._stopRequested = false;
+    this._yawZeroHeading_deg = this.robot.heading;
     this._trailCtx.clearRect(0, 0, this._trailCanvas.width, this._trailCanvas.height);
     this._trailArc = 0;
     this._dirty = true;
@@ -1045,6 +1047,14 @@ class RobotSimulator {
     return null;
   }
 
+  _yawDeciDeg() {
+    // LEGO yaw is CW-positive; sim heading is CCW-positive. Negate, scale by 10.
+    let d = -(this.robot.heading - this._yawZeroHeading_deg) * 10;
+    // Wrap to [-1800, +1800].
+    d = ((d + 1800) % 3600 + 3600) % 3600 - 1800;
+    return d;
+  }
+
   // ── SAB sensor snapshot ──────────────────────────────────────────────────────
 
   _sensorState() {
@@ -1053,6 +1063,7 @@ class RobotSimulator {
       x:           r.x,
       y:           r.y,
       heading:     r.heading,
+      yaw_dDeg:    this._yawDeciDeg(),
       color:       r.sensors.colorValue,
       distance_mm: r.sensors.distanceMM,
       motors:      { ...r.motors },
