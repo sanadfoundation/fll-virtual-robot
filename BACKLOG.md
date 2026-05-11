@@ -33,7 +33,6 @@ These cascade — fixing the counter unblocks the four reporters and the relativ
 ### Sensor stubs that need real values
 
 - **Motion sensor.** `tilt_angles()`, `acceleration()`, `angular_velocity()`, `quaternion()`, `up_face()`, `gesture()`, `tap_count()` all return frozen constants. Highest-value fix: drive `tilt_angles()` from the simulator heading so heading-locked driving works (this replaces the previously-listed `get_yaw_angle()` item, which doesn't exist in v3 — the canonical reader is `tilt_angles()`).
-- **Force sensor.** `force()` / `pressed()` / `raw()` always return 0 / False / 0. Drive `pressed()` from on-screen / keyboard input so the existing Blockly blocks become functional.
 - **Hub button.** `pressed(button)` always returns 0; needs real ms-held duration tied to keyboard or on-screen buttons.
 - **Color sensor.** `rgbi(port)` returns intensity = 0; should be the mean of R, G, B.
 
@@ -69,8 +68,13 @@ Motor-block gaps (grouped together for easier scanning):
 
 Sensor-block gaps (block UI exists but the underlying API is stubbed):
 
-- **Functional force-sensor blocks** — see *Force sensor* above.
-- **Functional hub-button blocks** — see *Hub button* above.
+- **Functional hub-button blocks** — see *Hub button* above. (The `when button pressed` hat also needs the event-hat runtime below.)
+
+Event hats (block UI exists but no JS generator runs them concurrently):
+
+- **`flipperevents_*` blocks are decorative.** None of `whenProgramStarts`, `whenPressed`, `whenColor`, `whenDistance`, `whenTilted`, `whenButton`, `whenTimer`, `whenGesture`, `whenOrientation` have a registered generator (grep `js['flipperevent` in `js/blockly_config.js` returns zero matches). Blockly's fallback for an unknown block is "emit nothing for the block itself, recurse into its `next`," so every top-level hat's children get inlined sequentially into the single `AsyncFunction` body that `runBlockly` runs. Multiple hats execute one stack after another, not as concurrent listeners. Reproduction: a stack of `when program starts → forever → move 50 cm` next to a stack of `when force sensor on C is pressed → stop moving` emits a `while (sim.isRunning) await _animateTank(…)` loop followed by `sim.stop()` — the stop is dead code, never reached while the loop is awaiting. Confirmed by inspecting `generateBlocklyJS(ws)` output on 2026-05-10. The force-sensor reporter / condition blocks (`is pressed?`, `pressure in N`) work fine and read real values — only the *event hat* is dead.
+  - **Fix sketch.** Pre-process `Blockly.getMainWorkspace().getTopBlocks()`: for each `flipperevents_*` top block, generate `async () => { let prev = false; while (window.sim.isRunning) { const cur = <condition for this hat>; if (cur && !prev) { <body> } prev = cur; await new Promise(r => requestAnimationFrame(r)); } }` and collect into an array. Emit all of them plus the existing "`when program starts`" body into a `Promise.race([...])` so the main stack and the listeners poll concurrently. Edge-detect (`false → true`) prevents re-fire while the sensor is held. `sim.stop()` already flips `isRunning`, which the main loop's `while` checks at its next yield — so `stop moving` in a hat body interrupts the current `_animateTank` within ~16 ms naturally; no preemption plumbing needed.
+  - **Affected hats and what each polls:** `whenProgramStarts` (one-shot at t=0), `whenPressed` (`sim.getForceSensorPressed()` / `force >= 70` for hard-pressed), `whenColor` (`sim.getColorSensorColor() === <field>`), `whenDistance` (`sim.getDistanceSensorValue() <comparator> <value>`), `whenButton` (needs underlying hub-button API first), `whenTimer` (`performance.now() - t0 >= ms`), `whenTilted` / `whenOrientation` / `whenGesture` (need motion-sensor reads — gated by the *Motion sensor* item under Spike API). Force, color, and distance hats can land independently of the motion / button stubs.
 
 Other:
 
@@ -87,6 +91,10 @@ Other:
 
 Box2D-WASM drives the robot and field walls; two seeded mission obstacles exercise collision. Remaining:
 
+- **Robot passes through field walls.** The kinematic robot body is unconstrained by static walls — Box2D's solver applies zero impulse to either body when both are immovable. Symptom: driving forward more than ~1 m without an obstacle in the way takes the robot off the canvas (e.g. `motor_pair.move_for_degrees(pair, 3000)` from spawn ends near math y ≈ 1828, well past the top wall at y = 1168). The force sensor also reads 0 on wall hits for the same reason — `b2ContactImpulse.normalImpulses` is 0 for kinematic-vs-static contacts.
+  - **Fix sketch.** Add a position clamp in `js/simulator.js:_animateTank` after `physics.readPose(this.robotBody)`: compute the robot's AABB in world coords from `ROBOT_BODY_W / ROBOT_BODY_H / BUMPER_DEPTH_MM` plus the heading, clamp the centre so the AABB stays inside `[0, FIELD_W_MM] × [0, FIELD_H_MM]`, then write the clamped pose back via `physics.setKinematicPose` before the next velocity setter. Skip the clamp when no contact is happening (cheap check via `world.GetContactList()` or just always-on — clamp is a no-op away from edges).
+  - **Force-sensor consequence.** Once the clamp lands, the bumper-against-wall case still won't generate impulses (Box2D won't help us). If a wall press should register force, the bumper logic will need a separate "is this fixture inside / coincident with a wall AABB?" check that synthesises a force value when the robot is being driven into the clamp. Treat that as a follow-up to the clamp itself.
+  - **Pre-dates this branch.** Introduced by the box2d-physics merge (`6d4c49c`); the closed-form integrator that preceded it apparently clamped position in-line. Surfaced when the force-sensor feature gave students a reason to drive long distances.
 - **Mission set authoring** — load a real FLL mission layout into the Box2D world (more than the two seeded obstacles) so collision and scoring are exercised in default play.
 - **Color sensor patch overlay** — draw the color sensor's read footprint on the canvas during playback so users can see what the sensor is reading.
 - **Surface friction variation** — "smooth mat" vs "rough mat" calibration modes that perturb travel distance slightly.

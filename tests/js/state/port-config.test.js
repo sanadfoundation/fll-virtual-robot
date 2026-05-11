@@ -10,7 +10,8 @@ test('PORT_CONFIG is exposed and matches default wiring', () => {
   assert.strictEqual(sim._portConfig.A.role, 'drive-left');
   assert.strictEqual(sim._portConfig.B.kind, 'motor');
   assert.strictEqual(sim._portConfig.B.role, 'drive-right');
-  assert.strictEqual(sim._portConfig.C.kind, 'empty');
+  assert.strictEqual(sim._portConfig.C.kind, 'force_sensor');
+  assert.strictEqual(sim._portConfig.C.mount, 'front');
   assert.strictEqual(sim._portConfig.D.kind, 'empty');
   assert.strictEqual(sim._portConfig.E.kind, 'color_sensor');
   assert.strictEqual(sim._portConfig.F.kind, 'distance_sensor');
@@ -21,12 +22,12 @@ test('_execCmd throws on motor command targeting empty port', async () => {
   sim.isRunning = true;
   let threw = null;
   try {
-    await sim._execCmd({ type: 'motor_run', port: 'C', velocity: 360 });
+    await sim._execCmd({ type: 'motor_run', port: 'D', velocity: 360 });
   } catch (e) {
     threw = e;
   }
   assert.ok(threw, 'expected throw');
-  assert.match(threw.message, /port C has no motor/);
+  assert.match(threw.message, /port D has no motor/);
   assert.match(threw.message, /configured: empty/);
 });
 

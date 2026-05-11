@@ -9,6 +9,9 @@ const { TextEncoder, TextDecoder } = require('util');
 const KINEMATICS_CODE = fs.readFileSync(
   path.resolve(__dirname, '../../js/kinematics.js'), 'utf8',
 );
+const FORCE_SENSOR_LOGIC_CODE = fs.readFileSync(
+  path.resolve(__dirname, '../../js/force_sensor_logic.js'), 'utf8',
+);
 const RULER_CODE = fs.readFileSync(
   path.resolve(__dirname, '../../js/ruler.js'), 'utf8',
 );
@@ -27,6 +30,7 @@ function createSimWithDocument(windowOverrides) {
     CanvasRenderingContext2D: { prototype: {} },
     console, setTimeout, clearTimeout, setInterval, clearInterval,
     TextEncoder, TextDecoder,
+    performance: { now: () => Date.now() },
   });
 
   vm.runInContext(KINEMATICS_CODE, context);
@@ -34,6 +38,8 @@ function createSimWithDocument(windowOverrides) {
   // the context object itself, so the UMD assigns to `context.kinematics`
   // rather than `context.window.kinematics`. Bridge them.
   context.window.kinematics = context.kinematics;
+  vm.runInContext(FORCE_SENSOR_LOGIC_CODE, context);
+  context.window.forceSensorLogic = context.forceSensorLogic;
   vm.runInContext(RULER_CODE, context);
   context.window.ruler = context.ruler;
   vm.runInContext(SIM_CODE, context);

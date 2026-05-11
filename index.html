@@ -140,10 +140,10 @@
           <span class="port-device">motor (R)</span>
           <span class="port-value" id="port-value-B">0°</span>
         </div>
-        <div class="port-row empty" id="port-row-C">
+        <div class="port-row" id="port-row-C">
           <span class="port-letter">C</span>
-          <span class="port-device">—</span>
-          <span class="port-value" id="port-value-C"></span>
+          <span class="port-device">force</span>
+          <span class="port-value" id="port-value-C">0.0 N</span>
         </div>
         <div class="port-row empty" id="port-row-D">
           <span class="port-letter">D</span>
@@ -184,6 +184,14 @@
             <option value="in">in</option>
           </select>
         </div>
+        <div class="sensor-row">
+          <span class="sensor-label">Force (C)</span>
+          <button class="port-force-button" id="port-force-C" type="button"
+                  aria-label="Apply force on the sensor at port C">
+            <span class="port-force-fill" id="port-force-fill-C"></span>
+            <span class="port-force-label">Apply</span>
+          </button>
+        </div>
         <button class="btn btn-reset" id="btn-defaults" title="Reset theme, speed, and editor contents to defaults">⟲ Defaults</button>
       </div>
     </div>
@@ -207,6 +215,7 @@
 
 <!-- ── JavaScript ────────────────────────────────────────── -->
 <script src="js/kinematics.js"></script>
+<script src="js/force_sensor_logic.js"></script>
 <script src="js/ruler.js"></script>
 <script src="js/simulator.js"></script>
 <script src="js/blockly_config.js"></script>

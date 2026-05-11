@@ -138,7 +138,7 @@ class TestForceSensor(unittest.TestCase):
 
     def test_force_raises_on_empty_port(self):
         with self.assertRaises(RuntimeError):
-            sb.force_sensor.force('C')
+            sb.force_sensor.force('D')
 
     def test_pressed_raises(self):
         with self.assertRaises(RuntimeError):

@@ -117,10 +117,13 @@ function makeStubBox2d() {
     Step(dt, vIters, pIters) {
       log({ op: 'Step', dt, vIters, pIters });
     }
+    SetContactListener() {}
   }
 
+  class JSContactListener {}
+
   const stub = {
-    b2Vec2, b2BodyDef, b2PolygonShape, b2FixtureDef, b2World,
+    b2Vec2, b2BodyDef, b2PolygonShape, b2FixtureDef, b2World, JSContactListener,
     b2_kinematicBody: 'kinematic',
     b2_dynamicBody:   'dynamic',
     destroy: (_obj) => { /* WASM cleanup; irrelevant for stub */ },

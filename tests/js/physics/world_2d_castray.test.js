@@ -69,11 +69,16 @@ function makeStubBox2dForCastRay(scriptedFixtures = []) {
   // JSRayCastCallback is a no-op base class in real box2d-wasm; tests drive
   // ReportFixture by setting it from World2D.castRay.
   class JSRayCastCallback {}
+  // JSContactListener is the JS-overridable contact listener — the force
+  // sensor's PostSolve override hangs off this. The castRay tests don't fire
+  // contacts, so a no-op subclass is enough.
+  class JSContactListener {}
 
   class b2World {
     constructor(gravity) { this.gravity = { x: gravity.x, y: gravity.y }; }
     CreateBody(def) { return makeBody(def); }
     Step() {}
+    SetContactListener() {}
 
     // Replay scripted fixtures against the callback. Each entry has:
     //   { bodyA, fraction, point: {x, y}, normal: {x, y} }
@@ -97,7 +102,9 @@ function makeStubBox2dForCastRay(scriptedFixtures = []) {
 
   const stub = {
     b2Vec2, b2BodyDef, b2PolygonShape, b2FixtureDef, b2World,
-    b2Fixture, JSRayCastCallback,
+    b2Fixture, JSRayCastCallback, JSContactListener,
+    b2Contact:        'b2Contact',
+    b2ContactImpulse: 'b2ContactImpulse',
     b2_kinematicBody: 'kinematic',
     b2_dynamicBody:   'dynamic',
     // wrapPointer for a fixture: hand back an object whose GetBody() returns a

@@ -28,6 +28,8 @@ const WHEEL_CIRC_MM = Math.PI * WHEEL_DIA_MM;
 const TRACK_W_MM    = 112;  // center-to-center
 const ROBOT_BODY_W  = 160;  // body width without wheels
 const ROBOT_BODY_H  = 200;  // body front-to-back
+const BUMPER_DEPTH_MM = 10;   // front-to-back
+const BUMPER_WIDTH_MM = 30;   // lateral
 const MM_PER_MS_100 = 0.9;  // robot speed at 100% (mm per ms)
 const DIST_SENSOR_MAX_MM    = 2000;  // matches LEGO Spike hardware spec
 const DIST_SENSOR_OOR_VALUE = 9999;  // wire sentinel; py/spike_bridge.py:308 maps ≥9999 → -1
@@ -38,7 +40,7 @@ const DIST_SENSOR_OOR_VALUE = 9999;  // wire sentinel; py/spike_bridge.py:308 ma
 const PORT_CONFIG = {
   A: { kind: 'motor',           role: 'drive-left'  },
   B: { kind: 'motor',           role: 'drive-right' },
-  C: { kind: 'empty' },
+  C: { kind: 'force_sensor',    mount: 'front'      },
   D: { kind: 'empty' },
   E: { kind: 'color_sensor' },
   F: { kind: 'distance_sensor' },
@@ -129,6 +131,7 @@ function makeRobotState() {
       distanceMM: DIST_SENSOR_OOR_VALUE,
       distanceHit:    null,
       distanceOrigin: null,
+      forceN:         0,
     },
     display: Array(25).fill(0), // 5×5 matrix brightness
   };
@@ -150,6 +153,16 @@ class RobotSimulator {
     this._portConfig = PORT_CONFIG;
 
     this._stopRequested  = false;
+
+    // Force-sensor pipeline state. emaN is the smoothed physics force in Newtons;
+    // manualStartMs is the timestamp the user pressed the Hub-panel button (null
+    // = released); the public combined value lives on robot.sensors.forceN.
+    this._emaN          = 0;
+    this._manualStartMs = null;
+    this._FORCE_ALPHA   = 0.4;
+    this._FORCE_DECAY   = 0.5;
+    this._FORCE_RAMP_MS = 1000;
+    this._FORCE_MAX_N   = 10;
 
     // Box2D physics — initialised asynchronously. Spike commands and reset()
     // both await `_physicsReady` before touching the world.
@@ -210,6 +223,20 @@ class RobotSimulator {
       this.robot.heading * Math.PI / 180,
     );
 
+    // Front bumper for the force sensor on port C. Welded to the robot body in
+    // body-local frame: forward edge of the chassis is at +ROBOT_BODY_H/2 along
+    // body-local +X; bumper centre sits BUMPER_DEPTH_MM/2 ahead of that, so the
+    // bumper occupies [chassis-front, chassis-front + BUMPER_DEPTH_MM]. Keyed
+    // per-port so the listener can disambiguate when more sensors land later.
+    this.physics.addBumper(
+      this.robotBody,
+      BUMPER_DEPTH_MM / 2,
+      BUMPER_WIDTH_MM / 2,
+      ROBOT_BODY_H / 2 + BUMPER_DEPTH_MM / 2,
+      0,
+      { kind: 'force_sensor', port: 'C' },
+    );
+
     this._obstacles = OBSTACLES.map(cfg => ({
       cfg,
       body: this.physics.addObstacleBox(cfg.w / 2, cfg.h / 2, { x: cfg.x, y: cfg.y }),
@@ -258,6 +285,13 @@ class RobotSimulator {
   // ── Drawing loop ────────────────────────────────────────────────────────────
 
   _drawLoop() {
+    if (!this.isRunning) this._idleStepForceSensor();
+    // Manual-press ramp + EMA bleed mutate forceN; mark dirty so the panel /
+    // canvas redraw picks the change up. _animateTank already marks _dirty
+    // when it's running, so this is a no-op contribution while a command runs.
+    if (this._manualStartMs !== null || this._emaN > 0.001) {
+      this._dirty = true;
+    }
     if (this._dirty) {
       this._draw();
       this._dirty = false;
@@ -611,6 +645,51 @@ class RobotSimulator {
       }
     }
 
+    // Force-sensor bumper (port C). Drawn forward of the chassis edge with a
+    // colour ramp tied to robot.sensors.forceN. Uses the same drawing transform
+    // as the chassis (+90° offset / heading), so body-local +X is "up" on screen.
+    {
+      const f = this.robot.sensors.forceN || 0;
+      const pct = Math.max(0, Math.min(1, f / 10));
+      // idle: chassis-grey; pressed: amber; hard: red. Linear interp through
+      // the two stops, mirroring the panel widget colour logic.
+      const lerp = (a, b, t) => a + (b - a) * t;
+      const idle  = [160, 160, 176];   // #a0a0b0
+      const amber = [240, 168,  48];
+      const red   = [231,  76,  60];
+      let r, g, b;
+      if (pct < 0.7) {
+        const t = pct / 0.7;
+        r = lerp(idle[0],  amber[0], t);
+        g = lerp(idle[1],  amber[1], t);
+        b = lerp(idle[2],  amber[2], t);
+      } else {
+        const t = (pct - 0.7) / 0.3;
+        r = lerp(amber[0], red[0], t);
+        g = lerp(amber[1], red[1], t);
+        b = lerp(amber[2], red[2], t);
+      }
+      ctx.fillStyle = `rgb(${r|0}, ${g|0}, ${b|0})`;
+      ctx.strokeStyle = '#555';
+      ctx.lineWidth = 1 * s;
+      if (f >= 7) {
+        ctx.shadowColor   = 'rgba(231,76,60,0.8)';
+        ctx.shadowBlur    = 8 * s;
+        ctx.shadowOffsetY = 0;
+      }
+      // The chassis is drawn with body-local +Y = "down" on screen (the
+      // ctx.rotate uses heading + 90°). Body-local +X (forward) maps to screen
+      // -Y. So the bumper sits at y = -(bh/2 + bumperDepth/2).
+      const bumperWpx = 30 * s;
+      const bumperDpx = 10 * s;
+      ctx.beginPath();
+      ctx.roundRect(-bumperWpx/2, -bh/2 - bumperDpx, bumperWpx, bumperDpx, 2*s);
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+    }
+
     // Front indicator (red triangle pointing "forward")
     ctx.fillStyle = '#ff4455';
     ctx.beginPath();
@@ -717,6 +796,13 @@ class RobotSimulator {
     // Port rows. PORT_CONFIG is module-scope; use this._portConfig.
     for (const port of ['A', 'B', 'C', 'D', 'E', 'F']) {
       const cfg = this._portConfig[port];
+
+      // Force sensor: dedicated widget on port C with fill bar + value label.
+      if (cfg.kind === 'force_sensor') {
+        this._paintForceSensorWidget(port);
+        continue;
+      }
+
       const valueEl = el('port-value-' + port);
       if (!valueEl) continue;
 
@@ -737,6 +823,25 @@ class RobotSimulator {
     if (swatch) {
       const c = COLOR_MAP[s.colorValue];
       swatch.style.background = c || 'transparent';
+    }
+  }
+
+  // Force sensor: the press button lives in the Settings section (fill bar
+  // animates 0→100% during ramp; data-state styles colour at hard-press), and
+  // the numeric readout lives in the regular port-C value cell under Ports.
+  // Both surfaces are repainted from the same forceN each frame.
+  _paintForceSensorWidget(port) {
+    const valEl  = document.getElementById('port-value-' + port);
+    const fillEl = document.getElementById('port-force-fill-' + port);
+    const btnEl  = document.getElementById('port-force-' + port);
+    const f = this.robot.sensors.forceN || 0;
+    const pct = Math.max(0, Math.min(100, (f / 10) * 100));
+    if (valEl)  valEl.textContent  = f.toFixed(1) + ' N';
+    if (fillEl) fillEl.style.width = pct.toFixed(1) + '%';
+    if (btnEl) {
+      const state = f >= 7 ? 'hard' : f >= 0.5 ? 'pressed' : 'idle';
+      const ds = btnEl.dataset;
+      if (ds && ds.state !== state) ds.state = state;
     }
   }
 
@@ -786,6 +891,8 @@ class RobotSimulator {
     this.trail   = [{ x: this.robot.x, y: this.robot.y }];
     this.pairMap = {};
     this._stopRequested = false;
+    this._emaN          = 0;
+    this._manualStartMs = null;
     this._trailCtx.clearRect(0, 0, this._trailCanvas.width, this._trailCanvas.height);
     this._trailArc = 0;
     this._dirty = true;
@@ -977,7 +1084,9 @@ class RobotSimulator {
       );
 
       this.physics.setKinematicVelocity(this.robotBody, v.vx, v.vy, v.angVel);
-      this.physics.step(physDt_s);
+      const stepResult = this.physics.step(physDt_s);
+      const impulseJ   = (stepResult && stepResult.force_impulses && stepResult.force_impulses.C) || 0;
+      this._applyForceImpulse(impulseJ, physDt_s, impulseJ > 0);
 
       const pose = this.physics.readPose(this.robotBody);
       const prevX = this.robot.x;
@@ -1045,18 +1154,68 @@ class RobotSimulator {
     return null;
   }
 
+  // Single tick of the force-sensor pipeline. impulseJ is the sum of normal
+  // impulses (kg·m/s) on the port-C bumper from this Box2D step; dt_s is the
+  // step length. hadContact = impulseJ > 0. Returns nothing; mutates
+  // _emaN and robot.sensors.forceN.
+  _applyForceImpulse(impulseJ, dt_s, hadContact) {
+    const FSL = window.forceSensorLogic;
+    const instantN = (dt_s > 0) ? (impulseJ / dt_s) : 0;
+    this._emaN = FSL.emaStep(
+      this._emaN, instantN, hadContact, this._FORCE_ALPHA, this._FORCE_DECAY,
+    );
+    const manualN = FSL.manualRamp(
+      this._manualStartMs, performance.now(), this._FORCE_RAMP_MS, this._FORCE_MAX_N,
+    );
+    this.robot.sensors.forceN = FSL.combine(this._emaN, manualN);
+  }
+
+  // Idle tick: runs from _drawLoop on every frame, regardless of whether a
+  // motor command is in flight. Doesn't issue a physics step (manual force is
+  // independent of physics). Bleeds emaN by FORCE_DECAY each call so any
+  // residual physics force from a just-finished _animateTank decays back to
+  // zero within a few frames.
+  _idleStepForceSensor() {
+    const FSL = window.forceSensorLogic;
+    this._emaN = this._emaN * this._FORCE_DECAY;
+    const manualN = FSL.manualRamp(
+      this._manualStartMs, performance.now(), this._FORCE_RAMP_MS, this._FORCE_MAX_N,
+    );
+    this.robot.sensors.forceN = FSL.combine(this._emaN, manualN);
+  }
+
+  // Public: called by the Hub-panel button on pointerdown. Idempotent — a
+  // duplicate press while already pressed leaves manualStartMs untouched.
+  manualPress() {
+    if (this._manualStartMs == null) {
+      this._manualStartMs = performance.now();
+    }
+  }
+
+  // Public: called on pointerup / pointerleave / pointercancel. Snaps the
+  // manual contribution to zero immediately.
+  manualRelease() {
+    this._manualStartMs = null;
+    // Note: emaN is NOT cleared — a release while in physics contact should
+    // still surface the physics force.
+  }
+
   // ── SAB sensor snapshot ──────────────────────────────────────────────────────
 
   _sensorState() {
     const r = this.robot;
+    const f = window.forceSensorLogic.forceToReadings(r.sensors.forceN);
     return {
-      x:           r.x,
-      y:           r.y,
-      heading:     r.heading,
-      color:       r.sensors.colorValue,
-      distance_mm: r.sensors.distanceMM,
-      motors:      { ...r.motors },
-      stopped:     false,
+      x:             r.x,
+      y:             r.y,
+      heading:       r.heading,
+      color:         r.sensors.colorValue,
+      distance_mm:   r.sensors.distanceMM,
+      motors:        { ...r.motors },
+      force_dn:      f.dn,
+      force_pressed: f.pressed,
+      force_raw:     f.raw,
+      stopped:       false,
     };
   }
 
@@ -1185,8 +1344,15 @@ class RobotSimulator {
 
   getDistanceSensorValue()    { this._updateDistanceSensor(); return this.robot.sensors.distanceMM; }
   getDistanceSensorPresence() { this._updateDistanceSensor(); return this.robot.sensors.distanceMM < 100; }
-  getForceSensorValue()       { return 0; }
-  getForceSensorPressed()     { return false; }
+  getForceSensorValue() {
+    return window.forceSensorLogic.forceToReadings(this.robot.sensors.forceN).dn;
+  }
+  getForceSensorPressed() {
+    return window.forceSensorLogic.forceToReadings(this.robot.sensors.forceN).pressed;
+  }
+  getForceSensorRaw() {
+    return window.forceSensorLogic.forceToReadings(this.robot.sensors.forceN).raw;
+  }
   getMotorSpeed(port)         { return 0; }
   getMotorPosition(port)      { return this.robot.motors[port] || 0; }
 
