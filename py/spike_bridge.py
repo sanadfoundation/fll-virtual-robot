@@ -436,7 +436,7 @@ class _MotionSensor:
     def acceleration(self, raw_unfiltered=False):     return (0, 0, 981)
     def reset_yaw(self, angle=0):
         # angle is in degrees per LEGO docs; the bridge command carries decidegrees.
-        return _bridge_call({'type': 'reset_yaw', 'angle_dDeg': int(angle * 10)})
+        return _bridge_call({'type': 'reset_yaw', 'angle_dDeg': int(angle) * 10})
     def gesture(self):                                return self.UNKNOWN
     def stable(self):                                 return True
     def up_face(self):                                return self.TOP
