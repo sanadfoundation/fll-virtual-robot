@@ -826,14 +826,18 @@ class RobotSimulator {
     }
   }
 
+  // Force sensor: the press button lives in the Settings section (fill bar
+  // animates 0→100% during ramp; data-state styles colour at hard-press), and
+  // the numeric readout lives in the regular port-C value cell under Ports.
+  // Both surfaces are repainted from the same forceN each frame.
   _paintForceSensorWidget(port) {
+    const valEl  = document.getElementById('port-value-' + port);
     const fillEl = document.getElementById('port-force-fill-' + port);
-    const valEl  = document.getElementById('port-force-value-' + port);
     const btnEl  = document.getElementById('port-force-' + port);
     const f = this.robot.sensors.forceN || 0;
     const pct = Math.max(0, Math.min(100, (f / 10) * 100));
-    if (fillEl) fillEl.style.width = pct.toFixed(1) + '%';
     if (valEl)  valEl.textContent  = f.toFixed(1) + ' N';
+    if (fillEl) fillEl.style.width = pct.toFixed(1) + '%';
     if (btnEl) {
       const state = f >= 7 ? 'hard' : f >= 0.5 ? 'pressed' : 'idle';
       const ds = btnEl.dataset;
