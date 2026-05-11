@@ -312,3 +312,30 @@ test('whenTimer: fractional seconds round to ms', () => {
   assert.ok(code.includes('>= 500'),
     `expected 0.5 s → 500 ms, got:\n${code}`);
 });
+
+// ── whenCondition ──────────────────────────────────────────────────────────
+
+test('whenCondition: wraps the CONDITION input in !!(…) and polls', () => {
+  const env = makeBlocklyEnv();
+  env.window.initBlockly('blockly-div', 'light');
+  const js = env.Blockly.JavaScript;
+  const block = makeHatBlock('flipperevents_whenCondition', {});
+  js.valueToCode = (b, name) => (b === block && name === 'CONDITION'
+    ? '(window.sim.robot.x > 1000)' : 'false');
+  const code = js['flipperevents_whenCondition'](block);
+  assert.ok(code.startsWith('_hats.push(async () => {'),
+    `expected polling-task push, got head:\n${code.slice(0, 80)}`);
+  assert.ok(code.includes('const cur = !!((window.sim.robot.x > 1000));'),
+    `expected wrapped boolean condition, got:\n${code}`);
+});
+
+test('whenCondition: empty CONDITION falls back to false', () => {
+  const env = makeBlocklyEnv();
+  env.window.initBlockly('blockly-div', 'light');
+  const js = env.Blockly.JavaScript;
+  const block = makeHatBlock('flipperevents_whenCondition', {});
+  js.valueToCode = () => '';
+  const code = js['flipperevents_whenCondition'](block);
+  assert.ok(code.includes('const cur = !!(false);'),
+    `expected false fallback, got:\n${code}`);
+});

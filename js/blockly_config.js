@@ -1530,6 +1530,12 @@ function registerGenerators(Blockly) {
     return emitBoolHatPoll(block, `(performance.now() - _t0) >= ${ms}`, { oneShot: true });
   };
 
+  js['flipperevents_whenCondition'] = (block) => {
+    const condStr = js.valueToCode ? js.valueToCode(block, 'CONDITION', ORDER_ATOMIC) : '';
+    const inner = condStr.trim() === '' ? 'false' : condStr;
+    return emitBoolHatPoll(block, `!!(${inner})`);
+  };
+
   js['event_broadcast'] = (block) => {
     const msg = val(block, 'BROADCAST_INPUT', "''");
     return `window.appendOutput('[broadcast] ' + String(${msg}), 'info');\n`;
