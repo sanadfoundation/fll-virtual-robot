@@ -88,9 +88,9 @@ class TestMotionSensor(unittest.TestCase):
         self.assertIsInstance(result, tuple)
         self.assertEqual(len(result), 3)
 
-    def test_reset_yaw_no_command(self):
+    def test_reset_yaw_sends_reset_yaw_command(self):
         sb.hub.motion_sensor.reset_yaw()
-        self.assertEqual(mock_js.bridge_mock.all(), [])
+        self.assertEqual(mock_js.bridge_mock.last(), {'type': 'reset_yaw', 'angle_dDeg': 0})
 
 
 class TestHubButton(unittest.TestCase):
