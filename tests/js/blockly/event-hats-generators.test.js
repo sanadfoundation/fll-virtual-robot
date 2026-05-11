@@ -80,3 +80,53 @@ test('scrub_ override is installed for hat block types', () => {
   const normalBlock = { type: 'flippermove_move', nextConnection: { targetBlock: () => null } };
   assert.strictEqual(js.scrub_(normalBlock, 'Y;', undefined), 'Y;');
 });
+
+// ── whenProgramStarts ──────────────────────────────────────────────────────
+
+function makeHatBlock(type, fields = {}, nextBlock = null) {
+  // Synthetic Blockly block for generator tests. `getNextBlock` returns the
+  // block attached below the hat (its body). The real Blockly.JavaScript
+  // recurses into that via blockToCode; tests can stub the recursion by
+  // overriding what blockToCode returns.
+  return {
+    type,
+    id: 'test-' + type,
+    getFieldValue(name) { return name in fields ? fields[name] : ''; },
+    getInputTargetBlock() { return null; },
+    getNextBlock: () => nextBlock,
+    nextConnection: { targetBlock: () => nextBlock },
+  };
+}
+
+function setupAndRunGenerator(type, fields, nextBodyCode) {
+  // Drive registerGenerators, monkey-patch blockToCode to return our stub
+  // body for the next block, invoke the hat generator, return the source.
+  const env = makeBlocklyEnv();
+  env.window.initBlockly('blockly-div', 'light');
+  const js = env.Blockly.JavaScript;
+  const next = nextBodyCode ? makeHatBlock('test-body') : null;
+  // Stub blockToCode so the hat's blockToCode(getNextBlock()) call returns
+  // our scripted body code instead of trying to recurse into a real block.
+  const origBlockToCode = js.blockToCode || (() => '');
+  js.blockToCode = (b) => (b === next ? nextBodyCode : origBlockToCode(b));
+  const block = makeHatBlock(type, fields, next);
+  return js[type](block);
+}
+
+test('whenProgramStarts: emits _mainBody = async closure containing the body', () => {
+  const code = setupAndRunGenerator(
+    'flipperevents_whenProgramStarts', {}, "window.sim._sleep(100);\n",
+  );
+  assert.ok(code.includes('_mainBody = async () => {'),
+    `expected _mainBody assignment, got:\n${code}`);
+  assert.ok(code.includes('window.sim._sleep(100);'),
+    `expected body inlined inside closure, got:\n${code}`);
+  assert.ok(code.trim().endsWith('};'),
+    `expected closure to terminate cleanly, got tail:\n${code.slice(-100)}`);
+});
+
+test('whenProgramStarts: empty body still emits a no-op closure', () => {
+  const code = setupAndRunGenerator('flipperevents_whenProgramStarts', {}, '');
+  assert.ok(code.includes('_mainBody = async () => {'),
+    `expected _mainBody assignment, got:\n${code}`);
+});

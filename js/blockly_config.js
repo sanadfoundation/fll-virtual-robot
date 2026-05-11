@@ -1421,6 +1421,12 @@ function registerGenerators(Blockly) {
     js[t] = () => '';
   }
 
+  js['flipperevents_whenProgramStarts'] = (block) => {
+    const next = block.getNextBlock ? block.getNextBlock() : null;
+    const body = next ? js.blockToCode(next) : '';
+    return `_mainBody = async () => {\n${body}};\n`;
+  };
+
   js['event_broadcast'] = (block) => {
     const msg = val(block, 'BROADCAST_INPUT', "''");
     return `window.appendOutput('[broadcast] ' + String(${msg}), 'info');\n`;
