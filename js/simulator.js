@@ -1058,7 +1058,7 @@ class RobotSimulator {
   }
 
   getYaw() {
-    // LEGO yaw, in degrees: CW-positive, signed, wrapped to (-180, 180].
+    // LEGO yaw, in degrees: CW-positive, signed, wrapped to [-180, 180).
     let d = -(this.robot.heading - this._yawZeroHeading_deg);
     d = ((d + 180) % 360 + 360) % 360 - 180;
     return d;
