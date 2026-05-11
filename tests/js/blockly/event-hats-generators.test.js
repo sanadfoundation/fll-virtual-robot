@@ -200,6 +200,24 @@ test('whenPressed pressure-changed: uses numeric !== edge', () => {
     `expected !== edge comparison, got:\n${code}`);
 });
 
+test('whenPressed on non-canonical port: emits stub-warn naming the right port', () => {
+  // The simulator wires the force sensor to port C. Picking port A should
+  // NOT silently fail — it should surface a clear warning.
+  const code = setupAndRunGenerator(
+    'flipperevents_whenPressed',
+    { PORT: 'A', OPTION: 'pressed' },
+    '',
+  );
+  assert.ok(code.includes('window.appendOutput') || code.includes('console.warn'),
+    `expected stub-warn IIFE for wrong port, got:\n${code}`);
+  assert.ok(code.includes('no force sensor on port A'),
+    `expected warning to name the offending port A, got:\n${code}`);
+  assert.ok(code.includes('port C'),
+    `expected warning to mention the canonical port C, got:\n${code}`);
+  assert.ok(!code.includes('window.sim.getForceSensorPressed()'),
+    `wrong-port hat should not poll the sensor at all, got:\n${code}`);
+});
+
 // ── whenColor ──────────────────────────────────────────────────────────────
 
 test('whenColor: black (OPTION=0) emits comparison against the "black" NAME', () => {
@@ -245,6 +263,25 @@ test('whenColor: unknown OPTION falls back to "none" (never matches)', () => {
     `expected 'none' fallback for unknown index, got:\n${code}`);
 });
 
+test('whenColor on non-canonical port: emits stub-warn naming the right port', () => {
+  // The simulator wires the colour sensor to port E. Picking port D in the
+  // dropdown should NOT silently fail — it should surface a clear warning.
+  const code = setupAndRunGenerator(
+    'flipperevents_whenColor',
+    { PORT: 'D', OPTION: '0' },
+    '',
+  );
+  assert.ok(code.includes('window.appendOutput') || code.includes('console.warn'),
+    `expected stub-warn IIFE for wrong port, got:\n${code}`);
+  assert.ok(code.includes('no colour sensor on port D'),
+    `expected warning to name the offending port D, got:\n${code}`);
+  assert.ok(code.includes('port E'),
+    `expected warning to mention the canonical port E, got:\n${code}`);
+  // Must NOT emit a real polling task that reads getColorSensorColor.
+  assert.ok(!code.includes('window.sim.getColorSensorColor()'),
+    `wrong-port hat should not poll the sensor at all, got:\n${code}`);
+});
+
 // ── whenDistance ───────────────────────────────────────────────────────────
 
 // whenDistance has a VALUE input (not a field), so we need to stub
@@ -253,7 +290,7 @@ function setupWhenDistance(comparator, valueStr, unit, body = '') {
   const env = makeBlocklyEnv();
   env.window.initBlockly('blockly-div', 'light');
   const js = env.Blockly.JavaScript;
-  const block = makeHatBlock('flipperevents_whenDistance', { COMPARATOR: comparator, UNIT: unit });
+  const block = makeHatBlock('flipperevents_whenDistance', { PORT: 'F', COMPARATOR: comparator, UNIT: unit });
   // valueToCode lookup for input VALUE
   const origValueToCode = js.valueToCode || (() => '');
   js.valueToCode = (b, name) => (b === block && name === 'VALUE' ? valueStr : origValueToCode(b, name));
@@ -298,6 +335,26 @@ test('whenDistance exactly-at: emits tolerance band (Math.abs … <= 10)', () =>
   // Tolerance band of ±10 mm around 200 mm.
   assert.ok(code.includes('Math.abs(window.sim.getDistanceSensorValue() - 200) <= 10'),
     `expected exact-match tolerance band, got:\n${code}`);
+});
+
+test('whenDistance on non-canonical port: emits stub-warn naming the right port', () => {
+  // setupWhenDistance helper wires PORT='F' by default; build a wrong-port
+  // block by hand here.
+  const env = makeBlocklyEnv();
+  env.window.initBlockly('blockly-div', 'light');
+  const js = env.Blockly.JavaScript;
+  const block = makeHatBlock('flipperevents_whenDistance',
+    { PORT: 'E', COMPARATOR: '<', UNIT: 'cm' });
+  js.valueToCode = () => '10';
+  const code = js['flipperevents_whenDistance'](block);
+  assert.ok(code.includes('window.appendOutput') || code.includes('console.warn'),
+    `expected stub-warn IIFE for wrong port, got:\n${code}`);
+  assert.ok(code.includes('no distance sensor on port E'),
+    `expected warning to name the offending port E, got:\n${code}`);
+  assert.ok(code.includes('port F'),
+    `expected warning to mention the canonical port F, got:\n${code}`);
+  assert.ok(!code.includes('window.sim.getDistanceSensorValue()'),
+    `wrong-port hat should not poll the sensor at all, got:\n${code}`);
 });
 
 // ── whenTimer ──────────────────────────────────────────────────────────────

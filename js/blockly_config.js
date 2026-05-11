@@ -1429,6 +1429,17 @@ function registerGenerators(Blockly) {
 
   // ── Event-hat helpers ──────────────────────────────────────────────────────
 
+  // Canonical ports for each sensor kind in the simulator's default wiring
+  // (mirror of PORT_CONFIG in js/simulator.js). Hats whose PORT dropdown
+  // selects a different port emit a stub-warn instead of a polling task —
+  // the accessor methods (getForceSensorPressed, etc.) take no port arg, so
+  // any port other than the canonical one is meaningless.
+  const _CANONICAL_SENSOR_PORTS = {
+    color_sensor:    'E',
+    distance_sensor: 'F',
+    force_sensor:    'C',
+  };
+
   // emitBoolHatPoll: standard polling task for boolean-condition hats.
   // condExpr is a JS expression producing the current truthiness. opts.oneShot
   // adds a `_hatFired` gate and sets it inside the body.
@@ -1490,6 +1501,11 @@ function registerGenerators(Blockly) {
   }
 
   js['flipperevents_whenPressed'] = (block) => {
+    const port = block.getFieldValue('PORT');
+    if (port !== _CANONICAL_SENSOR_PORTS.force_sensor) {
+      return emitStubWarnHat('force-sensor',
+        `no force sensor on port ${port} — the simulator wires the force sensor to port ${_CANONICAL_SENSOR_PORTS.force_sensor}`);
+    }
     const option = block.getFieldValue('OPTION');
     if (option === 'hard-pressed') return emitBoolHatPoll(block, 'window.sim.getForceSensorValue() >= 70');
     if (option === 'released')     return emitBoolHatPoll(block, '!window.sim.getForceSensorPressed()');
@@ -1499,6 +1515,11 @@ function registerGenerators(Blockly) {
   };
 
   js['flipperevents_whenColor'] = (block) => {
+    const port = block.getFieldValue('PORT');
+    if (port !== _CANONICAL_SENSOR_PORTS.color_sensor) {
+      return emitStubWarnHat('colour-sensor',
+        `no colour sensor on port ${port} — the simulator wires the colour sensor to port ${_CANONICAL_SENSOR_PORTS.color_sensor}`);
+    }
     // The OPTION field stores the LEGO integer color code (see _COLORS) — '0'
     // for black, '9' for red, etc. The simulator's accessor returns the color
     // NAME ('black', 'red', …), so translate via the same helper the
@@ -1509,6 +1530,11 @@ function registerGenerators(Blockly) {
   };
 
   js['flipperevents_whenDistance'] = (block) => {
+    const port = block.getFieldValue('PORT');
+    if (port !== _CANONICAL_SENSOR_PORTS.distance_sensor) {
+      return emitStubWarnHat('distance-sensor',
+        `no distance sensor on port ${port} — the simulator wires the distance sensor to port ${_CANONICAL_SENSOR_PORTS.distance_sensor}`);
+    }
     const comp   = block.getFieldValue('COMPARATOR');
     const unit   = block.getFieldValue('UNIT');
     const valStr = js.valueToCode ? js.valueToCode(block, 'VALUE', ORDER_ATOMIC) : '0';
