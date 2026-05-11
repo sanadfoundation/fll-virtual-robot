@@ -1567,6 +1567,23 @@ function registerGenerators(Blockly) {
     return emitBoolHatPoll(block, `!!(${inner})`);
   };
 
+  // emitWrongPortValue: produces an inline expression for sensor reporter
+  // blocks whose PORT dropdown doesn't match the canonical wiring. The
+  // expression warns once (deduped per kind:port pair via a Set on window),
+  // then returns a safe sentinel via the comma operator. Used by all eight
+  // colour/force/distance reporters below — keeps them honest about which
+  // port the sim actually has the sensor on.
+  function emitWrongPortValue(kind, port, canonical, safeValueLiteral) {
+    const key = JSON.stringify(`${kind}:${port}`);
+    const msg = JSON.stringify(
+      `[!] ${kind} reporter: no ${kind} on port ${port} — wired to port ${canonical}`,
+    );
+    return `((window._sensorPortWarns = window._sensorPortWarns || new Set()).has(${key}) `
+         + `|| (window._sensorPortWarns.add(${key}), `
+         + `window.appendOutput && window.appendOutput(${msg}, 'warn')), `
+         + `${safeValueLiteral})`;
+  }
+
   // Stub-warn: hats whose underlying API isn't implemented yet. They emit a
   // one-line warning at program start and a no-op polling loop so they wind
   // down with Promise.all when isRunning flips to false.
@@ -1655,26 +1672,52 @@ function registerGenerators(Blockly) {
   // ── Sensor ─────────────────────────────────────────────────────────────────
 
   js['flippersensors_isColor'] = (block) => {
+    const port = block.getFieldValue('PORT');
+    const canonical = _CANONICAL_SENSOR_PORTS.color_sensor;
+    if (port !== canonical) {
+      return [emitWrongPortValue('colour-sensor', port, canonical, 'false'), ORDER_ATOMIC];
+    }
     const idx  = block.getFieldValue('VALUE');
     const name = _colorIndexToName(idx);
     return [`window.sim.getColorSensorColor() === '${name}'`, ORDER_ATOMIC];
   };
 
-  js['flippersensors_color'] = (_b) => {
+  js['flippersensors_color'] = (block) => {
+    const port = block.getFieldValue('PORT');
+    const canonical = _CANONICAL_SENSOR_PORTS.color_sensor;
+    if (port !== canonical) {
+      return [emitWrongPortValue('colour-sensor', port, canonical, '-1'), ORDER_ATOMIC];
+    }
     // Inverse of _COLOR_INDEX_TO_NAME: simulator token → LEGO word-block index.
     return [`(({black:0,magenta:1,blue:3,cyan:4,green:6,yellow:7,red:9,white:10,none:-1})[window.sim.getColorSensorColor()] ?? -1)`, ORDER_ATOMIC];
   };
 
   js['flippersensors_isReflectivity'] = (block) => {
+    const port = block.getFieldValue('PORT');
+    const canonical = _CANONICAL_SENSOR_PORTS.color_sensor;
+    if (port !== canonical) {
+      return [emitWrongPortValue('colour-sensor', port, canonical, 'false'), ORDER_ATOMIC];
+    }
     const op  = block.getFieldValue('COMPARATOR');
     const v   = val(block, 'VALUE', '50');
     return [`(window.sim.getColorSensorReflection() ${op} (${v}))`, ORDER_ATOMIC];
   };
 
-  js['flippersensors_reflectivity'] = (_b) =>
-    [`window.sim.getColorSensorReflection()`, ORDER_ATOMIC];
+  js['flippersensors_reflectivity'] = (block) => {
+    const port = block.getFieldValue('PORT');
+    const canonical = _CANONICAL_SENSOR_PORTS.color_sensor;
+    if (port !== canonical) {
+      return [emitWrongPortValue('colour-sensor', port, canonical, '0'), ORDER_ATOMIC];
+    }
+    return [`window.sim.getColorSensorReflection()`, ORDER_ATOMIC];
+  };
 
   js['flippersensors_isPressed'] = (block) => {
+    const port = block.getFieldValue('PORT');
+    const canonical = _CANONICAL_SENSOR_PORTS.force_sensor;
+    if (port !== canonical) {
+      return [emitWrongPortValue('force-sensor', port, canonical, 'false'), ORDER_ATOMIC];
+    }
     const opt = block.getFieldValue('OPTION');
     // Mirror py/spike_bridge.py force_sensor.*: raise if no force sensor
     // is configured anywhere. Comma-operator preserves the boolean value.
@@ -1685,6 +1728,11 @@ function registerGenerators(Blockly) {
   };
 
   js['flippersensors_force'] = (block) => {
+    const port = block.getFieldValue('PORT');
+    const canonical = _CANONICAL_SENSOR_PORTS.force_sensor;
+    if (port !== canonical) {
+      return [emitWrongPortValue('force-sensor', port, canonical, '0'), ORDER_ATOMIC];
+    }
     const unit = block.getFieldValue('UNIT');
     const guard = `window.sim._assertSensorAvailable('force_sensor')`;
     if (unit === 'newton') return [`(${guard}, window.sim.getForceSensorValue() / 10)`, ORDER_ATOMIC];
@@ -1692,6 +1740,11 @@ function registerGenerators(Blockly) {
   };
 
   js['flippersensors_isDistance'] = (block) => {
+    const port = block.getFieldValue('PORT');
+    const canonical = _CANONICAL_SENSOR_PORTS.distance_sensor;
+    if (port !== canonical) {
+      return [emitWrongPortValue('distance-sensor', port, canonical, 'false'), ORDER_ATOMIC];
+    }
     const op   = block.getFieldValue('COMPARATOR');
     const unit = block.getFieldValue('UNIT');
     const v    = val(block, 'VALUE', '15');
@@ -1703,6 +1756,11 @@ function registerGenerators(Blockly) {
   };
 
   js['flippersensors_distance'] = (block) => {
+    const port = block.getFieldValue('PORT');
+    const canonical = _CANONICAL_SENSOR_PORTS.distance_sensor;
+    if (port !== canonical) {
+      return [emitWrongPortValue('distance-sensor', port, canonical, '-1'), ORDER_ATOMIC];
+    }
     const unit = block.getFieldValue('UNIT');
     if (unit === 'cm')      return [`(window.sim.getDistanceSensorValue() / 10)`, ORDER_ATOMIC];
     if (unit === 'inches')  return [`(window.sim.getDistanceSensorValue() / 25.4)`, ORDER_ATOMIC];
