@@ -5,11 +5,11 @@
   // Until FORM_BASE_URL is non-empty, init() hides the Feedback button so the
   // feature is dormant in production. See docs/superpowers/specs/2026-05-10-feedback-design.md
   // section "Operational setup" for how to obtain these values.
-  const FORM_BASE_URL = '';
+  const FORM_BASE_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSewmUTAanISsdnVqiV1FXIPzSyGqFtr-CA9J4U2sKv0t2zAwQ/viewform?embedded=true';
   const ENTRY_IDS = {
-    sha:       '',
-    mode:      '',
-    userAgent: '',
+    sha:       'entry.1530618941',
+    mode:      'entry.772337646',
+    userAgent: 'entry.167139009',
   };
 
   // ── Pure helper (filled in by Task 2) ─────────────────────────────────────
