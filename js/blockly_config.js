@@ -1427,6 +1427,77 @@ function registerGenerators(Blockly) {
     return `_mainBody = async () => {\n${body}};\n`;
   };
 
+  // ── Event-hat helpers ──────────────────────────────────────────────────────
+
+  // emitBoolHatPoll: standard polling task for boolean-condition hats.
+  // condExpr is a JS expression producing the current truthiness. opts.oneShot
+  // adds a `_hatFired` gate and sets it inside the body.
+  function emitBoolHatPoll(block, condExpr, opts = {}) {
+    const id   = block.id;
+    const next = block.getNextBlock ? block.getNextBlock() : null;
+    const body = next ? js.blockToCode(next) : '';
+    const fireGate = opts.oneShot ? ` && !_hatFired['${id}']` : '';
+    const oneShotSet = opts.oneShot ? `\n        _hatFired['${id}'] = true;` : '';
+    return [
+      `_hats.push(async () => {`,
+      `  while (window.sim.isRunning) {`,
+      `    const cur = ${condExpr};`,
+      `    if (cur && !_hatPrev['${id}'] && !_hatBusy['${id}']${fireGate}) {`,
+      `      _hatBusy['${id}'] = true;`,
+      `      try {`,
+      `${body}${oneShotSet}`,
+      `      } catch (e) {`,
+      `        if (window.appendOutput) window.appendOutput('[Error] hat: ' + ((e && e.message) || e), 'error');`,
+      `      } finally {`,
+      `        _hatBusy['${id}'] = false;`,
+      `      }`,
+      `    }`,
+      `    _hatPrev['${id}'] = cur;`,
+      `    await new Promise(r => requestAnimationFrame(r));`,
+      `  }`,
+      `});`,
+      ``,
+    ].join('\n');
+  }
+
+  // emitNumericHatPoll: numeric-prev polling task for "X changed" style hats.
+  // Uses !== for edge detection; seeds _hatPrev at hat start so the first
+  // frame doesn't fire spuriously.
+  function emitNumericHatPoll(block, valueExpr) {
+    const id   = block.id;
+    const next = block.getNextBlock ? block.getNextBlock() : null;
+    const body = next ? js.blockToCode(next) : '';
+    return [
+      `_hats.push(async () => {`,
+      `  _hatPrev['${id}'] = ${valueExpr};`,
+      `  while (window.sim.isRunning) {`,
+      `    const cur = ${valueExpr};`,
+      `    if (cur !== _hatPrev['${id}'] && !_hatBusy['${id}']) {`,
+      `      _hatBusy['${id}'] = true;`,
+      `      try {`,
+      `${body}      } catch (e) {`,
+      `        if (window.appendOutput) window.appendOutput('[Error] hat: ' + ((e && e.message) || e), 'error');`,
+      `      } finally {`,
+      `        _hatBusy['${id}'] = false;`,
+      `      }`,
+      `    }`,
+      `    _hatPrev['${id}'] = cur;`,
+      `    await new Promise(r => requestAnimationFrame(r));`,
+      `  }`,
+      `});`,
+      ``,
+    ].join('\n');
+  }
+
+  js['flipperevents_whenPressed'] = (block) => {
+    const option = block.getFieldValue('OPTION');
+    if (option === 'hard-pressed') return emitBoolHatPoll(block, 'window.sim.getForceSensorValue() >= 70');
+    if (option === 'released')     return emitBoolHatPoll(block, '!window.sim.getForceSensorPressed()');
+    if (option === 'pressure changed') return emitNumericHatPoll(block, 'window.sim.getForceSensorValue()');
+    // Default: 'pressed'
+    return emitBoolHatPoll(block, 'window.sim.getForceSensorPressed()');
+  };
+
   js['event_broadcast'] = (block) => {
     const msg = val(block, 'BROADCAST_INPUT', "''");
     return `window.appendOutput('[broadcast] ' + String(${msg}), 'info');\n`;

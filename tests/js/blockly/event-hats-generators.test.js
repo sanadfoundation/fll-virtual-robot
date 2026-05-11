@@ -130,3 +130,61 @@ test('whenProgramStarts: empty body still emits a no-op closure', () => {
   assert.ok(code.includes('_mainBody = async () => {'),
     `expected _mainBody assignment, got:\n${code}`);
 });
+
+// ── whenPressed ────────────────────────────────────────────────────────────
+
+test('whenPressed pressed: emits polling task with getForceSensorPressed', () => {
+  const code = setupAndRunGenerator(
+    'flipperevents_whenPressed',
+    { PORT: 'C', OPTION: 'pressed' },
+    "window.sim.stop();\n",
+  );
+  assert.ok(code.startsWith('_hats.push(async () => {'),
+    `expected polling-task push, got:\n${code.slice(0, 200)}`);
+  assert.ok(code.includes('const cur = window.sim.getForceSensorPressed();'),
+    `expected getForceSensorPressed in cur, got:\n${code}`);
+  assert.ok(code.includes("_hatPrev['"),
+    `expected _hatPrev edge-detect`);
+  assert.ok(code.includes("_hatBusy['"),
+    `expected _hatBusy guard`);
+  assert.ok(code.includes('window.sim.stop();'),
+    `expected body inside try block`);
+  assert.ok(code.includes('requestAnimationFrame'),
+    `expected rAF yield`);
+});
+
+test('whenPressed hard-pressed: condition uses getForceSensorValue >= 70', () => {
+  const code = setupAndRunGenerator(
+    'flipperevents_whenPressed',
+    { PORT: 'C', OPTION: 'hard-pressed' },
+    '',
+  );
+  assert.ok(code.includes('const cur = window.sim.getForceSensorValue() >= 70;'),
+    `expected hard-pressed threshold, got:\n${code}`);
+});
+
+test('whenPressed released: condition negates getForceSensorPressed', () => {
+  const code = setupAndRunGenerator(
+    'flipperevents_whenPressed',
+    { PORT: 'C', OPTION: 'released' },
+    '',
+  );
+  assert.ok(code.includes('const cur = !window.sim.getForceSensorPressed();'),
+    `expected released condition, got:\n${code}`);
+});
+
+test('whenPressed pressure-changed: uses numeric !== edge', () => {
+  const code = setupAndRunGenerator(
+    'flipperevents_whenPressed',
+    { PORT: 'C', OPTION: 'pressure changed' },
+    "window.appendOutput('changed');\n",
+  );
+  // Numeric prev: seeded outside the while loop at hat start; cur compared
+  // via !== rather than && !prev.
+  assert.ok(code.includes("_hatPrev['test-flipperevents_whenPressed'] = window.sim.getForceSensorValue();"),
+    `expected numeric prev seed at hat start, got:\n${code}`);
+  assert.ok(code.includes('const cur = window.sim.getForceSensorValue();'),
+    `expected numeric cur, got:\n${code}`);
+  assert.ok(code.includes("cur !== _hatPrev['"),
+    `expected !== edge comparison, got:\n${code}`);
+});
