@@ -50,17 +50,28 @@ test('preamble seeds _t0 at program start', () => {
     `expected _t0 declaration in preamble`);
 });
 
-test('epilogue awaits _mainBody then Promise.all hats', () => {
+test('epilogue starts hats concurrently then awaits _mainBody', () => {
   const { source } = setupAndGenerate();
-  // Must be an IIFE we await; conditionally runs _mainBody; then Promise.all.
+  // The epilogue must (a) start every hat BEFORE awaiting _mainBody so hat
+  // polling loops are on the event loop while main runs; (b) conditionally
+  // run _mainBody; (c) wait for the previously-started hats to wind down.
   assert.ok(source.includes('await (async () => {'),
     `expected awaited IIFE in epilogue, got:\n${source.slice(-400)}`);
+  assert.ok(source.includes('_hats.map(h => h())'),
+    `expected _hats.map(h => h()) to start every hat`);
   assert.ok(source.includes('if (_mainBody)'),
     `expected guard on _mainBody`);
-  assert.ok(source.includes('Promise.all(_hats.map(h => h()))'),
-    `expected Promise.all over _hats`);
   assert.ok(source.includes('window.sim.isRunning = false'),
     `expected isRunning flip after _mainBody returns`);
+  assert.ok(source.includes('Promise.all('),
+    `expected Promise.all over the started hat promises`);
+  // Order check: the hat-start call must appear BEFORE the _mainBody await.
+  const hatStartIdx = source.indexOf('_hats.map(h => h())');
+  const mainAwaitIdx = source.indexOf('await _mainBody()');
+  assert.ok(hatStartIdx > 0 && mainAwaitIdx > 0,
+    'both _hats.map and await _mainBody() must appear in source');
+  assert.ok(hatStartIdx < mainAwaitIdx,
+    `hats must start before main is awaited (hatStartIdx=${hatStartIdx}, mainAwaitIdx=${mainAwaitIdx})`);
 });
 
 // ── scrub_ override ────────────────────────────────────────────────────────

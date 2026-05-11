@@ -108,14 +108,21 @@ After `workspaceToCode` returns, append:
 
 ```javascript
 await (async () => {
+  // Start every hat first so it's polling on the event loop, then run
+  // _mainBody concurrently. Calling an async fn returns a Promise and
+  // begins execution; each hat runs synchronously to its first `await rAF`
+  // then yields, leaving the event loop free for _mainBody to start.
+  const _hatPromises = _hats.map(h => h());
   if (_mainBody) {
     try { await _mainBody(); } finally { window.sim.isRunning = false; }
   }
-  await Promise.all(_hats.map(h => h()));
+  await Promise.all(_hatPromises);
 })();
 ```
 
-The leading `await` ensures `runBlockly`'s outer `await fn()` blocks until the IIFE settles. The IIFE itself: if a `_mainBody` exists, run it; when it returns (normally or via throw), flip `isRunning = false` to signal hats to wind down. Then wait for every hat's polling task to exit. The `runBlockly` AsyncFunction body resolves when (a) `_mainBody` finished AND all hats wound down, or (b) every hat has wound down with no `_mainBody` (a pure-event-driven program where the user clicked Stop).
+**Why the hat-first ordering is load-bearing.** A program like the screenshot's `forever → move` + `when pressed → stop moving` needs the hat to run *while* main is in its forever-loop, so the hat's body (which calls `sim.stop()`) can flip `isRunning` and let main exit. If main were awaited first and only then the hats were started, main would loop forever — nothing would ever call the hat. Calling `_hats.map(h => h())` invokes every hat's async function synchronously up to its first `await new Promise(r => requestAnimationFrame(r))`, then they all yield, leaving the event loop free for `await _mainBody()` to start. From there each animation frame interleaves all polling tasks plus main.
+
+The leading `await` ensures `runBlockly`'s outer `await fn()` blocks until the IIFE settles. The IIFE itself: kick off all hats; if a `_mainBody` exists, run it; when it returns (normally or via throw), flip `isRunning = false` to signal hats to wind down. Then wait for every hat's polling task to exit. The `runBlockly` AsyncFunction body resolves when (a) `_mainBody` finished AND all hats wound down, or (b) every hat has wound down with no `_mainBody` (a pure-event-driven program where the user clicked Stop).
 
 ## Condition expressions
 
@@ -180,22 +187,23 @@ Blockly workspace
    └─ whenPressed C pressed → stop moving         (top block B)
 
 generateBlocklyJS(ws)
-   ├─ preamble:  var _hats = []; var _mainBody = null; var _hatBusy = {}; var _hatPrev = {}; var _t0 = performance.now();
+   ├─ preamble:  var _hats = []; var _mainBody = null; var _hatBusy = {}; var _hatPrev = {}; var _hatFired = {}; var _t0 = performance.now();
    ├─ A's generator emits:  _mainBody = async () => { while (sim.isRunning) { await sim._animateTank(...); } };
    ├─ B's generator emits:  _hats.push(async () => { while (sim.isRunning) { ... edge-detect on getForceSensorPressed() ... } });
-   └─ epilogue:   await (async () => { if (_mainBody) { ... await _mainBody(); ... } await Promise.all(_hats.map(h => h())); })();
+   └─ epilogue:   await (async () => { const _hatPromises = _hats.map(h => h()); if (_mainBody) { try { await _mainBody(); } finally { sim.isRunning = false; } } await Promise.all(_hatPromises); })();
 
 runBlockly()
    ├─ new AsyncFunction(generatedSource)
    ├─ await fn()
-   │     ├─ A's main task starts driving the forever-move loop.
-   │     ├─ B's polling task starts; checks isPressed() every frame.
+   │     ├─ _hats.map(h => h()) — B's polling task starts, runs synchronously to its first await rAF, yields. (No other hats here.)
+   │     ├─ await _mainBody() — A's main task starts, runs to its first await rAF inside the forever loop, yields.
+   │     ├─ Event loop ticks. Both tasks resume on each frame.
    │     ├─ User presses the force button.
-   │     ├─ B's loop sees cur=true, prev=false → marks busy, runs body, sets isRunning=false.
+   │     ├─ B's next iteration: cur=true, prev=false → marks busy, runs body, sets isRunning=false.
    │     ├─ A's _animateTank checks isRunning at its next yield, exits its step loop.
    │     ├─ A's forever's while-condition is false, returns; _mainBody promise resolves.
    │     ├─ epilogue's finally sets isRunning=false (already false; idempotent).
-   │     └─ Promise.all(B) waits one more frame; B's polling exits because isRunning=false.
+   │     └─ Promise.all(_hatPromises) waits one more frame; B's polling exits because isRunning=false.
    └─ "[Done] Simulation complete." prints, setButtons(false).
 ```
 
@@ -234,7 +242,7 @@ Pure-function tests on `generateBlocklyJS(ws)`. Build small workspaces, generate
   - `whenDistance > 5 inches` → `window.sim.getDistanceSensorValue() > 127` (5 × 25.4)
   - `whenTimer 2 seconds` → `(performance.now() - _t0) >= 2000`
 - `whenButton stub emits warn + no-op polling loop`: code contains `appendOutput('[!] when button:` and the polling loop reduces to `while (window.sim.isRunning) { await new Promise(...) }`.
-- `epilogue waits for main, then all hats`: emitted source ends with the `await (async () => { ... Promise.all(_hats.map(h => h())) ... })();` pattern.
+- `epilogue starts hats concurrently then awaits main`: emitted source ends with the `await (async () => { const _hatPromises = _hats.map(h => h()); ... await _mainBody(); ... Promise.all(_hatPromises); })();` pattern. The hat-start MUST precede the main await in source order — otherwise the program deadlocks on `forever`-main programs that depend on a hat to flip `isRunning`.
 - `preamble declares all five new vars`: `_hats`, `_mainBody`, `_hatBusy`, `_hatPrev`, `_t0` all present at the top.
 
 ### Integration (`tests/js/blockly/event-hats-runtime.test.js` — new)

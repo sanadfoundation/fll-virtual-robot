@@ -2443,10 +2443,15 @@ function generateBlocklyJS(workspace) {
 
   const epilogue = [
     `await (async () => {`,
+    `  // Start every hat first so it's polling on the event loop, then run`,
+    `  // _mainBody concurrently. Calling an async fn returns a Promise and`,
+    `  // begins execution; each hat runs synchronously to its first \`await rAF\``,
+    `  // then yields, leaving the event loop free for _mainBody to start.`,
+    `  const _hatPromises = _hats.map(h => h());`,
     `  if (_mainBody) {`,
     `    try { await _mainBody(); } finally { window.sim.isRunning = false; }`,
     `  }`,
-    `  await Promise.all(_hats.map(h => h()));`,
+    `  await Promise.all(_hatPromises);`,
     `})();`,
   ].join('\n');
 

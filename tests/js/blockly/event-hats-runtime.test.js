@@ -23,13 +23,17 @@ const PREAMBLE = [
   `var _t0       = performance.now();`,
 ].join('\n');
 
-// Minimal epilogue matching what generateBlocklyJS emits.
+// Minimal epilogue matching what generateBlocklyJS emits. Hats are started
+// BEFORE _mainBody so they're polling on the event loop while main runs —
+// otherwise a `forever` main + a `when pressed → stop` hat deadlocks: main
+// loops forever because the hat that would flip isRunning never gets called.
 const EPILOGUE = [
   `await (async () => {`,
+  `  const _hatPromises = _hats.map(h => h());`,
   `  if (_mainBody) {`,
   `    try { await _mainBody(); } finally { window.sim.isRunning = false; }`,
   `  }`,
-  `  await Promise.all(_hats.map(h => h()));`,
+  `  await Promise.all(_hatPromises);`,
   `})();`,
 ].join('\n');
 

@@ -41,7 +41,8 @@ Create `tests/js/blockly/event-hats-generators.test.js`:
 
 // Tests that generateBlocklyJS emits the event-hat runtime scaffolding:
 //   - preamble declares _hats / _mainBody / _hatBusy / _hatPrev / _hatFired / _t0
-//   - epilogue awaits _mainBody (if present) then Promise.all(_hats)
+//   - epilogue starts hats concurrently THEN awaits _mainBody (order matters
+//     — see the load-bearing-ordering note in the design doc)
 //   - scrub_ override skips next-chain append for hat block types
 //
 // Generator-output tests for each individual hat live further down (added by
@@ -89,17 +90,28 @@ test('preamble seeds _t0 at program start', () => {
     `expected _t0 declaration in preamble`);
 });
 
-test('epilogue awaits _mainBody then Promise.all hats', () => {
+test('epilogue starts hats concurrently then awaits _mainBody', () => {
   const { source } = setupAndGenerate();
-  // Must be an IIFE we await; conditionally runs _mainBody; then Promise.all.
+  // The epilogue must (a) start every hat BEFORE awaiting _mainBody so hat
+  // polling loops are on the event loop while main runs; (b) conditionally
+  // run _mainBody; (c) wait for the previously-started hats to wind down.
   assert.ok(source.includes('await (async () => {'),
     `expected awaited IIFE in epilogue, got:\n${source.slice(-400)}`);
+  assert.ok(source.includes('_hats.map(h => h())'),
+    `expected _hats.map(h => h()) to start every hat`);
   assert.ok(source.includes('if (_mainBody)'),
     `expected guard on _mainBody`);
-  assert.ok(source.includes('Promise.all(_hats.map(h => h()))'),
-    `expected Promise.all over _hats`);
   assert.ok(source.includes('window.sim.isRunning = false'),
     `expected isRunning flip after _mainBody returns`);
+  assert.ok(source.includes('Promise.all('),
+    `expected Promise.all over the started hat promises`);
+  // Order check: hat-start must precede main-await in the source.
+  const hatStartIdx = source.indexOf('_hats.map(h => h())');
+  const mainAwaitIdx = source.indexOf('await _mainBody()');
+  assert.ok(hatStartIdx > 0 && mainAwaitIdx > 0,
+    'both _hats.map and await _mainBody() must appear in source');
+  assert.ok(hatStartIdx < mainAwaitIdx,
+    `hats must start before main is awaited (hatStartIdx=${hatStartIdx}, mainAwaitIdx=${mainAwaitIdx})`);
 });
 ```
 
@@ -146,15 +158,22 @@ In `generateBlocklyJS`, find the current `return preamble + '\n' + body;` line. 
 ```javascript
   const epilogue = [
     `await (async () => {`,
+    `  // Start every hat first so it's polling on the event loop, then run`,
+    `  // _mainBody concurrently. Calling an async fn returns a Promise and`,
+    `  // begins execution; each hat runs synchronously to its first \`await rAF\``,
+    `  // then yields, leaving the event loop free for _mainBody to start.`,
+    `  const _hatPromises = _hats.map(h => h());`,
     `  if (_mainBody) {`,
     `    try { await _mainBody(); } finally { window.sim.isRunning = false; }`,
     `  }`,
-    `  await Promise.all(_hats.map(h => h()));`,
+    `  await Promise.all(_hatPromises);`,
     `})();`,
   ].join('\n');
 
   return preamble + '\n' + body + '\n' + epilogue + '\n';
 ```
+
+**Why the hat-first ordering is load-bearing.** A `forever`-main + a hat-that-stops-it program (e.g. the 2026-05-10 screenshot) only works if the hat is *polling* while main runs. If we awaited `_mainBody()` before calling `_hats.map(h => h())`, the hat would be a parked async value in the array; nothing would call it; the user's press would never be observed; `isRunning` would stay true; main would loop forever. Starting the hats first puts their polling tasks on the event loop where they yield at every `await rAF` — `await _mainBody()` then gets its turn naturally.
 
 - [ ] **Step 5: Re-run preamble/epilogue tests; they should pass**
 
@@ -1113,13 +1132,17 @@ const PREAMBLE = [
   `var _t0       = performance.now();`,
 ].join('\n');
 
-// Minimal epilogue matching what generateBlocklyJS emits.
+// Minimal epilogue matching what generateBlocklyJS emits. Hats are started
+// BEFORE _mainBody so they're polling on the event loop while main runs —
+// otherwise a `forever` main + a `when pressed → stop` hat deadlocks (main
+// loops forever because the hat that would flip isRunning never gets called).
 const EPILOGUE = [
   `await (async () => {`,
+  `  const _hatPromises = _hats.map(h => h());`,
   `  if (_mainBody) {`,
   `    try { await _mainBody(); } finally { window.sim.isRunning = false; }`,
   `  }`,
-  `  await Promise.all(_hats.map(h => h()));`,
+  `  await Promise.all(_hatPromises);`,
   `})();`,
 ].join('\n');
 
