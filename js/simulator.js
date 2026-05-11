@@ -938,7 +938,7 @@ class RobotSimulator {
       case 'reset_yaw':
         // angle_dDeg lets the program declare "yaw should read N here" without
         // physically rotating the robot. Default 0 = zero current heading.
-        this.resetYaw((cmd.angle_dDeg || 0) / 10);
+        this.resetYaw((cmd.angle_dDeg ?? 0) / 10);
         break;
     }
   }
@@ -1054,8 +1054,6 @@ class RobotSimulator {
   }
 
   resetYaw(degrees = 0) {
-    // Record the current heading as the new yaw baseline. `degrees` lets the
-    // caller declare "yaw is N here" without physically rotating the robot.
     this._yawZeroHeading_deg = this.robot.heading + degrees;
   }
 

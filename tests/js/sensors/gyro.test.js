@@ -76,3 +76,11 @@ test('_execCmd({type:reset_yaw}) routes through resetYaw', async () => {
   s = sim._sensorState();
   assert.strictEqual(s.yaw_dDeg, 900);
 });
+
+test('_execCmd({type:reset_yaw}) without angle_dDeg defaults to 0', async () => {
+  const sim = createSim();
+  sim.robot.heading = 90;
+  await sim._execCmd({ type: 'reset_yaw' });   // no angle_dDeg key
+  const s = sim._sensorState();
+  assert.strictEqual(s.yaw_dDeg, 0);
+});
