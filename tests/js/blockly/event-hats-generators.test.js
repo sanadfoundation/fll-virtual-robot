@@ -271,3 +271,44 @@ test('whenDistance exactly-at: emits tolerance band (Math.abs … <= 10)', () =>
   assert.ok(code.includes('Math.abs(window.sim.getDistanceSensorValue() - 200) <= 10'),
     `expected exact-match tolerance band, got:\n${code}`);
 });
+
+// ── whenTimer ──────────────────────────────────────────────────────────────
+
+function setupWhenTimer(secondsStr, body = '') {
+  const env = makeBlocklyEnv();
+  env.window.initBlockly('blockly-div', 'light');
+  const js = env.Blockly.JavaScript;
+  const block = makeHatBlock('flipperevents_whenTimer', {});
+  // valueToCode lookup for input VALUE
+  const origValueToCode = js.valueToCode || (() => '');
+  js.valueToCode = (b, name) => (b === block && name === 'VALUE' ? secondsStr : origValueToCode(b, name));
+  // body for the next-chain
+  const origBlockToCode = js.blockToCode || (() => '');
+  const next = body ? { _stub: true } : null;
+  if (next) {
+    block.getNextBlock = () => next;
+    js.blockToCode = (b) => (b === next ? body : origBlockToCode(b));
+  }
+  return js['flipperevents_whenTimer'](block);
+}
+
+test('whenTimer: emits one-shot polling with elapsed-ms threshold', () => {
+  const code = setupWhenTimer('2', "window.sim.stop();\n");
+  // 2 s → 2000 ms.
+  assert.ok(code.includes('(performance.now() - _t0) >= 2000'),
+    `expected elapsed-ms threshold, got:\n${code}`);
+});
+
+test('whenTimer: gated by _hatFired (one-shot)', () => {
+  const code = setupWhenTimer('1', '');
+  assert.ok(code.includes(`!_hatFired['`),
+    `expected _hatFired gate, got:\n${code}`);
+  assert.ok(code.includes(`_hatFired['`) && code.includes(`] = true;`),
+    `expected _hatFired set inside body, got:\n${code}`);
+});
+
+test('whenTimer: fractional seconds round to ms', () => {
+  const code = setupWhenTimer('0.5', '');
+  assert.ok(code.includes('>= 500'),
+    `expected 0.5 s → 500 ms, got:\n${code}`);
+});

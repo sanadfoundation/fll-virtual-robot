@@ -1523,6 +1523,13 @@ function registerGenerators(Blockly) {
     return emitBoolHatPoll(block, cond);
   };
 
+  js['flipperevents_whenTimer'] = (block) => {
+    const valStr  = js.valueToCode ? js.valueToCode(block, 'VALUE', ORDER_ATOMIC) : '0';
+    const seconds = parseFloat(valStr);
+    const ms      = isNaN(seconds) ? 0 : Math.round(seconds * 1000);
+    return emitBoolHatPoll(block, `(performance.now() - _t0) >= ${ms}`, { oneShot: true });
+  };
+
   js['event_broadcast'] = (block) => {
     const msg = val(block, 'BROADCAST_INPUT', "''");
     return `window.appendOutput('[broadcast] ' + String(${msg}), 'info');\n`;
