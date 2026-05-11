@@ -714,6 +714,7 @@ class RobotSimulator {
     set('sp-x',       window.ruler.formatPosition(r.x, this.units));
     set('sp-y',       window.ruler.formatPosition(r.y, this.units));
     set('sp-heading', deg.toFixed(0) + '°');
+    set('sp-yaw',     this.getYaw().toFixed(0) + '°');
 
     // Port rows. PORT_CONFIG is module-scope; use this._portConfig.
     for (const port of ['A', 'B', 'C', 'D', 'E', 'F']) {
