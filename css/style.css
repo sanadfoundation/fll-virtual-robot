@@ -291,21 +291,18 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
 .btn-file:hover { background: var(--surface3); }
 .btn-file:active { transform: translateY(1px); }
 
-/* ── Feedback button ─────────────────────────────────────── */
+/* ── Feedback button (matches .btn-reset / .btn-theme sibling style) ── */
 .btn-feedback {
-  background: var(--surface2);
-  color: var(--text-dim);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 6px 10px;
-  font-weight: 700;
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  cursor: pointer;
+  background: transparent;
+  color: var(--text-mid);
+  border: 1px solid var(--border2);
 }
-.btn-feedback:hover  { background: var(--surface3); color: var(--text); }
-.btn-feedback:active { transform: translateY(1px); }
+.btn-feedback:hover {
+  color: var(--amber);
+  border-color: var(--amber);
+  transform: translateY(-1px);
+}
+.btn-feedback:active { transform: translateY(0); }
 
 .btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
 
