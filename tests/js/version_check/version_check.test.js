@@ -69,3 +69,8 @@ test('parseVersionPayload: rejects non-string sha', () => {
   const { parseVersionPayload } = loadVersionCheck();
   assert.strictEqual(parseVersionPayload('{"sha":123}'), null);
 });
+
+test('getBaselineSha: returns null before bootstrap', () => {
+  const { getBaselineSha } = loadVersionCheck();
+  assert.strictEqual(getBaselineSha(), null);
+});
