@@ -73,6 +73,7 @@ function listGenerators(Blockly) {
     'forBlock',
     'valueToCode', 'statementToCode', 'provideFunction_', 'addReservedWords',
     'ORDER_ATOMIC', 'ORDER_NONE', 'ORDER_FUNCTION_CALL',
+    'workspaceToCode', 'scrub_',
   ]);
   const out = [];
   for (const key of Object.keys(Blockly.JavaScript)) {

@@ -53,6 +53,7 @@ function makeBlocklyEnv(opts = {}) {
       valueToCode: () => '',
       statementToCode: () => '',
       provideFunction_: () => '',
+      workspaceToCode: () => '',
     },
   };
 

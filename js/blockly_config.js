@@ -1392,14 +1392,32 @@ function registerGenerators(Blockly) {
 
   js['sound_volume'] = (_b) => [`(window._blkVolume ?? 100)`, ORDER_ATOMIC];
 
-  // ── Events (hat blocks → empty body chain) ─────────────────────────────────
+  // ── Events (hat blocks) ────────────────────────────────────────────────────
+  //
+  // Each hat generator below emits either a `_mainBody = ...` assignment
+  // (whenProgramStarts) or a `_hats.push(async () => { ... })` polling task.
+  // The runtime they reference is set up in generateBlocklyJS's preamble +
+  // epilogue. See docs/superpowers/specs/2026-05-11-event-hats-design.md.
 
-  for (const t of [
+  const HAT_TYPES = new Set([
     'flipperevents_whenProgramStarts','flipperevents_whenColor','flipperevents_whenPressed',
     'flipperevents_whenDistance','flipperevents_whenTilted','flipperevents_whenOrientation',
     'flipperevents_whenGesture','flipperevents_whenButton','flipperevents_whenTimer',
     'flipperevents_whenCondition','event_whenbroadcastreceived',
-  ]) {
+  ]);
+
+  // Hat generators emit code that wraps the next-chain body inside a closure.
+  // Blockly's default scrub_ would then ALSO append the next-chain code after
+  // the closure, duplicating it. Override scrub_ to skip the next-chain append
+  // for hat blocks; the hat generator owns its body via blockToCode(getNextBlock()).
+  const _origScrub = js.scrub_ ? js.scrub_.bind(js) : (_b, code) => code;
+  js.scrub_ = function (block, code, opt_thisOnly) {
+    if (block && HAT_TYPES.has(block.type)) return code;
+    return _origScrub(block, code, opt_thisOnly);
+  };
+
+  // Placeholder generators — replaced by real ones in Tasks 3-9.
+  for (const t of HAT_TYPES) {
     js[t] = () => '';
   }
 
@@ -2262,7 +2280,6 @@ function generateBlocklyJS(workspace) {
   if (!js) return '';
 
   const body = js.workspaceToCode(workspace);
-  if (!body.trim()) return '';
 
   const preamble = [
     `var _moveSpeed     = 50;`,
@@ -2277,9 +2294,25 @@ function generateBlocklyJS(workspace) {
     `var _motorStop     = {};`,
     `var _motorAccel    = {};`,
     `var _motorRelOffset= {};`,
+    // Event-hat runtime state (see docs/superpowers/specs/2026-05-11-event-hats-design.md).
+    `var _hats     = [];`,
+    `var _mainBody = null;`,
+    `var _hatBusy  = {};`,
+    `var _hatPrev  = {};`,
+    `var _hatFired  = {};`,
+    `var _t0       = performance.now();`,
   ].join('\n');
 
-  return preamble + '\n' + body;
+  const epilogue = [
+    `await (async () => {`,
+    `  if (_mainBody) {`,
+    `    try { await _mainBody(); } finally { window.sim.isRunning = false; }`,
+    `  }`,
+    `  await Promise.all(_hats.map(h => h()));`,
+    `})();`,
+  ].join('\n');
+
+  return preamble + '\n' + body + '\n' + epilogue + '\n';
 }
 
 window.initBlockly         = initBlockly;
