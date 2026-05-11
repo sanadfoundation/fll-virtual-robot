@@ -1498,6 +1498,11 @@ function registerGenerators(Blockly) {
     return emitBoolHatPoll(block, 'window.sim.getForceSensorPressed()');
   };
 
+  js['flipperevents_whenColor'] = (block) => {
+    const color = block.getFieldValue('OPTION');
+    return emitBoolHatPoll(block, `window.sim.getColorSensorColor() === ${JSON.stringify(color)}`);
+  };
+
   js['event_broadcast'] = (block) => {
     const msg = val(block, 'BROADCAST_INPUT', "''");
     return `window.appendOutput('[broadcast] ' + String(${msg}), 'info');\n`;

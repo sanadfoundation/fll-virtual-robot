@@ -188,3 +188,31 @@ test('whenPressed pressure-changed: uses numeric !== edge', () => {
   assert.ok(code.includes("cur !== _hatPrev['"),
     `expected !== edge comparison, got:\n${code}`);
 });
+
+// ── whenColor ──────────────────────────────────────────────────────────────
+
+test('whenColor: emits polling task with color comparison', () => {
+  const code = setupAndRunGenerator(
+    'flipperevents_whenColor',
+    { PORT: 'E', OPTION: 'red' },
+    "window.sim.stop();\n",
+  );
+  assert.ok(code.startsWith('_hats.push(async () => {'),
+    `expected polling-task push`);
+  assert.ok(code.includes('window.sim.getColorSensorColor() === "red"') || code.includes("window.sim.getColorSensorColor() === 'red'"),
+    `expected color comparison, got:\n${code}`);
+  assert.ok(code.includes('window.sim.stop();'),
+    `expected body inside try block`);
+});
+
+test('whenColor: color name is JSON-safe (no quote injection)', () => {
+  const code = setupAndRunGenerator(
+    'flipperevents_whenColor',
+    { PORT: 'E', OPTION: "it's-pink" },
+    '',
+  );
+  // Shouldn't produce a syntax error from the quote in the color name.
+  // The generator must JSON-quote the value.
+  assert.ok(code.includes(`"it's-pink"`) || code.includes(`'it\\'s-pink'`),
+    `expected safely-quoted color, got:\n${code}`);
+});
