@@ -73,6 +73,7 @@ function listGenerators(Blockly) {
     'forBlock',
     'valueToCode', 'statementToCode', 'provideFunction_', 'addReservedWords',
     'ORDER_ATOMIC', 'ORDER_NONE', 'ORDER_FUNCTION_CALL',
+    'workspaceToCode', 'scrub_',
   ]);
   const out = [];
   for (const key of Object.keys(Blockly.JavaScript)) {
@@ -124,15 +125,19 @@ test('every non-hat generator returns non-empty code without throwing', () => {
     `${failures.length} generator(s) failed:\n${failures.join('\n')}`);
 });
 
-test('every hat (event) generator returns empty string', () => {
+test('every hat (event) generator is registered and returns a string', () => {
+  // Hats emit either an empty string (placeholder), a `_mainBody = ...`
+  // assignment, or a `_hats.push(async () => { ... })` polling closure. The
+  // contract this smoke test pins is just "registered and returns a string" —
+  // shape assertions for each hat live in event-hats-generators.test.js.
   const { Blockly } = setupGenerators();
   const block = makeBlock();
   for (const name of HAT_GENERATORS) {
     const fn = Blockly.JavaScript[name];
     assert.ok(typeof fn === 'function', `${name} not registered`);
     const result = fn(block);
-    assert.strictEqual(result, '',
-      `${name}: hat blocks must emit empty string, got ${JSON.stringify(result).slice(0, 60)}`);
+    assert.strictEqual(typeof result, 'string',
+      `${name}: hat generator should return a string, got ${typeof result}`);
   }
 });
 

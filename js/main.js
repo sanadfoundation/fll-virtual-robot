@@ -331,11 +331,12 @@ async function runBlockly() {
     return;
   }
 
-  const code = window.generateBlocklyJS(ws);
-  if (!code.trim()) {
+  const topBlocks = (ws.getTopBlocks && ws.getTopBlocks(false)) || [];
+  if (topBlocks.length === 0) {
     appendOutput('[!] No blocks to run.', 'warn');
     return;
   }
+  const code = window.generateBlocklyJS(ws);
 
   appendOutput('[Run] Executing blocks...', 'info');
   setButtons(true);

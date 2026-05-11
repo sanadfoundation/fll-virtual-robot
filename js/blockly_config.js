@@ -1392,16 +1392,223 @@ function registerGenerators(Blockly) {
 
   js['sound_volume'] = (_b) => [`(window._blkVolume ?? 100)`, ORDER_ATOMIC];
 
-  // ── Events (hat blocks → empty body chain) ─────────────────────────────────
+  // ── Events (hat blocks) ────────────────────────────────────────────────────
+  //
+  // Each hat generator below emits either a `_mainBody = ...` assignment
+  // (whenProgramStarts) or a `_hats.push(async () => { ... })` polling task.
+  // The runtime they reference is set up in generateBlocklyJS's preamble +
+  // epilogue. See docs/superpowers/specs/2026-05-11-event-hats-design.md.
 
-  for (const t of [
+  const HAT_TYPES = new Set([
     'flipperevents_whenProgramStarts','flipperevents_whenColor','flipperevents_whenPressed',
     'flipperevents_whenDistance','flipperevents_whenTilted','flipperevents_whenOrientation',
     'flipperevents_whenGesture','flipperevents_whenButton','flipperevents_whenTimer',
     'flipperevents_whenCondition','event_whenbroadcastreceived',
-  ]) {
+  ]);
+
+  // Hat generators emit code that wraps the next-chain body inside a closure.
+  // Blockly's default scrub_ would then ALSO append the next-chain code after
+  // the closure, duplicating it. Override scrub_ to skip the next-chain append
+  // for hat blocks; the hat generator owns its body via blockToCode(getNextBlock()).
+  const _origScrub = js.scrub_ ? js.scrub_.bind(js) : (_b, code) => code;
+  js.scrub_ = function (block, code, opt_thisOnly) {
+    if (block && HAT_TYPES.has(block.type)) return code;
+    return _origScrub(block, code, opt_thisOnly);
+  };
+
+  // Placeholder generators — replaced by real ones in Tasks 3-9.
+  for (const t of HAT_TYPES) {
     js[t] = () => '';
   }
+
+  js['flipperevents_whenProgramStarts'] = (block) => {
+    const next = block.getNextBlock ? block.getNextBlock() : null;
+    const body = next ? js.blockToCode(next) : '';
+    return `_mainBody = async () => {\n${body}};\n`;
+  };
+
+  // ── Event-hat helpers ──────────────────────────────────────────────────────
+
+  // Canonical ports for each sensor kind in the simulator's default wiring
+  // (mirror of PORT_CONFIG in js/simulator.js). Hats whose PORT dropdown
+  // selects a different port emit a stub-warn instead of a polling task —
+  // the accessor methods (getForceSensorPressed, etc.) take no port arg, so
+  // any port other than the canonical one is meaningless.
+  const _CANONICAL_SENSOR_PORTS = {
+    color_sensor:    'E',
+    distance_sensor: 'F',
+    force_sensor:    'C',
+  };
+
+  // emitBoolHatPoll: standard polling task for boolean-condition hats.
+  // condExpr is a JS expression producing the current truthiness. opts.oneShot
+  // adds a `_hatFired` gate and sets it BEFORE the body — so a body that
+  // throws still consumes the single-shot, matching the spec's "fires once"
+  // contract for one-shot hats like whenTimer.
+  function emitBoolHatPoll(block, condExpr, opts = {}) {
+    const id    = block.id;
+    const kind  = block.type || 'hat';
+    const next  = block.getNextBlock ? block.getNextBlock() : null;
+    const body  = next ? js.blockToCode(next) : '';
+    const fireGate   = opts.oneShot ? ` && !_hatFired['${id}']` : '';
+    const oneShotSet = opts.oneShot ? `\n        _hatFired['${id}'] = true;` : '';
+    return [
+      `_hats.push(async () => {`,
+      `  while (window.sim.isRunning) {`,
+      `    const cur = ${condExpr};`,
+      `    if (cur && !_hatPrev['${id}'] && !_hatBusy['${id}']${fireGate}) {`,
+      `      _hatBusy['${id}'] = true;${oneShotSet}`,
+      `      try {`,
+      `${body}      } catch (e) {`,
+      `        if (window.appendOutput) window.appendOutput('[Error] ${kind}: ' + ((e && e.message) || e), 'error');`,
+      `      } finally {`,
+      `        _hatBusy['${id}'] = false;`,
+      `      }`,
+      `    }`,
+      `    _hatPrev['${id}'] = cur;`,
+      `    await new Promise(r => requestAnimationFrame(r));`,
+      `  }`,
+      `});`,
+      ``,
+    ].join('\n');
+  }
+
+  // emitNumericHatPoll: numeric-prev polling task for "X changed" style hats.
+  // Uses !== for edge detection; seeds _hatPrev at hat start so the first
+  // frame doesn't fire spuriously.
+  function emitNumericHatPoll(block, valueExpr) {
+    const id   = block.id;
+    const kind = block.type || 'hat';
+    const next = block.getNextBlock ? block.getNextBlock() : null;
+    const body = next ? js.blockToCode(next) : '';
+    return [
+      `_hats.push(async () => {`,
+      `  _hatPrev['${id}'] = ${valueExpr};`,
+      `  while (window.sim.isRunning) {`,
+      `    const cur = ${valueExpr};`,
+      `    if (cur !== _hatPrev['${id}'] && !_hatBusy['${id}']) {`,
+      `      _hatBusy['${id}'] = true;`,
+      `      try {`,
+      `${body}      } catch (e) {`,
+      `        if (window.appendOutput) window.appendOutput('[Error] ${kind}: ' + ((e && e.message) || e), 'error');`,
+      `      } finally {`,
+      `        _hatBusy['${id}'] = false;`,
+      `      }`,
+      `    }`,
+      `    _hatPrev['${id}'] = cur;`,
+      `    await new Promise(r => requestAnimationFrame(r));`,
+      `  }`,
+      `});`,
+      ``,
+    ].join('\n');
+  }
+
+  js['flipperevents_whenPressed'] = (block) => {
+    const port = block.getFieldValue('PORT');
+    if (port !== _CANONICAL_SENSOR_PORTS.force_sensor) {
+      return emitStubWarnHat('force-sensor',
+        `no force sensor on port ${port} — the simulator wires the force sensor to port ${_CANONICAL_SENSOR_PORTS.force_sensor}`);
+    }
+    const option = block.getFieldValue('OPTION');
+    if (option === 'hard-pressed') return emitBoolHatPoll(block, 'window.sim.getForceSensorValue() >= 70');
+    if (option === 'released')     return emitBoolHatPoll(block, '!window.sim.getForceSensorPressed()');
+    if (option === 'pressure changed') return emitNumericHatPoll(block, 'window.sim.getForceSensorValue()');
+    // Default: 'pressed'
+    return emitBoolHatPoll(block, 'window.sim.getForceSensorPressed()');
+  };
+
+  js['flipperevents_whenColor'] = (block) => {
+    const port = block.getFieldValue('PORT');
+    if (port !== _CANONICAL_SENSOR_PORTS.color_sensor) {
+      return emitStubWarnHat('colour-sensor',
+        `no colour sensor on port ${port} — the simulator wires the colour sensor to port ${_CANONICAL_SENSOR_PORTS.color_sensor}`);
+    }
+    // The OPTION field stores the LEGO integer color code (see _COLORS) — '0'
+    // for black, '9' for red, etc. The simulator's accessor returns the color
+    // NAME ('black', 'red', …), so translate via the same helper the
+    // flippersensors_isColor reporter uses.
+    const idx  = block.getFieldValue('OPTION');
+    const name = _colorIndexToName(idx);
+    return emitBoolHatPoll(block, `window.sim.getColorSensorColor() === ${JSON.stringify(name)}`);
+  };
+
+  js['flipperevents_whenDistance'] = (block) => {
+    const port = block.getFieldValue('PORT');
+    if (port !== _CANONICAL_SENSOR_PORTS.distance_sensor) {
+      return emitStubWarnHat('distance-sensor',
+        `no distance sensor on port ${port} — the simulator wires the distance sensor to port ${_CANONICAL_SENSOR_PORTS.distance_sensor}`);
+    }
+    const comp   = block.getFieldValue('COMPARATOR');
+    const unit   = block.getFieldValue('UNIT');
+    const valStr = js.valueToCode ? js.valueToCode(block, 'VALUE', ORDER_ATOMIC) : '0';
+    const raw    = parseFloat(valStr);
+    const value  = isNaN(raw) ? 0 : raw;
+    // Convert to mm at generator time so the polling expression is just an int.
+    const DIST_MAX_MM = 2000;  // matches simulator's DIST_SENSOR_MAX_MM
+    let mm;
+    if (unit === 'cm')      mm = Math.round(value * 10);
+    else if (unit === 'inches') mm = Math.round(value * 25.4);
+    else if (unit === '%')  mm = Math.round((value * DIST_MAX_MM) / 100);
+    else                    mm = Math.round(value);
+    let cond;
+    if (comp === '<')      cond = `window.sim.getDistanceSensorValue() < ${mm}`;
+    else if (comp === '>') cond = `window.sim.getDistanceSensorValue() > ${mm}`;
+    else                   cond = `Math.abs(window.sim.getDistanceSensorValue() - ${mm}) <= 10`;  // '=' band
+    return emitBoolHatPoll(block, cond);
+  };
+
+  js['flipperevents_whenTimer'] = (block) => {
+    const valStr  = js.valueToCode ? js.valueToCode(block, 'VALUE', ORDER_ATOMIC) : '0';
+    const seconds = parseFloat(valStr);
+    const ms      = isNaN(seconds) ? 0 : Math.round(seconds * 1000);
+    return emitBoolHatPoll(block, `(performance.now() - _t0) >= ${ms}`, { oneShot: true });
+  };
+
+  js['flipperevents_whenCondition'] = (block) => {
+    const condStr = js.valueToCode ? js.valueToCode(block, 'CONDITION', ORDER_ATOMIC) : '';
+    const inner = condStr.trim() === '' ? 'false' : condStr;
+    return emitBoolHatPoll(block, `!!(${inner})`);
+  };
+
+  // emitWrongPortValue: produces an inline expression for sensor reporter
+  // blocks whose PORT dropdown doesn't match the canonical wiring. The
+  // expression warns once (deduped per kind:port pair via a Set on window),
+  // then returns a safe sentinel via the comma operator. Used by all eight
+  // colour/force/distance reporters below — keeps them honest about which
+  // port the sim actually has the sensor on.
+  function emitWrongPortValue(kind, port, canonical, safeValueLiteral) {
+    const key = JSON.stringify(`${kind}:${port}`);
+    const msg = JSON.stringify(
+      `[!] ${kind} reporter: no ${kind} on port ${port} — wired to port ${canonical}`,
+    );
+    return `((window._sensorPortWarns = window._sensorPortWarns || new Set()).has(${key}) `
+         + `|| (window._sensorPortWarns.add(${key}), `
+         + `window.appendOutput && window.appendOutput(${msg}, 'warn')), `
+         + `${safeValueLiteral})`;
+  }
+
+  // Stub-warn: hats whose underlying API isn't implemented yet. They emit a
+  // one-line warning at program start and a no-op polling loop so they wind
+  // down with Promise.all when isRunning flips to false.
+  function emitStubWarnHat(kind, reason) {
+    return [
+      `;(function () {`,
+      `  var _msg = "[!] when ${kind}: ${reason} — this hat won't fire";`,
+      `  if (window.appendOutput) window.appendOutput(_msg, 'warn');`,
+      `  else if (typeof console !== 'undefined' && console.warn) console.warn(_msg);`,
+      `})();`,
+      `_hats.push(async () => {`,
+      `  while (window.sim.isRunning) { await new Promise(r => requestAnimationFrame(r)); }`,
+      `});`,
+      ``,
+    ].join('\n');
+  }
+
+  js['flipperevents_whenButton']      = () => emitStubWarnHat('button',      "hub-button API isn't implemented yet");
+  js['flipperevents_whenTilted']      = () => emitStubWarnHat('tilted',      "motion sensor isn't implemented yet");
+  js['flipperevents_whenOrientation'] = () => emitStubWarnHat('orientation', "motion sensor isn't implemented yet");
+  js['flipperevents_whenGesture']     = () => emitStubWarnHat('gesture',     "motion sensor isn't implemented yet");
+  js['event_whenbroadcastreceived']   = () => emitStubWarnHat('broadcast',   "broadcast runtime isn't implemented yet");
 
   js['event_broadcast'] = (block) => {
     const msg = val(block, 'BROADCAST_INPUT', "''");
@@ -1468,26 +1675,52 @@ function registerGenerators(Blockly) {
   // ── Sensor ─────────────────────────────────────────────────────────────────
 
   js['flippersensors_isColor'] = (block) => {
+    const port = block.getFieldValue('PORT');
+    const canonical = _CANONICAL_SENSOR_PORTS.color_sensor;
+    if (port !== canonical) {
+      return [emitWrongPortValue('colour-sensor', port, canonical, 'false'), ORDER_ATOMIC];
+    }
     const idx  = block.getFieldValue('VALUE');
     const name = _colorIndexToName(idx);
     return [`window.sim.getColorSensorColor() === '${name}'`, ORDER_ATOMIC];
   };
 
-  js['flippersensors_color'] = (_b) => {
+  js['flippersensors_color'] = (block) => {
+    const port = block.getFieldValue('PORT');
+    const canonical = _CANONICAL_SENSOR_PORTS.color_sensor;
+    if (port !== canonical) {
+      return [emitWrongPortValue('colour-sensor', port, canonical, '-1'), ORDER_ATOMIC];
+    }
     // Inverse of _COLOR_INDEX_TO_NAME: simulator token → LEGO word-block index.
     return [`(({black:0,magenta:1,blue:3,cyan:4,green:6,yellow:7,red:9,white:10,none:-1})[window.sim.getColorSensorColor()] ?? -1)`, ORDER_ATOMIC];
   };
 
   js['flippersensors_isReflectivity'] = (block) => {
+    const port = block.getFieldValue('PORT');
+    const canonical = _CANONICAL_SENSOR_PORTS.color_sensor;
+    if (port !== canonical) {
+      return [emitWrongPortValue('colour-sensor', port, canonical, 'false'), ORDER_ATOMIC];
+    }
     const op  = block.getFieldValue('COMPARATOR');
     const v   = val(block, 'VALUE', '50');
     return [`(window.sim.getColorSensorReflection() ${op} (${v}))`, ORDER_ATOMIC];
   };
 
-  js['flippersensors_reflectivity'] = (_b) =>
-    [`window.sim.getColorSensorReflection()`, ORDER_ATOMIC];
+  js['flippersensors_reflectivity'] = (block) => {
+    const port = block.getFieldValue('PORT');
+    const canonical = _CANONICAL_SENSOR_PORTS.color_sensor;
+    if (port !== canonical) {
+      return [emitWrongPortValue('colour-sensor', port, canonical, '0'), ORDER_ATOMIC];
+    }
+    return [`window.sim.getColorSensorReflection()`, ORDER_ATOMIC];
+  };
 
   js['flippersensors_isPressed'] = (block) => {
+    const port = block.getFieldValue('PORT');
+    const canonical = _CANONICAL_SENSOR_PORTS.force_sensor;
+    if (port !== canonical) {
+      return [emitWrongPortValue('force-sensor', port, canonical, 'false'), ORDER_ATOMIC];
+    }
     const opt = block.getFieldValue('OPTION');
     // Mirror py/spike_bridge.py force_sensor.*: raise if no force sensor
     // is configured anywhere. Comma-operator preserves the boolean value.
@@ -1498,6 +1731,11 @@ function registerGenerators(Blockly) {
   };
 
   js['flippersensors_force'] = (block) => {
+    const port = block.getFieldValue('PORT');
+    const canonical = _CANONICAL_SENSOR_PORTS.force_sensor;
+    if (port !== canonical) {
+      return [emitWrongPortValue('force-sensor', port, canonical, '0'), ORDER_ATOMIC];
+    }
     const unit = block.getFieldValue('UNIT');
     const guard = `window.sim._assertSensorAvailable('force_sensor')`;
     if (unit === 'newton') return [`(${guard}, window.sim.getForceSensorValue() / 10)`, ORDER_ATOMIC];
@@ -1505,6 +1743,11 @@ function registerGenerators(Blockly) {
   };
 
   js['flippersensors_isDistance'] = (block) => {
+    const port = block.getFieldValue('PORT');
+    const canonical = _CANONICAL_SENSOR_PORTS.distance_sensor;
+    if (port !== canonical) {
+      return [emitWrongPortValue('distance-sensor', port, canonical, 'false'), ORDER_ATOMIC];
+    }
     const op   = block.getFieldValue('COMPARATOR');
     const unit = block.getFieldValue('UNIT');
     const v    = val(block, 'VALUE', '15');
@@ -1516,6 +1759,11 @@ function registerGenerators(Blockly) {
   };
 
   js['flippersensors_distance'] = (block) => {
+    const port = block.getFieldValue('PORT');
+    const canonical = _CANONICAL_SENSOR_PORTS.distance_sensor;
+    if (port !== canonical) {
+      return [emitWrongPortValue('distance-sensor', port, canonical, '-1'), ORDER_ATOMIC];
+    }
     const unit = block.getFieldValue('UNIT');
     if (unit === 'cm')      return [`(window.sim.getDistanceSensorValue() / 10)`, ORDER_ATOMIC];
     if (unit === 'inches')  return [`(window.sim.getDistanceSensorValue() / 25.4)`, ORDER_ATOMIC];
@@ -2262,7 +2510,6 @@ function generateBlocklyJS(workspace) {
   if (!js) return '';
 
   const body = js.workspaceToCode(workspace);
-  if (!body.trim()) return '';
 
   const preamble = [
     `var _moveSpeed     = 50;`,
@@ -2277,9 +2524,30 @@ function generateBlocklyJS(workspace) {
     `var _motorStop     = {};`,
     `var _motorAccel    = {};`,
     `var _motorRelOffset= {};`,
+    // Event-hat runtime state (see docs/superpowers/specs/2026-05-11-event-hats-design.md).
+    `var _hats     = [];`,
+    `var _mainBody = null;`,
+    `var _hatBusy  = {};`,
+    `var _hatPrev  = {};`,
+    `var _hatFired  = {};`,
+    `var _t0       = performance.now();`,
   ].join('\n');
 
-  return preamble + '\n' + body;
+  const epilogue = [
+    `await (async () => {`,
+    `  // Start every hat first so it's polling on the event loop, then run`,
+    `  // _mainBody concurrently. Calling an async fn returns a Promise and`,
+    `  // begins execution; each hat runs synchronously to its first \`await rAF\``,
+    `  // then yields, leaving the event loop free for _mainBody to start.`,
+    `  const _hatPromises = _hats.map(h => h());`,
+    `  if (_mainBody) {`,
+    `    try { await _mainBody(); } finally { window.sim.isRunning = false; }`,
+    `  }`,
+    `  await Promise.all(_hatPromises);`,
+    `})();`,
+  ].join('\n');
+
+  return preamble + '\n' + body + '\n' + epilogue + '\n';
 }
 
 window.initBlockly         = initBlockly;
