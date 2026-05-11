@@ -5,7 +5,7 @@
 
 ## Problem
 
-Ten `flipperevents_*` block types ship with the simulator (`whenProgramStarts`, `whenPressed`, `whenColor`, `whenDistance`, `whenTilted`, `whenOrientation`, `whenGesture`, `whenButton`, `whenTimer`, `whenCondition`), plus one Scratch-style `event_whenbroadcastreceived`. All have block definitions, toolbox entries, and shadow defaults — but **none have a registered JS generator**. Blockly's fallback for an unknown block is "emit nothing for the block itself, recurse into its `next`", so every top-level hat's children get inlined sequentially into the single `AsyncFunction` body that `runBlockly` runs.
+Ten `flipperevents_*` block types ship with the simulator (`whenProgramStarts`, `whenPressed`, `whenColor`, `whenDistance`, `whenTilted`, `whenOrientation`, `whenGesture`, `whenButton`, `whenTimer`, `whenCondition`), plus one Scratch-style `event_whenbroadcastreceived`. All have block definitions, toolbox entries, and shadow defaults. **All also have a generator registered — but each generator emits an empty string** (`js/blockly_config.js:1397-1404`, the loop `for (const t of [...]) { js[t] = () => ''; }`). Blockly's `blockToCode` then appends the next-chain's code after that empty string, so the hat header is silently dropped and only the body emits. Net effect: every top-level hat's children get inlined sequentially into the single `AsyncFunction` body that `runBlockly` runs.
 
 The user-visible consequence: multiple top-level hats execute as one stack after another, not as concurrent listeners. The "screenshot program" from 2026-05-10 was a `when program starts → forever → move 50 cm` stack next to a `when force sensor on C is pressed → stop moving` stack. `generateBlocklyJS` emitted a `while (sim.isRunning) await _animateTank(...)` loop followed by `window.sim.stop()` — the stop is dead code, never reached while the loop is awaiting. Pressing the force-sensor button did nothing.
 
@@ -34,9 +34,9 @@ This spec wires the missing runtime: each top-level hat becomes its own async po
 
 `js/main.js:runBlockly` calls `window.generateBlocklyJS(ws)`, which invokes Blockly's `workspaceToCode`. That walks every top-level block, generates per-block code via the registered JS generators, and concatenates the result. `runBlockly` wraps it as `new AsyncFunction(generatedSource)` and `await fn()`s it. The simulator's `isRunning` flag is the cancellation signal: `_animateTank`'s per-step loop checks it, `sim.stop()` flips it.
 
-Today every hat type lacks a generator. Blockly's behaviour for an unregistered block is to emit nothing for the block itself but still recurse into the block's `next` (the body attached below). So `when program starts → forever → move` becomes `while (sim.isRunning) await sim._animateTank(...)` — the hat header is silently dropped, but the loop and move come through. `when pressed → stop` becomes `window.sim.stop()` — again, the header is dropped but the body emits. Two top-level stacks produce two sequential statement sequences, concatenated in workspace-position order.
+Today, each `flipperevents_*` (plus `event_whenbroadcastreceived`) has a generator registered (via the loop at `js/blockly_config.js:1397-1404`) that returns `''`. Blockly's `blockToCode` evaluates the block's generator and then recurses into the `NEXT` chain via `statementToCode`, appending the next-chain's code after the hat's empty string. So `when program starts → forever → move` becomes `while (sim.isRunning) await sim._animateTank(...)` — the hat header contributes nothing, but the loop and move come through. `when pressed → stop` becomes `window.sim.stop()` — same shape. Two top-level stacks produce two sequential statement sequences, concatenated in workspace-position order.
 
-The fix is to register a generator for each hat that wraps its body in an async polling closure instead of emitting the body inline.
+The fix is to replace each empty-string generator with one that wraps the body in an async polling closure (or, for `whenProgramStarts`, assigns it to `_mainBody`), so the body becomes a task instead of inline code.
 
 ## Architecture
 
