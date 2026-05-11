@@ -22,13 +22,12 @@ const C_VARS     = '#ff9835';
 const C_MYBLOCKS = '#ff5d64';
 
 // ── Dropdown option lists (values match the reference simulator) ─────────────
-// All motor-action and sensor-read blocks use this single list — restricted
-// to A, B to match the canonical motor wiring. Per-sensor-type restriction
-// (color → E only, distance → F only) is a known follow-up; runtime
+// All motor-action and sensor-read blocks use this single list. Per-sensor-type
+// restriction (color → E only, distance → F only) is a known follow-up; runtime
 // validation in the simulator catches wrong-port calls in the meantime.
 // When per-instance port customization lands, this becomes a function of
 // the live config.
-const _PORTS_SINGLE = [['A','A'],['B','B']];
+const _PORTS_SINGLE = [['A','A'],['B','B'],['C','C'],['D','D'],['E','E'],['F','F']];
 
 // Inline-SVG → data URI so we can ship icon dropdowns without per-asset files.
 const _dataUri = (svg) =>
