@@ -67,8 +67,9 @@ class BridgeMock:
         sb._test_intercept = self._capture
         sb._state.clear()
         sb._state.update({
-            'x': 350, 'y': 980, 'heading': -90,
+            'x': 350, 'y': 163, 'heading': 90,
             'color': 'none', 'distance_mm': 300,
+            'yaw_dDeg': 0,
             'motors': {'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0},
             'stopped': False,
         })

@@ -153,6 +153,7 @@ class RobotSimulator {
     this._portConfig = PORT_CONFIG;
 
     this._stopRequested  = false;
+    this._yawZeroHeading_deg = this.robot.heading;
 
     // Force-sensor pipeline state. emaN is the smoothed physics force in Newtons;
     // manualStartMs is the timestamp the user pressed the Hub-panel button (null
@@ -792,6 +793,7 @@ class RobotSimulator {
     set('sp-x',       window.ruler.formatPosition(r.x, this.units));
     set('sp-y',       window.ruler.formatPosition(r.y, this.units));
     set('sp-heading', deg.toFixed(0) + '°');
+    set('sp-yaw',     this.getYaw().toFixed(0) + '°');
 
     // Port rows. PORT_CONFIG is module-scope; use this._portConfig.
     for (const port of ['A', 'B', 'C', 'D', 'E', 'F']) {
@@ -893,6 +895,7 @@ class RobotSimulator {
     this._stopRequested = false;
     this._emaN          = 0;
     this._manualStartMs = null;
+    this._yawZeroHeading_deg = this.robot.heading;
     this._trailCtx.clearRect(0, 0, this._trailCanvas.width, this._trailCanvas.height);
     this._trailArc = 0;
     this._dirty = true;
@@ -1038,6 +1041,12 @@ class RobotSimulator {
         break;
 
       case 'read_sensors':
+        break;
+
+      case 'reset_yaw':
+        // angle_dDeg lets the program declare "yaw should read N here" without
+        // physically rotating the robot. Default 0 = zero current heading.
+        this.resetYaw((cmd.angle_dDeg ?? 0) / 10);
         break;
     }
   }
@@ -1200,6 +1209,21 @@ class RobotSimulator {
     // still surface the physics force.
   }
 
+  resetYaw(degrees = 0) {
+    this._yawZeroHeading_deg = this.robot.heading + degrees;
+  }
+
+  getYaw() {
+    // LEGO yaw, in degrees: CW-positive, signed, wrapped to [-180, 180).
+    let d = -(this.robot.heading - this._yawZeroHeading_deg);
+    d = ((d + 180) % 360 + 360) % 360 - 180;
+    return d;
+  }
+
+  _yawDeciDeg() {
+    return Math.round(this.getYaw() * 10);
+  }
+
   // ── SAB sensor snapshot ──────────────────────────────────────────────────────
 
   _sensorState() {
@@ -1209,6 +1233,7 @@ class RobotSimulator {
       x:             r.x,
       y:             r.y,
       heading:       r.heading,
+      yaw_dDeg:      this._yawDeciDeg(),
       color:         r.sensors.colorValue,
       distance_mm:   r.sensors.distanceMM,
       motors:        { ...r.motors },

@@ -32,8 +32,9 @@ js.eval(
 
 # ── Phase 2: Bridge call ─────────────────────────────────────────────────────
 _state = {
-    'x': 350, 'y': 980, 'heading': -90,
+    'x': 350, 'y': 163, 'heading': 90,
     'color': 'none', 'distance_mm': 300,
+    'yaw_dDeg': 0,
     'motors': {'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0},
     'force_dn': 0, 'force_pressed': False, 'force_raw': 0,
     'stopped': False,
@@ -428,10 +429,15 @@ class _MotionSensor:
     TOP    = 0; FRONT  = 1; RIGHT  = 2
     BOTTOM = 3; BACK   = 4; LEFT   = 5
 
-    def tilt_angles(self):                            return (0, 0, 0)
+    def tilt_angles(self):
+        # Returns (yaw, pitch, roll) in decidegrees per LEGO convention.
+        # Top-down sim has no third axis, so pitch and roll are always 0.
+        return (_state.get('yaw_dDeg', 0), 0, 0)
     def angular_velocity(self, raw_unfiltered=False): return (0, 0, 0)
     def acceleration(self, raw_unfiltered=False):     return (0, 0, 981)
-    def reset_yaw(self, angle=0):                     return _NoopAwaitable()
+    def reset_yaw(self, angle=0):
+        # angle is in degrees per LEGO docs; the bridge command carries decidegrees.
+        return _bridge_call({'type': 'reset_yaw', 'angle_dDeg': int(angle) * 10})
     def gesture(self):                                return self.UNKNOWN
     def stable(self):                                 return True
     def up_face(self):                                return self.TOP

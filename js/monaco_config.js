@@ -328,7 +328,7 @@ window.registerSpikeCompletions = function(monaco) {
       members: {
         tilt_angles: {
           sig: 'hub.motion_sensor.tilt_angles() -> tuple[int, int, int]',
-          doc: 'Return (yaw, pitch, roll) in decidegrees.',
+          doc: 'Return (yaw, pitch, roll) in decidegrees. Yaw is driven from the simulator heading; pitch and roll are always 0 in the top-down sim.',
           params: [],
         },
         angular_velocity: {
@@ -343,7 +343,7 @@ window.registerSpikeCompletions = function(monaco) {
         },
         reset_yaw: {
           sig: 'hub.motion_sensor.reset_yaw(angle=0) -> None',
-          doc: 'Reset the yaw angle to the given value.',
+          doc: 'Record the current heading as yaw zero (or as `angle` degrees if supplied).\n\n**angle** — degrees; subsequent `tilt_angles()` calls report yaw relative to this offset.',
           params: ['angle'],
         },
         gesture: {

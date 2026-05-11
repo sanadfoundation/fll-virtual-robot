@@ -149,6 +149,27 @@ test('setUnits: assigns the new unit and marks _dirty', () => {
   assert.strictEqual(sim._dirty, true);
 });
 
+test('_updateSensorPanel: Yaw Change reads sim.getYaw(), signed degrees', () => {
+  const { sim, document } = createSimWithDocument();
+  const elMap = {};
+  const fakeEl = (id) => { elMap[id] = elMap[id] || { textContent: '', style: {} }; return elMap[id]; };
+  document.getElementById = (id) => fakeEl(id);
+
+  // Spawn heading = 90; constructor seeds yawZero to 90 → getYaw() = 0.
+  sim._updateSensorPanel();
+  assert.strictEqual(elMap['sp-yaw'].textContent, '0°');
+
+  // 30° CW from reset (heading decreases in math-y-up) → yaw +30.
+  sim.robot.heading = 60;
+  sim._updateSensorPanel();
+  assert.strictEqual(elMap['sp-yaw'].textContent, '30°');
+
+  // 30° CCW from reset → yaw -30.
+  sim.robot.heading = 120;
+  sim._updateSensorPanel();
+  assert.strictEqual(elMap['sp-yaw'].textContent, '-30°');
+});
+
 test('_updateSensorPanel: X/Y formatted via formatPosition(this.units)', () => {
   const { sim, document } = createSimWithDocument();
   sim.robot.x = 980;
