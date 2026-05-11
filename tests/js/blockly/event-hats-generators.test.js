@@ -216,3 +216,58 @@ test('whenColor: color name is JSON-safe (no quote injection)', () => {
   assert.ok(code.includes(`"it's-pink"`) || code.includes(`'it\\'s-pink'`),
     `expected safely-quoted color, got:\n${code}`);
 });
+
+// ── whenDistance ───────────────────────────────────────────────────────────
+
+// whenDistance has a VALUE input (not a field), so we need to stub
+// js.valueToCode to return the number string.
+function setupWhenDistance(comparator, valueStr, unit, body = '') {
+  const env = makeBlocklyEnv();
+  env.window.initBlockly('blockly-div', 'light');
+  const js = env.Blockly.JavaScript;
+  const block = makeHatBlock('flipperevents_whenDistance', { COMPARATOR: comparator, UNIT: unit });
+  // valueToCode lookup for input VALUE
+  const origValueToCode = js.valueToCode || (() => '');
+  js.valueToCode = (b, name) => (b === block && name === 'VALUE' ? valueStr : origValueToCode(b, name));
+  // body for the next-chain
+  const origBlockToCode = js.blockToCode || (() => '');
+  const next = body ? { _stub: true } : null;
+  if (next) {
+    block.getNextBlock = () => next;
+    js.blockToCode = (b) => (b === next ? body : origBlockToCode(b));
+  }
+  return js['flipperevents_whenDistance'](block);
+}
+
+test('whenDistance closer-than cm: emits < with mm conversion', () => {
+  const code = setupWhenDistance('<', '10', 'cm', "window.sim.stop();\n");
+  assert.ok(code.includes('window.sim.getDistanceSensorValue() < 100'),
+    `expected 10 cm → 100 mm threshold, got:\n${code}`);
+});
+
+test('whenDistance closer-than inches: emits < with mm conversion', () => {
+  const code = setupWhenDistance('<', '5', 'inches', '');
+  // 5 × 25.4 = 127
+  assert.ok(code.includes('window.sim.getDistanceSensorValue() < 127'),
+    `expected 5 in → 127 mm threshold, got:\n${code}`);
+});
+
+test('whenDistance closer-than %: emits < with percent-of-max conversion', () => {
+  // DIST_SENSOR_MAX_MM = 2000; 25 % → 500 mm
+  const code = setupWhenDistance('<', '25', '%', '');
+  assert.ok(code.includes('window.sim.getDistanceSensorValue() < 500'),
+    `expected 25 % → 500 mm threshold, got:\n${code}`);
+});
+
+test('whenDistance further-than: emits > with mm conversion', () => {
+  const code = setupWhenDistance('>', '30', 'cm', '');
+  assert.ok(code.includes('window.sim.getDistanceSensorValue() > 300'),
+    `expected 30 cm → 300 mm with >, got:\n${code}`);
+});
+
+test('whenDistance exactly-at: emits tolerance band (Math.abs … <= 10)', () => {
+  const code = setupWhenDistance('=', '20', 'cm', '');
+  // Tolerance band of ±10 mm around 200 mm.
+  assert.ok(code.includes('Math.abs(window.sim.getDistanceSensorValue() - 200) <= 10'),
+    `expected exact-match tolerance band, got:\n${code}`);
+});

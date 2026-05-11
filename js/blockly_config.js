@@ -1503,6 +1503,26 @@ function registerGenerators(Blockly) {
     return emitBoolHatPoll(block, `window.sim.getColorSensorColor() === ${JSON.stringify(color)}`);
   };
 
+  js['flipperevents_whenDistance'] = (block) => {
+    const comp   = block.getFieldValue('COMPARATOR');
+    const unit   = block.getFieldValue('UNIT');
+    const valStr = js.valueToCode ? js.valueToCode(block, 'VALUE', ORDER_ATOMIC) : '0';
+    const raw    = parseFloat(valStr);
+    const value  = isNaN(raw) ? 0 : raw;
+    // Convert to mm at generator time so the polling expression is just an int.
+    const DIST_MAX_MM = 2000;  // matches simulator's DIST_SENSOR_MAX_MM
+    let mm;
+    if (unit === 'cm')      mm = Math.round(value * 10);
+    else if (unit === 'inches') mm = Math.round(value * 25.4);
+    else if (unit === '%')  mm = Math.round((value * DIST_MAX_MM) / 100);
+    else                    mm = Math.round(value);
+    let cond;
+    if (comp === '<')      cond = `window.sim.getDistanceSensorValue() < ${mm}`;
+    else if (comp === '>') cond = `window.sim.getDistanceSensorValue() > ${mm}`;
+    else                   cond = `Math.abs(window.sim.getDistanceSensorValue() - ${mm}) <= 10`;  // '=' band
+    return emitBoolHatPoll(block, cond);
+  };
+
   js['event_broadcast'] = (block) => {
     const msg = val(block, 'BROADCAST_INPUT', "''");
     return `window.appendOutput('[broadcast] ' + String(${msg}), 'info');\n`;
