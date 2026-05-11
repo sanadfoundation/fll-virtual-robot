@@ -29,7 +29,7 @@ const { createSim } = require('../sim-helper');
 //
 // The hat block (flipperevents_whenProgramStarts) emits '' — it's a top-level
 // wrapper that runBlockly handles externally, so we skip it.
-function buildIssue9ProgramCode(Blockly) {
+function buildIssue9ProgramCode(Blockly, window) {
   const js = Blockly.JavaScript;
 
   // Block stubs — minimal surface matching getFieldValue / getInputTargetBlock.
@@ -79,22 +79,20 @@ function buildIssue9ProgramCode(Blockly) {
 
   js.valueToCode = origValueToCode;   // restore
 
-  // Prepend the same preamble that generateBlocklyJS() adds.
-  const preamble = [
-    `var _moveSpeed     = 50;`,
-    `var _motorSpeed    = 75;`,
-    `var _movePairL     = 'A';`,
-    `var _movePairR     = 'B';`,
-    `var _moveRotMM     = ${(Math.PI * 56).toFixed(4)};`,
-    `var _distMoved     = 0;`,
-    `var _stopMethod    = 'brake';`,
-    `var _moveAccel     = 'medium';`,
-    `var _motorStop     = {};`,
-    `var _motorAccel    = {};`,
-    `var _motorRelOffset= {};`,
-  ].join('\n');
+  const assembledBody = line1 + line2 + line3;
 
-  return preamble + '\n' + line1 + line2 + line3;
+  // Use the real generateBlocklyJS() to get the authoritative preamble + body.
+  // Override workspaceToCode to return our assembled body, then restore.
+  // This ensures any future preamble change in blockly_config.js flows into
+  // this test automatically (e.g. the _timerMs variable won't go missing).
+  const origWorkspaceToCode = js.workspaceToCode;
+  js.workspaceToCode = () => assembledBody;
+  // Pass a truthy stub so the early `!workspace` guard in generateBlocklyJS
+  // doesn't bail out.
+  const code = window.generateBlocklyJS({ _stub: true });
+  js.workspaceToCode = origWorkspaceToCode;
+
+  return code;
 }
 
 test('issue #9: wait_until does not exit immediately after resetYaw', async () => {
@@ -104,7 +102,7 @@ test('issue #9: wait_until does not exit immediately after resetYaw', async () =
   // The generators are registered on Blockly.JavaScript during initBlockly().
   const Blockly = env.Blockly;
 
-  const code = buildIssue9ProgramCode(Blockly);
+  const code = buildIssue9ProgramCode(Blockly, env.window);
 
   // Verify the emitted code has the expected shape before running it.
   assert.ok(code.includes('window.sim.resetYaw()'),
@@ -132,6 +130,9 @@ test('issue #9: wait_until does not exit immediately after resetYaw', async () =
   // the wait_until would spin indefinitely on the microtask queue before the
   // motor's macrotask ever ran.
   sim._animateSingleMotor = async (_port, _velocity, _distMM) => {
+    assert.notStrictEqual(_velocity, 0, 'motor stub expected non-zero velocity');
+    // 200-step ceiling is a watchdog — prevents an infinite loop if the wait
+    // condition fails to release (e.g., if a future bug re-breaks yaw).
     let stepsLeft = 200;
     while (sim.isRunning && stepsLeft-- > 0) {
       sim.robot.heading -= 5;
@@ -141,8 +142,10 @@ test('issue #9: wait_until does not exit immediately after resetYaw', async () =
 
   const startHeading = sim.robot.heading;
 
-  // The emitted code references `window.sim.*`. Pass window as a named
-  // parameter so AsyncFunction can resolve it without a global.
+  // runBlockly() in production calls `new AsyncFunction(code)` and resolves
+  // `window.sim` from the real global. Node's vm context has no `window`
+  // global, so we pass it as a named parameter instead. Same observable
+  // behavior; different mechanism.
   const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
   const fn = new AsyncFunction('window', code);
   await fn(env.window);
