@@ -227,6 +227,112 @@ test('stub-warn hat: appendOutput called once at program start', async () => {
   } finally { teardown(); }
 });
 
+test('numeric-prev "pressure changed": fires once per distinct value, never spuriously on frame 1', async () => {
+  // Mirrors what flipperevents_whenPressed(option='pressure changed') emits.
+  // The contract is (a) _hatPrev is seeded BEFORE the loop with the current
+  // value, so the first poll where cur === prev never fires; (b) every
+  // !== transition fires exactly once; (c) re-fires while body is running
+  // are dropped via _hatBusy.
+  const { sim } = setupWindow();
+  // Scripted force-value sequence: stay at 0, then 5, then 5 (no change),
+  // then 12, then 0. Expected fires: 5, 12, 0 → 3 transitions.
+  const seq = [0, 0, 5, 5, 12, 0, 0];
+  let idx = 0;
+  sim.getForceSensorValue = () => seq[Math.min(idx++, seq.length - 1)];
+  const main = `_mainBody = async () => {
+    // Drain enough polling ticks to walk the scripted sequence to completion.
+    for (let i = 0; i < seq_length + 2; i++) await new Promise(r => requestAnimationFrame(r));
+  };`.replace('seq_length', String(seq.length));
+  // Hat shape pinned to what emitNumericHatPoll produces: seed prev OUTSIDE
+  // the while, then compare with !== inside.
+  const hat = `_hats.push(async () => {
+    _hatPrev['p1'] = window.sim.getForceSensorValue();
+    while (window.sim.isRunning) {
+      const cur = window.sim.getForceSensorValue();
+      if (cur !== _hatPrev['p1'] && !_hatBusy['p1']) {
+        _hatBusy['p1'] = true;
+        try {
+          window.sim.fires = (window.sim.fires || 0) + 1;
+          window.sim.lastValue = cur;
+        } finally { _hatBusy['p1'] = false; }
+      }
+      _hatPrev['p1'] = cur;
+      await new Promise(r => requestAnimationFrame(r));
+    }
+  });`;
+  try {
+    await runProgram(PREAMBLE + '\n' + main + '\n' + hat + '\n' + EPILOGUE);
+    assert.strictEqual(sim.fires, 3,
+      'three distinct transitions (0→5, 5→12, 12→0) should fire three times; identical-value polls should not');
+    assert.strictEqual(sim.lastValue, 0, 'last fire saw final value 0');
+  } finally { teardown(); }
+});
+
+test('numeric-prev: identical first poll never spuriously fires', async () => {
+  // Regression guard for the seed-prev-inside-loop bug: if _hatPrev were
+  // seeded inside the while (e.g. starting at undefined), the first poll
+  // would see cur=5 !== undefined and fire spuriously. Sequence here is
+  // constant — no fire should ever happen.
+  const { sim } = setupWindow();
+  sim.getForceSensorValue = () => 42;
+  const main = `_mainBody = async () => {
+    for (let i = 0; i < 5; i++) await new Promise(r => requestAnimationFrame(r));
+  };`;
+  const hat = `_hats.push(async () => {
+    _hatPrev['p2'] = window.sim.getForceSensorValue();
+    while (window.sim.isRunning) {
+      const cur = window.sim.getForceSensorValue();
+      if (cur !== _hatPrev['p2'] && !_hatBusy['p2']) {
+        _hatBusy['p2'] = true;
+        try { window.sim.fires = (window.sim.fires || 0) + 1; }
+        finally { _hatBusy['p2'] = false; }
+      }
+      _hatPrev['p2'] = cur;
+      await new Promise(r => requestAnimationFrame(r));
+    }
+  });`;
+  try {
+    await runProgram(PREAMBLE + '\n' + main + '\n' + hat + '\n' + EPILOGUE);
+    assert.strictEqual(sim.fires, undefined, 'constant value must not fire');
+  } finally { teardown(); }
+});
+
+test('hat body throw is swallowed; subsequent transitions still fire', async () => {
+  // Mirrors emitBoolHatPoll's try/catch shape. A body that throws once must
+  // (a) not kill the program, (b) flip _hatBusy back to false in finally
+  // so a future false→true transition can re-arm.
+  const { sim, appendOutputCalls } = setupWindow();
+  const seq = [false, false, true, false, false, true, false];
+  let idx = 0;
+  sim.getForceSensorPressed = () => seq[Math.min(idx++, seq.length - 1)];
+  const main = `_mainBody = async () => {
+    for (let i = 0; i < seq_length + 2; i++) await new Promise(r => requestAnimationFrame(r));
+  };`.replace('seq_length', String(seq.length));
+  const hat = `_hats.push(async () => {
+    while (window.sim.isRunning) {
+      const cur = window.sim.getForceSensorPressed();
+      if (cur && !_hatPrev['h1'] && !_hatBusy['h1']) {
+        _hatBusy['h1'] = true;
+        try {
+          window.sim.fires = (window.sim.fires || 0) + 1;
+          if (window.sim.fires === 1) throw new Error('boom');
+        } catch (e) {
+          if (window.appendOutput) window.appendOutput('[Error] hat: ' + ((e && e.message) || e), 'error');
+        } finally { _hatBusy['h1'] = false; }
+      }
+      _hatPrev['h1'] = cur;
+      await new Promise(r => requestAnimationFrame(r));
+    }
+  });`;
+  try {
+    await runProgram(PREAMBLE + '\n' + main + '\n' + hat + '\n' + EPILOGUE);
+    assert.strictEqual(sim.fires, 2, 'second false→true transition fired despite first body throwing');
+    assert.strictEqual(appendOutputCalls.length, 1, 'error reported once');
+    assert.match(appendOutputCalls[0].msg, /boom/);
+    assert.strictEqual(appendOutputCalls[0].kind, 'error');
+  } finally { teardown(); }
+});
+
 test('no whenProgramStarts + finite cancellation: program resolves cleanly', async () => {
   const { sim } = setupWindow();
   const hat = `_hats.push(async () => {

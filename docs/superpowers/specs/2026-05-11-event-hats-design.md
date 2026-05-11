@@ -135,7 +135,7 @@ The polling-loop template above guards on `cur && !_hatPrev[id] && !_hatBusy[id]
 |---|---|---|---|---|
 | `whenProgramStarts` | — | n/a — body becomes `_mainBody`, not a polling task | n/a | n/a |
 | `whenPressed` | `PORT`, `OPTION` ∈ {`pressed`, `hard-pressed`, `released`, `pressure changed`} | `pressed` → `window.sim.getForceSensorPressed()`. `hard-pressed` → `window.sim.getForceSensorValue() >= 70`. `released` → `!window.sim.getForceSensorPressed()`. `pressure changed` → `window.sim.getForceSensorValue()` (compared via `!==`, see *Prev type*). | bool, except `pressure changed` → number | no |
-| `whenColor` | `PORT`, `OPTION` (colour name) | `window.sim.getColorSensorColor() === '<OPTION>'` | bool | no |
+| `whenColor` | `PORT`, `OPTION` (LEGO colour index from the `_COLORS` dropdown: `'-1'`/`'0'`/`'1'`/`'3'`/`'4'`/`'6'`/`'7'`/`'9'`/`'10'`) | `window.sim.getColorSensorColor() === '<simToken>'`, where `<simToken>` is the result of mapping `OPTION` through `_COLOR_INDEX_TO_NAME` (`'9' → 'red'`, `'1' → 'magenta'`, etc.). The simulator emits colour names, the dropdown stores LEGO codes — the generator translates at codegen time. | bool | no |
 | `whenDistance` | `PORT`, `COMPARATOR` ∈ {`<`, `=`, `>`}, `VALUE` (input), `UNIT` ∈ {`%`, `cm`, `inches`} | Convert `VALUE` to mm at generator time (`cm × 10`, `inches × 25.4`, `% × DIST_SENSOR_MAX_MM / 100`), then emit `window.sim.getDistanceSensorValue() <COMPARATOR> <mmValue>`. `=` uses a tolerance band of ±10 mm to match Scratch's "exactly at" being practically a band. | bool | no |
 | `whenTimer` | `VALUE` (input, seconds) | `(performance.now() - _t0) >= <VALUE × 1000>` | bool | **yes** |
 | `whenCondition` | `CONDITION` (boolean input expression) | `!!(<generated boolean for the CONDITION input>)`. Works with any boolean reporter — `force is pressed?`, `colour is red?`, comparison operators, etc. | bool | no |
@@ -144,6 +144,34 @@ The polling-loop template above guards on `cur && !_hatPrev[id] && !_hatBusy[id]
 | `whenOrientation` | `VALUE` (hub face) | Stub-warn: `up_face()` returns frozen `TOP`. | n/a | n/a |
 | `whenGesture` | `EVENT` ∈ {`shaken`, `tapped`, `falling`} | Stub-warn: `gesture()` returns `UNKNOWN`. | n/a | n/a |
 | `event_whenbroadcastreceived` | `BROADCAST_OPTION` (text) | **Out of scope.** Scratch's broadcast pattern needs a separate registry (`window._broadcasts = new Map()`). Treated as a stub-warn for v1; the broadcast runtime is a separate piece of work. | n/a | n/a |
+
+**Canonical-port validation (hats and reporters).** The simulator wires each
+sensor kind to a fixed port (`PORT_CONFIG` in `js/simulator.js`): colour → E,
+distance → F, force → C. Blockly's PORT dropdown nevertheless defaults to `A`
+and lets the student pick any of A–F. A `when force sensor on A is pressed`
+hat is meaningless — there is no force sensor on A — but without a guard the
+generator would happily emit a polling task that reads the canonical-port
+sensor anyway, making the PORT field appear functional when it isn't.
+
+Each colour / force / distance hat and reporter generator therefore compares
+the selected PORT against the canonical wiring before emitting its real
+condition:
+
+- **Hats (`whenPressed`, `whenColor`, `whenDistance`)**: non-canonical PORT
+  routes through the stub-warn pattern (see below), emitting a one-line
+  warning at program start and a no-op polling loop. The hat never fires.
+- **Reporters (`flippersensors_isColor`, `_color`, `_isReflectivity`,
+  `_reflectivity`, `_isPressed`, `_force`, `_isDistance`, `_distance`)**:
+  non-canonical PORT emits a comma-expression that warns once per
+  `(kind, port)` pair (deduplicated via a `Set` on `window._sensorPortWarns`)
+  and returns a safe sentinel — `false` for booleans, `-1` for colour-code /
+  distance numerics (matches the LEGO "none" / out-of-range convention),
+  `0` for reflectivity / force. The real `window.sim.getXSensorY()` accessor
+  is never reached on the wrong-port branch.
+
+The canonical wiring constants live in `_CANONICAL_SENSOR_PORTS` next to
+the hat helpers in `js/blockly_config.js`. If the simulator's `PORT_CONFIG`
+ever moves a sensor to a different port, that one constant moves with it.
 
 **Stub-warn pattern.** The four stub hats and the broadcast hat emit:
 

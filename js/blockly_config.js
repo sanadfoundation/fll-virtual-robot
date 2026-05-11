@@ -1442,23 +1442,25 @@ function registerGenerators(Blockly) {
 
   // emitBoolHatPoll: standard polling task for boolean-condition hats.
   // condExpr is a JS expression producing the current truthiness. opts.oneShot
-  // adds a `_hatFired` gate and sets it inside the body.
+  // adds a `_hatFired` gate and sets it BEFORE the body — so a body that
+  // throws still consumes the single-shot, matching the spec's "fires once"
+  // contract for one-shot hats like whenTimer.
   function emitBoolHatPoll(block, condExpr, opts = {}) {
-    const id   = block.id;
-    const next = block.getNextBlock ? block.getNextBlock() : null;
-    const body = next ? js.blockToCode(next) : '';
-    const fireGate = opts.oneShot ? ` && !_hatFired['${id}']` : '';
+    const id    = block.id;
+    const kind  = block.type || 'hat';
+    const next  = block.getNextBlock ? block.getNextBlock() : null;
+    const body  = next ? js.blockToCode(next) : '';
+    const fireGate   = opts.oneShot ? ` && !_hatFired['${id}']` : '';
     const oneShotSet = opts.oneShot ? `\n        _hatFired['${id}'] = true;` : '';
     return [
       `_hats.push(async () => {`,
       `  while (window.sim.isRunning) {`,
       `    const cur = ${condExpr};`,
       `    if (cur && !_hatPrev['${id}'] && !_hatBusy['${id}']${fireGate}) {`,
-      `      _hatBusy['${id}'] = true;`,
+      `      _hatBusy['${id}'] = true;${oneShotSet}`,
       `      try {`,
-      `${body}${oneShotSet}`,
-      `      } catch (e) {`,
-      `        if (window.appendOutput) window.appendOutput('[Error] hat: ' + ((e && e.message) || e), 'error');`,
+      `${body}      } catch (e) {`,
+      `        if (window.appendOutput) window.appendOutput('[Error] ${kind}: ' + ((e && e.message) || e), 'error');`,
       `      } finally {`,
       `        _hatBusy['${id}'] = false;`,
       `      }`,
@@ -1476,6 +1478,7 @@ function registerGenerators(Blockly) {
   // frame doesn't fire spuriously.
   function emitNumericHatPoll(block, valueExpr) {
     const id   = block.id;
+    const kind = block.type || 'hat';
     const next = block.getNextBlock ? block.getNextBlock() : null;
     const body = next ? js.blockToCode(next) : '';
     return [
@@ -1487,7 +1490,7 @@ function registerGenerators(Blockly) {
       `      _hatBusy['${id}'] = true;`,
       `      try {`,
       `${body}      } catch (e) {`,
-      `        if (window.appendOutput) window.appendOutput('[Error] hat: ' + ((e && e.message) || e), 'error');`,
+      `        if (window.appendOutput) window.appendOutput('[Error] ${kind}: ' + ((e && e.message) || e), 'error');`,
       `      } finally {`,
       `        _hatBusy['${id}'] = false;`,
       `      }`,
