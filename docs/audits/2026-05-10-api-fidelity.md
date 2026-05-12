@@ -30,14 +30,14 @@ Source references are `file:line` against `main` (commit `525f5b3`).
 | `motor_pair.move_tank_for_degrees(pair, degrees, lv, rv, …)` | **OK** | Routes through `case 'move_tank'` which applies independent wheel speeds (`js/simulator.js:859`). |
 | `motor_pair.move_tank_for_time(pair, lv, rv, duration, …)` | **OK** | Bridge converts duration → degrees using `max(|lv|,|rv|)` (`py/spike_bridge.py:274`); pair-trap signature order is correct. |
 | `motor_pair.move_tank(pair, lv, rv, …)` | **PARTIAL** | Applies independent wheel speeds (`_animateTank(lv/1000, rv/1000, 200)`) but only for 200 mm, not continuous. Pivot arc is visible but truncated. |
-| `motor_pair.stop(pair, …)` | **BROKEN** | `_execCmd 'stop': break;` — does nothing (`js/simulator.js:877`). Since `move`/`move_tank` already self-terminate after a fixed distance, `stop()` has nothing left to interrupt either — a "wait until X then stop" pattern doesn't work. |
+| `motor_pair.stop(pair, …)` | **OK** | `_execCmd 'stop'` flips `_motionAborted` when `cmd.pair_id` matches the active motion descriptor; `_animateTank`'s loop checks the flag each iteration and breaks (`js/simulator.js:1004`). "Wait until X then stop" now works for in-flight `move`/`move_tank`/`start`/`start_tank`. |
 | `motor_pair.unpair(pair)` | **STUB** | Bridge returns `_NoopAwaitable`; `pairMap` is never cleared (`py/spike_bridge.py:241`). |
 | `motor.run_for_degrees(port, degrees, velocity, …)` | **OK** | Routes through `_animateSingleMotor` which dispatches by port role (drive-left → `_animateTank(v, 0, …)`, drive-right → `_animateTank(0, v, …)`, otherwise time-only sleep). Correctly respects `pairMap` overrides. |
 | `motor.run_for_time(port, duration, velocity, …)` | **OK** | Bridge sends `motor_time`; `_execCmd` converts to distance via `|v| × MM_PER_MS_100 × ms` then routes through `_animateSingleMotor`. |
 | `motor.run_to_absolute_position(port, position, …)` | **BROKEN** | Treats `position` as a **delta in degrees**, not an absolute target (`js/simulator.js:880`). Since `motor.absolute_position()` also always returns 0 (see below), the absolute-position contract is entirely unfulfilled. The block also ignores the `direction` kw-arg, even though the bridge forwards it (`py/spike_bridge.py:178`). |
 | `motor.run_to_relative_position(port, position, …)` | **BROKEN** | Same as `run_to_absolute_position` — rotates by `position` degrees from wherever, but the encoder is never tracked so "relative" has no anchor. |
 | `motor.run(port, velocity, …)` | **PARTIAL** | LEGO docs say "Run motor continuously"; sim runs for 180 mm and returns. Useful for a quick spin, not for "drive until button pressed". |
-| `motor.stop(port, …)` | **BROKEN** | `_execCmd 'motor_stop': break;` — no-op (`js/simulator.js:901`). |
+| `motor.stop(port, …)` | **OK** | `_execCmd 'motor_stop'` flips `_motionAborted` when `cmd.port` is in the active motion's port set (single-motor or either pair member) (`js/simulator.js:1031`). |
 | `motor.velocity(port)` | **OK (best-effort)** | Bridge returns `_motor_velocities[letter]` which is **last-commanded** velocity, not actual (`py/spike_bridge.py:200`). Documented in the bridge comment as the honest answer for a sim without dynamics. |
 | `motor.absolute_position(port)` | **BROKEN** | Reads `_state['motors'][letter]`, but `js/simulator.js:123` initialises every encoder to `0` and `_animateTank` never updates `this.robot.motors`. Always returns 0. |
 | `motor.relative_position(port)` | **BROKEN** | Same path as `absolute_position`; always 0. |
@@ -241,7 +241,7 @@ Recommend marking these "(sim-only)" in monaco hover text, or dropping them.
 
 | Severity | Python | Blockly | Notes |
 |---|---|---|---|
-| BROKEN | 12 | 4 | Position getters, run_to_*, motor.stop, motor_pair.move (steering ignored), runloop.until, light_matrix.write/show/show_image, color_sensor.reflection/rgbi, volume blocks |
+| BROKEN | 10 | 4 | Position getters, run_to_*, motor_pair.move (steering ignored), runloop.until, light_matrix.write/show/show_image, color_sensor.reflection/rgbi, volume blocks |
 | PARTIAL | 4 | 11 | continuous motions truncated to 200/5000 mm, sound effects ignored, hub yaw vs motion_sensor split, color-token gap, % distance unit |
 | STUB | ~20 | ~15 | hub IMU, hub buttons, app.*, color_matrix, face LEDs, hat blocks other than whenProgramStarts |
 | OK | ~25 | ~30 | All core movement-with-steering, sleep, sensor color/distance, branch/loop, set_pixel, clear, basic beep |
@@ -252,7 +252,7 @@ Recommend marking these "(sim-only)" in monaco hover text, or dropping them.
 
 1. **Track motor encoders.** In `_animateTank`, accumulate degrees travelled on each wheel into `this.robot.motors[A/B]` (and the auxiliary motor's port for `_animateSingleMotor`). That single fix unlocks: `motor.absolute_position`, `motor.relative_position`, `getMotorPosition`, `flippermotor_absolutePosition`, `flippermoremotor_position`, "shortest path" arc routing, and true `run_to_absolute_position`/`run_to_relative_position`.
 2. **Send richer sensor state.** Add `reflection`, `rgb`, and per-motor `velocity` to `_sensorState()` (`js/simulator.js:1050`). Fixes Python `color_sensor.reflection/rgbi` and aligns Python `motor.velocity` with the real wheel speed.
-3. **Stop = stop.** Make `_execCmd 'stop' / 'motor_stop'` actually halt the in-flight `_animateTank` loop (an `AbortController` or a per-command flag). This makes `motor.stop()`, `motor_pair.stop()`, and the corresponding Blockly blocks meaningful, and unlocks "wait until X then stop" patterns.
+3. **~~Stop = stop.~~** Done in commit `1f2f013`. `_animateTank`'s loop checks `_motionAborted` each iteration; `_execCmd 'stop' / 'motor_stop'` flip the flag when their pair_id / port matches the in-flight motion descriptor (`_activeMotion`). Unlocks "wait until X then stop" patterns for `motor_pair.{move, move_tank, start, start_tank}` and `motor.{run, run_for_*}`. Blockly-level `flippermotor_motorStop` / `flippermove_stopMove` still call the whole-sim `window.sim.stop()` — granular Blockly stops are a follow-up.
 4. **Implement `runloop.until`.** Bridge-side poll loop that calls the predicate and awaits a short `'wait'` between checks. This is the canonical FLL pattern.
 5. **Wire steering on `motor_pair.move`.** Either send `'move'` instead of `'start'` for continuous motion, or fix `case 'start'` to apply steering before dispatching to `_animateTank`. Either way, also length the run (or replace 200 mm with a true continuous loop tied to a stop flag).
 6. **Fix `_showText`.** A minimal 5×5 font for `hub.light_matrix.write` + the missing `'hub_image'` case for `show` / `show_image` would make text-and-image output actually work in tutorials.
