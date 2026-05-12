@@ -31,14 +31,17 @@ js.eval(
 )
 
 # ── Phase 2: Bridge call ─────────────────────────────────────────────────────
-_state = {
-    'x': 350, 'y': 163, 'heading': 90,
-    'color': 'none', 'distance_mm': 300,
-    'yaw_dDeg': 0,
-    'motors': {'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0},
-    'force_dn': 0, 'force_pressed': False, 'force_raw': 0,
-    'stopped': False,
-}
+def _default_state():
+    return {
+        'x': 350, 'y': 163, 'heading': 90,
+        'color': 'none', 'distance_mm': 300,
+        'yaw_dDeg': 0,
+        'motors': {'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0},
+        'force_dn': 0, 'force_pressed': False, 'force_raw': 0,
+        'stopped': False,
+    }
+
+_state = _default_state()
 
 # Tests set this to capture commands without round-tripping through JS.
 _test_intercept = None
@@ -693,6 +696,10 @@ sys.modules['color_matrix']    = color_matrix
 async def _handle_run(code):
     global _user_coro
     _user_coro = None
+    # Reset cached sensor _state to spawn defaults so a re-run's first
+    # sensor reads don't return the previous run's final values.
+    _state.clear()
+    _state.update(_default_state())
     try:
         exec(code, {})
         if _user_coro is not None:

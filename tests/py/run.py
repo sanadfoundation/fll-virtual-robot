@@ -24,12 +24,13 @@ import test_gaps
 import test_motor_sensor_gaps
 import test_force_sensor
 import test_motion_sensor
+import test_state_reset
 
 loader = unittest.TestLoader()
 suite  = unittest.TestSuite()
 for mod in [test_motor_pair, test_motor, test_hub, test_wait, test_print,
             test_validation, test_gaps, test_motor_sensor_gaps,
-            test_force_sensor, test_motion_sensor]:
+            test_force_sensor, test_motion_sensor, test_state_reset]:
     suite.addTests(loader.loadTestsFromModule(mod))
 
 runner = unittest.TextTestRunner(verbosity=2)
