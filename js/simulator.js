@@ -155,6 +155,14 @@ class RobotSimulator {
     this._stopRequested  = false;
     this._yawZeroHeading_deg = this.robot.heading;
 
+    // In-flight motion descriptor + abort flag. _animateTank's loop checks
+    // _motionAborted each iteration and breaks; _execCmd 'stop' / 'motor_stop'
+    // flip the flag when their pair_id / port matches _activeMotion.
+    // pair: pair_id of an active pair motion (else null); ports: motor letters
+    // this motion is driving (a pair's left+right, or a single motor's port).
+    this._activeMotion  = null;
+    this._motionAborted = false;
+
     // Force-sensor pipeline state. emaN is the smoothed physics force in Newtons;
     // manualStartMs is the timestamp the user pressed the Hub-panel button (null
     // = released); the public combined value lives on robot.sensors.forceN.
@@ -962,7 +970,10 @@ class RobotSimulator {
         const spd    = cmd.speed / 1000;            // normalize -1..1
         const steer  = (cmd.steering || 0) / 100;   // -1..1
         const { leftV, rightV } = window.kinematics.steeringToWheels(spd, steer);
-        await this._animateTank(leftV, rightV, distMM);
+        await this._runMotion(
+          this._descriptorForPair(cmd.pair_id),
+          () => this._animateTank(leftV, rightV, distMM),
+        );
         break;
       }
 
@@ -970,7 +981,10 @@ class RobotSimulator {
         const distMM = this._amountToMM(cmd.amount, cmd.unit);
         const leftV  = cmd.left_speed  / 1000;
         const rightV = cmd.right_speed / 1000;
-        await this._animateTank(leftV, rightV, distMM);
+        await this._runMotion(
+          this._descriptorForPair(cmd.pair_id),
+          () => this._animateTank(leftV, rightV, distMM),
+        );
         break;
       }
 
@@ -980,11 +994,17 @@ class RobotSimulator {
         {
           const leftV  = cmd.type === 'start' ? (cmd.speed/1000) : (cmd.left_speed/1000);
           const rightV = cmd.type === 'start' ? (cmd.speed/1000) : (cmd.right_speed/1000);
-          await this._animateTank(leftV, rightV, 200);
+          await this._runMotion(
+            this._descriptorForPair(cmd.pair_id),
+            () => this._animateTank(leftV, rightV, 200),
+          );
         }
         break;
 
       case 'stop':
+        if (this._activeMotion && this._activeMotion.pair === cmd.pair_id) {
+          this._motionAborted = true;
+        }
         break;
 
       case 'motor_degrees': {
@@ -1009,6 +1029,9 @@ class RobotSimulator {
       }
 
       case 'motor_stop':
+        if (this._activeMotion && this._activeMotion.ports.indexOf(cmd.port) !== -1) {
+          this._motionAborted = true;
+        }
         break;
 
       case 'print':
@@ -1083,6 +1106,7 @@ class RobotSimulator {
 
     for (let i = 0; i < totalSteps; i++) {
       if (!this.isRunning) break;
+      if (this._motionAborted) break;
 
       // Body angle is read each step because angVel rotates the body and the
       // forward direction has to follow — kinematics.wheelsToBodyVelocity
@@ -1125,35 +1149,61 @@ class RobotSimulator {
     // drive a wrong-port motor command past the Python validator.
     this._assertPortKind(port, 'motor');
 
-    // motor_pair.pair(...) is the runtime override; it wins over the canonical
-    // PORT_CONFIG roles so user-declared swaps (e.g. PAIR_1 = B,A) take effect.
-    const pair = this._findPairForPort(port);
-    if (pair) {
-      const isLeft = pair.left === port;
-      const leftV  = isLeft ? velocity : 0;
-      const rightV = isLeft ? 0 : velocity;
-      await this._animateTank(leftV, rightV, distMM);
-      return;
-    }
+    await this._runMotion({ pair: null, ports: [port] }, async () => {
+      // motor_pair.pair(...) is the runtime override; it wins over the canonical
+      // PORT_CONFIG roles so user-declared swaps (e.g. PAIR_1 = B,A) take effect.
+      const pair = this._findPairForPort(port);
+      if (pair) {
+        const isLeft = pair.left === port;
+        const leftV  = isLeft ? velocity : 0;
+        const rightV = isLeft ? 0 : velocity;
+        await this._animateTank(leftV, rightV, distMM);
+        return;
+      }
 
-    // Real Spike doesn't require motor_pair.pair() for motor.run() to do
-    // something — the motor spins, and if it's wired to a wheel the robot
-    // pivots around the stationary wheel. PORT_CONFIG roles encode that
-    // wiring, so single-motor commands on drive ports route through tank
-    // physics with the off-side wheel held at zero.
-    const role = this._portConfig[port] && this._portConfig[port].role;
-    if (role === 'drive-left') {
-      await this._animateTank(velocity, 0, distMM);
-      return;
-    }
-    if (role === 'drive-right') {
-      await this._animateTank(0, velocity, distMM);
-      return;
-    }
+      // Real Spike doesn't require motor_pair.pair() for motor.run() to do
+      // something — the motor spins, and if it's wired to a wheel the robot
+      // pivots around the stationary wheel. PORT_CONFIG roles encode that
+      // wiring, so single-motor commands on drive ports route through tank
+      // physics with the off-side wheel held at zero.
+      const role = this._portConfig[port] && this._portConfig[port].role;
+      if (role === 'drive-left') {
+        await this._animateTank(velocity, 0, distMM);
+        return;
+      }
+      if (role === 'drive-right') {
+        await this._animateTank(0, velocity, distMM);
+        return;
+      }
 
-    // Auxiliary motor (arm / attachment with no wheel): pass time only.
-    const ms = (distMM / MM_PER_MS_100) / Math.max(0.1, Math.abs(velocity));
-    await this._sleep(ms / this.speedMult);
+      // Auxiliary motor (arm / attachment with no wheel): pass time only.
+      const ms = (distMM / MM_PER_MS_100) / Math.max(0.1, Math.abs(velocity));
+      await this._sleep(ms / this.speedMult);
+    });
+  }
+
+  // Build the active-motion descriptor for a pair_id. ports comes from the
+  // current pairMap binding; if no pair has been declared yet, ports stays
+  // empty so motor_stop never matches (motor.stop() can still target the
+  // single-motor descriptor in _animateSingleMotor).
+  _descriptorForPair(pairId) {
+    const p = this.pairMap[pairId];
+    const ports = p ? [p.left, p.right] : [];
+    return { pair: pairId, ports };
+  }
+
+  // Sets the active-motion descriptor and clears the abort flag for the
+  // duration of the awaited motion. The 'stop' / 'motor_stop' command
+  // handlers look at the descriptor to decide whether to flip the flag,
+  // and _animateTank's loop reads the flag each iteration.
+  async _runMotion(descriptor, fn) {
+    this._activeMotion  = descriptor;
+    this._motionAborted = false;
+    try {
+      await fn();
+    } finally {
+      this._activeMotion = null;
+    }
   }
 
   _findPairForPort(port) {
