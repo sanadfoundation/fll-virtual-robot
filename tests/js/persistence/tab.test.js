@@ -6,28 +6,28 @@ const { makeMainEnv } = require('../mocks/main-env');
 
 const TAB_KEY = 'fll-vr-tab';
 
-test('applyStoredTab: defaults to python when nothing is stored', () => {
+test('applyStoredTab: defaults to blocks when nothing is stored', () => {
   const { context, storage, elementsById } = makeMainEnv();
   context.applyStoredTab();
   assert.strictEqual(storage.has(TAB_KEY), false, 'fallback path must not write to storage');
-  assert.ok(elementsById['py-editor-wrap'].style.display !== 'none',
-    'python editor wrap should be visible');
-  assert.strictEqual(elementsById['blockly-div'].style.display, 'none',
-    'blockly div should be hidden');
+  assert.strictEqual(elementsById['py-editor-wrap'].style.display, 'none',
+    'python editor wrap should be hidden');
+  assert.strictEqual(elementsById['blockly-div'].style.display, 'block',
+    'blockly div should be visible');
 });
 
-test('applyStoredTab: falls back to python on an unknown stored value', () => {
+test('applyStoredTab: falls back to blocks on an unknown stored value', () => {
   const { context, elementsById } = makeMainEnv({ storage: { [TAB_KEY]: 'banana' } });
-  context.applyStoredTab();
-  assert.ok(elementsById['py-editor-wrap'].style.display !== 'none');
-  assert.strictEqual(elementsById['blockly-div'].style.display, 'none');
-});
-
-test('applyStoredTab: restores blocks tab when stored', () => {
-  const { context, elementsById } = makeMainEnv({ storage: { [TAB_KEY]: 'blocks' } });
   context.applyStoredTab();
   assert.strictEqual(elementsById['py-editor-wrap'].style.display, 'none');
   assert.strictEqual(elementsById['blockly-div'].style.display, 'block');
+});
+
+test('applyStoredTab: restores python tab when stored', () => {
+  const { context, elementsById } = makeMainEnv({ storage: { [TAB_KEY]: 'python' } });
+  context.applyStoredTab();
+  assert.ok(elementsById['py-editor-wrap'].style.display !== 'none');
+  assert.strictEqual(elementsById['blockly-div'].style.display, 'none');
 });
 
 test('switchMode: persists the active tab', () => {
@@ -44,14 +44,14 @@ test('switchMode: skips persistence when {persist:false} is passed', () => {
   assert.strictEqual(storage.has(TAB_KEY), false);
 });
 
-test('handleDefaults: resets the active tab to python', () => {
+test('handleDefaults: resets the active tab to blocks', () => {
   const { context, storage, elementsById } = makeMainEnv({
     confirm: true,
-    storage: { [TAB_KEY]: 'blocks' },
+    storage: { [TAB_KEY]: 'python' },
   });
-  context.switchMode('blocks', { persist: false });
+  context.switchMode('python', { persist: false });
   context.handleDefaults();
-  assert.strictEqual(storage.get(TAB_KEY), 'python');
-  assert.ok(elementsById['py-editor-wrap'].style.display !== 'none');
-  assert.strictEqual(elementsById['blockly-div'].style.display, 'none');
+  assert.strictEqual(storage.get(TAB_KEY), 'blocks');
+  assert.strictEqual(elementsById['py-editor-wrap'].style.display, 'none');
+  assert.strictEqual(elementsById['blockly-div'].style.display, 'block');
 });
