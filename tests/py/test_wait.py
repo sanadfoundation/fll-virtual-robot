@@ -1,4 +1,5 @@
 """Characterize wait() command schema and runloop.run() coroutine driving."""
+import asyncio
 import unittest
 import mock_js
 import spike_bridge as sb
@@ -75,3 +76,74 @@ class TestRunloop(unittest.TestCase):
         self.assertEqual(len(cmds), 3)
         for cmd in cmds:
             self.assertEqual(cmd, {'type': 'wait', 'ms': 100})
+
+    def test_runloop_runs_multiple_coroutines_to_completion(self):
+        async def f1():
+            await sb.wait(50)
+        async def f2():
+            await sb.wait(75)
+
+        sb.runloop.run(f1(), f2())
+        cmds = mock_js.bridge_mock.all()
+        durations = sorted(c['ms'] for c in cmds if c['type'] == 'wait')
+        self.assertEqual(durations, [50, 75])
+
+
+class TestRunloopParallel(unittest.TestCase):
+    """Production path: multi-fn runloop.run interleaves via asyncio.gather.
+
+    Bypasses bridge_mock — we need the real asyncio loop and a real awaitable
+    so we can observe whether tasks actually interleave at await points.
+    """
+
+    def setUp(self):
+        sb._test_intercept = None
+        self._original_bridge_call = sb._bridge_call
+
+    def tearDown(self):
+        sb._bridge_call = self._original_bridge_call
+        sb._user_coro = None
+
+    def test_multiple_coroutines_interleave_at_awaits(self):
+        events = []
+
+        async def fake_bridge(cmd):
+            events.append(('start', cmd['id']))
+            await asyncio.sleep(0)
+            events.append(('end', cmd['id']))
+
+        sb._bridge_call = lambda cmd: fake_bridge(cmd)
+
+        async def f1():
+            await sb._bridge_call({'id': 'f1-a'})
+            await sb._bridge_call({'id': 'f1-b'})
+
+        async def f2():
+            await sb._bridge_call({'id': 'f2-a'})
+            await sb._bridge_call({'id': 'f2-b'})
+
+        sb.runloop.run(f1(), f2())
+        self.assertIsNotNone(sb._user_coro)
+        asyncio.run(sb._user_coro)
+
+        starts = [e[1] for e in events if e[0] == 'start']
+        # Sequential (broken): ['f1-a', 'f1-b', 'f2-a', 'f2-b']
+        # Parallel (correct):  f2-a starts before f1-b.
+        self.assertLess(starts.index('f2-a'), starts.index('f1-b'),
+                        'coroutines did not interleave: ' + repr(starts))
+
+    def test_single_coroutine_still_runs(self):
+        events = []
+
+        async def fake_bridge(cmd):
+            events.append(cmd['id'])
+
+        sb._bridge_call = lambda cmd: fake_bridge(cmd)
+
+        async def main():
+            await sb._bridge_call({'id': 'one'})
+            await sb._bridge_call({'id': 'two'})
+
+        sb.runloop.run(main())
+        asyncio.run(sb._user_coro)
+        self.assertEqual(events, ['one', 'two'])

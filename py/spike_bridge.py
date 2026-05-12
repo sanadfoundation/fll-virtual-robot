@@ -506,9 +506,11 @@ class runloop:
             if len(funcs) == 1:
                 _user_coro = funcs[0]
             else:
+                # Real Spike runs the functions as concurrent tasks;
+                # asyncio.gather mirrors that — each task is scheduled
+                # independently and interleaves at its own await points.
                 async def _all():
-                    for c in funcs:
-                        await c
+                    await asyncio.gather(*funcs)
                 _user_coro = _all()
 
     @staticmethod
