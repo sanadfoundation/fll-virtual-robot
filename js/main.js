@@ -170,9 +170,11 @@ function initHubSidebar() {
   // width changes, panel-right reflows but no resize event fires — so
   // re-trigger the sim's fit logic when the transition lands.
   panel.addEventListener('transitionend', e => {
-    if (e.propertyName === 'width' && window.sim && typeof window.sim._resize === 'function') {
+    if (e.propertyName !== 'width') return;
+    if (window.sim && typeof window.sim._resize === 'function') {
       window.sim._resize();
     }
+    resizeBlocklyWorkspace();
   });
 }
 
@@ -238,6 +240,18 @@ function initSim() {
   }
 }
 
+// Blockly caches its parent div's dimensions in workspace metrics — positioning
+// of the trashcan and zoom controls reads from that cache, not the live DOM.
+// Without this call after any geometry change, the trashcan (anchored flush to
+// the bottom-right corner) drifts outside the visible workspace and stops
+// receiving clicks. Skip while hidden: svgResize on a display:none parent
+// caches 0×0, which leaves the icons pinned to the origin once shown.
+function resizeBlocklyWorkspace() {
+  if (!blocklyWs || typeof Blockly === 'undefined') return;
+  if (currentMode !== 'blocks') return;
+  Blockly.svgResize(blocklyWs);
+}
+
 function initBlocklyWorkspace() {
   if (blocklyWs) return;
   try {
@@ -287,6 +301,7 @@ function switchMode(mode, options) {
     pyWrap.style.display = 'none';
     blkDiv.style.display = 'block';
     initBlocklyWorkspace();
+    resizeBlocklyWorkspace();
   }
 
   if (!options || options.persist !== false) lsSet(TAB_KEY, m);
@@ -539,12 +554,14 @@ function initResizeHandle() {
     const newW  = Math.max(260, Math.min(startW + delta, window.innerWidth - 300));
     left.style.width = newW + 'px';
     if (editor) editor.layout();
+    resizeBlocklyWorkspace();
   });
 
   document.addEventListener('mouseup', () => {
     dragging = false;
     document.body.style.userSelect = '';
     if (sim) sim._resize();
+    resizeBlocklyWorkspace();
   });
 }
 
@@ -617,6 +634,7 @@ document.addEventListener('DOMContentLoaded', () => {
   _pollForWorker();
   initResizeHandle();
   initHubSidebar();
+  window.addEventListener('resize', resizeBlocklyWorkspace);
 
   document.getElementById('tab-python').addEventListener('click', () => switchMode('python'));
   document.getElementById('tab-blocks').addEventListener('click', () => switchMode('blocks'));
