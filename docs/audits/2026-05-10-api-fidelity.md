@@ -145,7 +145,7 @@ Fix: add `'cyan': 4` to `_COLOR_INT_MAP` (alias for AZURE), or rename sim's toke
 
 | API | Severity | Behavior |
 |---|---|---|
-| `runloop.run(*functions)` | **PARTIAL** | Single-function case is correct. Multi-function case **runs sequentially, not in parallel** — the wrapper coroutine is `async def _all(): for c in funcs: await c` (`py/spike_bridge.py:509-512`), so each coroutine runs to completion before the next starts. Real Spike scheduler runs them as concurrent tasks; patterns like `runloop.run(drive(), watch_sensor())` will not interleave here. Test-mode path (`_test_intercept`) is also sequential by `coro.send(None)`. |
+| `runloop.run(*functions)` | **OK** | Single-function case uses fast path (`_user_coro = funcs[0]`). Multi-function case wraps with `await asyncio.gather(*funcs)` so coroutines interleave at await points, matching the real Spike scheduler (`py/spike_bridge.py:509-515`, fixed in commit `21549e1`). Test-mode path (`_test_intercept`) drives each coroutine to completion in argument order — interleaving isn't observable there because `_NoopAwaitable` never yields. |
 | `runloop.sleep_ms(duration)` | **OK** | Bridge sends `'wait'`; `_execCmd 'wait'` does `await this._sleep(cmd.ms / speedMult)`. |
 | `runloop.until(function, timeout=0)` | **BROKEN** | Returns `_NoopAwaitable` — the predicate is never polled (`py/spike_bridge.py:512`). `await runloop.until(lambda: distance_sensor.distance(port.F) < 200)` returns immediately. |
 | top-level `wait(ms)` | **OK** (sim-only convenience) | Same `'wait'` path. Not in LEGO docs. |
@@ -242,7 +242,7 @@ Recommend marking these "(sim-only)" in monaco hover text, or dropping them.
 | Severity | Python | Blockly | Notes |
 |---|---|---|---|
 | BROKEN | 12 | 4 | Position getters, run_to_*, motor.stop, motor_pair.move (steering ignored), runloop.until, light_matrix.write/show/show_image, color_sensor.reflection/rgbi, volume blocks |
-| PARTIAL | 5 | 11 | continuous motions truncated to 200/5000 mm, sound effects ignored, hub yaw vs motion_sensor split, color-token gap, % distance unit, `runloop.run` multi-fn sequential |
+| PARTIAL | 4 | 11 | continuous motions truncated to 200/5000 mm, sound effects ignored, hub yaw vs motion_sensor split, color-token gap, % distance unit |
 | STUB | ~20 | ~15 | hub IMU, hub buttons, app.*, color_matrix, face LEDs, hat blocks other than whenProgramStarts |
 | OK | ~25 | ~30 | All core movement-with-steering, sleep, sensor color/distance, branch/loop, set_pixel, clear, basic beep |
 
@@ -258,4 +258,4 @@ Recommend marking these "(sim-only)" in monaco hover text, or dropping them.
 6. **Fix `_showText`.** A minimal 5×5 font for `hub.light_matrix.write` + the missing `'hub_image'` case for `show` / `show_image` would make text-and-image output actually work in tutorials.
 7. **Align color tokens.** Add `'cyan': 4` to `_COLOR_INT_MAP` (or rename the sim token to `'azure'`) so Python and Blockly agree on every sensor read.
 8. **Honor `_motorStop` / `_motorAccel` / `_moveAccel` / `_stopMethod`.** Today Blockly writes them; no generator reads them. Either delete the blocks or have `_animateTank` apply a ramp at start/end based on `_moveAccel`.
-9. **Parallelize `runloop.run(*funcs)`.** Replace the sequential `for c in funcs: await c` wrapper with `await asyncio.gather(*funcs)` (asyncio is already imported at `py/spike_bridge.py:705-708`; `asyncio.gather` is available in MicroPython's asyncio). Two caveats to design through before flipping it: (a) `_test_intercept` drives coroutines synchronously via `.send(None)` with no event loop, so tests would need a small round-robin stepper to preserve parallel semantics there; (b) `_bridge_call` is a postMessage round-trip and `_execCmd` currently assumes one in-flight motion command — two coroutines issuing concurrent `motor.run(...)` would race, so the JS side needs a story for interleaved commands (queue per port, or last-write-wins) before parallel Python tasks are safe.
+9. **~~Parallelize `runloop.run(*funcs)`.~~** Done in commit `21549e1`. Multi-function path now uses `await asyncio.gather(*funcs)`. Test mode remains sequential at the command-capture layer (intentional — `_NoopAwaitable` doesn't yield, so there's nothing to interleave). **Open downstream concern:** `_bridge_call` is a postMessage round-trip and `_execCmd` currently assumes one in-flight motion command — two coroutines issuing concurrent `motor.run(...)` will race at the JS side. Need a story for interleaved commands (per-port queue, or last-write-wins) before mission code that drives motors from multiple tasks is safe.
