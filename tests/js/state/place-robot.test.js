@@ -47,10 +47,10 @@ test('placeRobot: returns false and leaves pose untouched while running', async 
 });
 
 test('placeRobot: refreshes colorValue based on the new sensor position', async () => {
-  // Position the robot so the (currently-mounted-rear) sensor lands on the
-  // y=463 horizontal black line: robot center y = 463 + 88 = 551 (north heading).
+  // Sensor is mounted 88 mm forward of robot centre. Place the robot with
+  // centre at y=375 facing north so the sensor lands on the y=463 black line.
   const sim = createSim();
-  await sim.placeRobot(350, 551, 90);
+  await sim.placeRobot(350, 375, 90);
   assert.strictEqual(sim.robot.sensors.colorValue, 'black');
 });
 

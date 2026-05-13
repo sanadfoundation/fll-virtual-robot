@@ -1399,12 +1399,16 @@ class RobotSimulator {
     return this._sensorState();
   }
 
+  // Color sensor world-space mount in math y-up: 88 mm forward of robot
+  // centre along heading. Mirrors _distanceSensorMount below — same
+  // physical offset, just exposed without an explicit ray angle since the
+  // colour sensor reads a single point under the chassis.
   _sensorPosition(robot) {
-    const localY = ROBOT_BODY_H / 2 - 12;  // 88mm from center to color sensor
-    const rotRad = (robot.heading + 90) * Math.PI / 180;
+    const forward    = ROBOT_BODY_H / 2 - 12;  // 88 mm
+    const headingRad = robot.heading * Math.PI / 180;
     return {
-      x: robot.x - localY * Math.sin(rotRad),
-      y: robot.y + localY * Math.cos(rotRad),
+      x: robot.x + forward * Math.cos(headingRad),
+      y: robot.y + forward * Math.sin(headingRad),
     };
   }
 
