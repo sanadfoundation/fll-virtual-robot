@@ -60,3 +60,26 @@ test('_sensorState: 5 N → 50 / true / ~2047', () => {
   assert.strictEqual(s.force_pressed, true);
   assert.ok(s.force_raw >= 2040 && s.force_raw <= 2055, `raw=${s.force_raw}`);
 });
+
+test('_sensorState: includes reflection key (default colorValue=none → 50)', () => {
+  const s = createSim()._sensorState();
+  assert.strictEqual(s.reflection, 50);
+});
+
+test('_sensorState: reflection over black is 5', () => {
+  const sim = createSim();
+  sim.robot.sensors.colorValue = 'black';
+  assert.strictEqual(sim._sensorState().reflection, 5);
+});
+
+test('_sensorState: reflection over white is 90', () => {
+  const sim = createSim();
+  sim.robot.sensors.colorValue = 'white';
+  assert.strictEqual(sim._sensorState().reflection, 90);
+});
+
+test('_sensorState: reflection over yellow is 75', () => {
+  const sim = createSim();
+  sim.robot.sensors.colorValue = 'yellow';
+  assert.strictEqual(sim._sensorState().reflection, 75);
+});

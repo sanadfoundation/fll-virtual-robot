@@ -22,12 +22,26 @@ function makeCtx2D() {
 
 function makeCanvas() {
   const ctx = makeCtx2D();
+  const listeners = {};
   return {
     getContext: () => ctx,
     width: 2362, height: 1143,
-    style: { marginLeft: '', marginTop: '' },
-    parentElement: { clientWidth: 2364, clientHeight: 1145 },
-    addEventListener: () => {},
+    style: { marginLeft: '', marginTop: '', cursor: '' },
+    parentElement: {
+      clientWidth: 2364, clientHeight: 1145,
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 2362, height: 1143 }),
+    },
+    addEventListener: (event, handler) => {
+      (listeners[event] = listeners[event] || []).push(handler);
+    },
+    dispatchEvent: (event) => {
+      const handlers = listeners[event.type] || [];
+      for (const h of handlers) h(event);
+    },
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 2362, height: 1143 }),
+    setPointerCapture: () => {},
+    releasePointerCapture: () => {},
+    _listeners: listeners,
   };
 }
 

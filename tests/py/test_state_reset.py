@@ -59,3 +59,32 @@ class TestStateResetOnRerun(unittest.TestCase):
         asyncio.run(sb._handle_run('pass'))
 
         self.assertEqual(sb._state['stopped'], False)
+
+    def test_handle_run_issues_initial_read_sensors_sync(self):
+        # Without this, sensor reads in user code that fire before the first
+        # motion command see the spawn defaults rather than the simulator's
+        # current state (e.g. after the user dragged the robot to a new pose).
+        asyncio.run(sb._handle_run('pass'))
+
+        cmds = mock_js.bridge_mock.all()
+        self.assertTrue(len(cmds) >= 1, "expected at least one command")
+        self.assertEqual(cmds[0], {'type': 'read_sensors'})
+
+    def test_handle_run_initial_sync_fires_before_user_code(self):
+        # User code that immediately reads a sensor must see post-sync state.
+        # Capture command order: read_sensors first, any user-issued cmd second.
+        code = (
+            "import runloop\n"
+            "from hub import port\n"
+            "import motor_pair\n"
+            "async def main():\n"
+            "    motor_pair.pair(motor_pair.PAIR_1, port.A, port.B)\n"
+            "runloop.run(main())\n"
+        )
+        asyncio.run(sb._handle_run(code))
+
+        cmds = mock_js.bridge_mock.all()
+        self.assertEqual(cmds[0]['type'], 'read_sensors')
+        # Anything the user code dispatched lands after the sync.
+        user_cmds = [c for c in cmds[1:] if c.get('type') != 'read_sensors']
+        self.assertTrue(any(c['type'] == 'pair' for c in user_cmds))
