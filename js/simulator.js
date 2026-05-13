@@ -870,6 +870,14 @@ class RobotSimulator {
     const cursorX = event.clientX - rect.left;
     const cursorY = event.clientY - rect.top;
 
+    // Show a grab cursor when the pointer is over the robot's drag hit-area,
+    // so users know it's draggable without having to guess at the small body
+    // footprint. Mid-drag the start handler already set 'grabbing'.
+    if (this._dragPointerId === null) {
+      const overRobot = !this.isRunning && this._pointInRobot(x, y, this._dragHitPadMM());
+      this.canvas.style.cursor = overRobot ? 'grab' : '';
+    }
+
     this._hoverEl.textContent = `x=${window.ruler.formatPosition(x, this.units)}  y=${window.ruler.formatPosition(y, this.units)}`;
     this._hoverEl.hidden = false;
 
@@ -959,15 +967,23 @@ class RobotSimulator {
 
   // Hit-test the robot footprint in math y-up world coords. Transforms the
   // probe into the robot's body-local frame (heading along +X-local) and
-  // checks ±ROBOT_BODY_H/2 along forward, ±ROBOT_BODY_W/2 lateral.
-  _pointInRobot(x_mm, y_mm) {
+  // checks ±ROBOT_BODY_H/2 along forward, ±ROBOT_BODY_W/2 lateral. `pad_mm`
+  // grows the target so users can grab the robot without pixel precision at
+  // small zoom levels.
+  _pointInRobot(x_mm, y_mm, pad_mm = 0) {
     const rad = -this.robot.heading * Math.PI / 180;
     const dx = x_mm - this.robot.x;
     const dy = y_mm - this.robot.y;
     const lx =  dx * Math.cos(rad) - dy * Math.sin(rad);
     const ly =  dx * Math.sin(rad) + dy * Math.cos(rad);
-    return Math.abs(lx) <= ROBOT_BODY_H / 2 && Math.abs(ly) <= ROBOT_BODY_W / 2;
+    return Math.abs(lx) <= ROBOT_BODY_H / 2 + pad_mm
+        && Math.abs(ly) <= ROBOT_BODY_W / 2 + pad_mm;
   }
+
+  // Hit-area padding (mm) for drag-to-place. Body is 200×160 mm; at default
+  // zoom that's ~40 px on screen, too small to grab precisely. 30 mm padding
+  // gives a forgiving but still localized target.
+  _dragHitPadMM() { return 30; }
 
   _handleDragStart(event) {
     if (this.isRunning) return;
@@ -975,11 +991,11 @@ class RobotSimulator {
     const m = window.ruler.clientToMM(event.clientX, event.clientY, rect, this._scale);
     const worldX = m.x;
     const worldY = FIELD_H_MM - m.y;
-    if (!this._pointInRobot(worldX, worldY)) return;
+    if (!this._pointInRobot(worldX, worldY, this._dragHitPadMM())) return;
     this._dragPointerId = event.pointerId;
     this._dragOffsetX = worldX - this.robot.x;
     this._dragOffsetY = worldY - this.robot.y;
-    this.canvas.setPointerCapture(event.pointerId);
+    try { this.canvas.setPointerCapture(event.pointerId); } catch (_) {}
     this.canvas.style.cursor = 'grabbing';
     event.preventDefault();
   }

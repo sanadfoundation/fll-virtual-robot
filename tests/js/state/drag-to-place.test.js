@@ -27,6 +27,41 @@ test('drag: pointerdown outside robot footprint does not start a drag', async ()
   assert.strictEqual(sim._dragPointerId, null);
 });
 
+test('drag: pointerdown within hit-area padding still starts a drag', async () => {
+  const sim = createSim();
+  // 110 mm forward of center is 10 mm past the body edge (100) but well
+  // inside the 30 mm padded hit area.
+  fire(sim.canvas, 'pointerdown', 350, 273);
+  assert.notStrictEqual(sim._dragPointerId, null);
+});
+
+test('hover: cursor becomes grab when over the robot, default when off', () => {
+  const sim = createSim();
+  // Dispatch a fake mousemove (the hover handler is wired to mousemove).
+  // First over the robot center.
+  sim.canvas.dispatchEvent({
+    type: 'mousemove',
+    clientX: 350, clientY: 1143 - 163,  // scale=1 in test mock
+  });
+  assert.strictEqual(sim.canvas.style.cursor, 'grab');
+  // Then well outside.
+  sim.canvas.dispatchEvent({
+    type: 'mousemove',
+    clientX: 1500, clientY: 1143 - 800,
+  });
+  assert.strictEqual(sim.canvas.style.cursor, '');
+});
+
+test('hover: cursor stays default while sim is running', () => {
+  const sim = createSim();
+  sim.isRunning = true;
+  sim.canvas.dispatchEvent({
+    type: 'mousemove',
+    clientX: 350, clientY: 1143 - 163,
+  });
+  assert.strictEqual(sim.canvas.style.cursor, '');
+});
+
 test('drag: pointerdown on robot starts a drag', async () => {
   const sim = createSim();
   fire(sim.canvas, 'pointerdown', 350, 163);

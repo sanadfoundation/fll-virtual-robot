@@ -86,3 +86,10 @@ test('_pointInRobot: respects heading rotation', () => {
   // 99 mm north should be inside the lateral extent (80) — actually outside.
   assert.strictEqual(sim._pointInRobot(350, 262), false);
 });
+
+test('_pointInRobot: padding extends the hit area', () => {
+  const sim = createSim();
+  // 105 mm forward of center is 5 mm past the body edge (100), inside with 30 mm pad.
+  assert.strictEqual(sim._pointInRobot(350, 268, 0),  false);
+  assert.strictEqual(sim._pointInRobot(350, 268, 30), true);
+});
