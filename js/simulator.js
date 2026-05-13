@@ -714,21 +714,24 @@ class RobotSimulator {
     ctx.closePath();
     ctx.fill();
 
-    // Color sensor dot (bottom-center of body)
+    // Color sensor dot (front of body, under the distance sensor) — the world
+    // pickup point _sensorPosition returns is 88 mm forward of centre, which
+    // body-local maps to y = -bh/2 + 12 (matches _distanceSensorMount).
     const cs = r.sensors;
     const csColor = COLOR_MAP[cs.colorValue] || '#555';
     ctx.fillStyle = csColor || '#555';
     ctx.strokeStyle = '#333';
     ctx.lineWidth = 1*s;
     ctx.beginPath();
-    ctx.arc(0, bh/2 - 12*s, 6*s, 0, Math.PI*2);
+    ctx.arc(0, -bh/2 + 12*s, 6*s, 0, Math.PI*2);
     ctx.fill();
     ctx.stroke();
 
-    // Distance sensor dot (front of body)
+    // Distance sensor dot (front of body), drawn on top so the smaller teal
+    // disk reads as the ultrasonic eye sitting above the colour-sensing patch.
     ctx.fillStyle = '#56d4c0';
     ctx.beginPath();
-    ctx.arc(0, -bh/2 + 12*s, 5*s, 0, Math.PI*2);
+    ctx.arc(0, -bh/2 + 12*s, 4*s, 0, Math.PI*2);
     ctx.fill();
 
     ctx.restore();
