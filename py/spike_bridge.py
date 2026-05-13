@@ -700,6 +700,10 @@ async def _handle_run(code):
     # sensor reads don't return the previous run's final values.
     _state.clear()
     _state.update(_default_state())
+    # Sync once before user code so sensor reads issued before any motion
+    # command reflect the simulator's live state (placed pose, current zone)
+    # rather than the spawn defaults.
+    await _bridge_call({'type': 'read_sensors'})
     try:
         exec(code, {})
         if _user_coro is not None:

@@ -203,6 +203,12 @@ class RobotSimulator {
       this.canvas.addEventListener('mouseleave', () => { this._hoverEl.hidden = true; });
     }
 
+    this._dragPointerId = null;
+    this.canvas.addEventListener('pointerdown', e => this._handleDragStart(e));
+    this.canvas.addEventListener('pointermove', e => this._handleDragMove(e));
+    this.canvas.addEventListener('pointerup',   e => this._handleDragEnd(e));
+    this.canvas.addEventListener('pointercancel', e => this._handleDragEnd(e));
+
     this._raf = null;
     this._drawLoop();
   }
@@ -925,6 +931,75 @@ class RobotSimulator {
     this._dirty = true;
   }
 
+  // Move the robot to an arbitrary pose without going through the kinematics
+  // pipeline. Used by UAT scaffolding and the drag-to-place UI; mid-motion
+  // calls are rejected since the kinematic body would fight the active
+  // _animateTank step.
+  async placeRobot(x_mm, y_mm, heading_deg) {
+    if (this.isRunning) return false;
+    const h = heading_deg === undefined ? this.robot.heading : heading_deg;
+    this.robot.x = x_mm;
+    this.robot.y = y_mm;
+    this.robot.heading = h;
+    this._yawZeroHeading_deg = h;
+    this.trail = [{ x: x_mm, y: y_mm }];
+    this._trailCtx.clearRect(0, 0, this._trailCanvas.width, this._trailCanvas.height);
+    this._trailArc = 0;
+    await this._physicsReady;
+    if (this.physics) {
+      this.physics.setKinematicPose(this.robotBody, x_mm, y_mm, h * Math.PI / 180);
+      this.physics.setKinematicVelocity(this.robotBody, 0, 0, 0);
+      this._updateDistanceSensor();
+    }
+    const sp = this._sensorPosition(this.robot);
+    this.robot.sensors.colorValue = this._colorAtPosition(sp.x, sp.y);
+    this._dirty = true;
+    return true;
+  }
+
+  // Hit-test the robot footprint in math y-up world coords. Transforms the
+  // probe into the robot's body-local frame (heading along +X-local) and
+  // checks ±ROBOT_BODY_H/2 along forward, ±ROBOT_BODY_W/2 lateral.
+  _pointInRobot(x_mm, y_mm) {
+    const rad = -this.robot.heading * Math.PI / 180;
+    const dx = x_mm - this.robot.x;
+    const dy = y_mm - this.robot.y;
+    const lx =  dx * Math.cos(rad) - dy * Math.sin(rad);
+    const ly =  dx * Math.sin(rad) + dy * Math.cos(rad);
+    return Math.abs(lx) <= ROBOT_BODY_H / 2 && Math.abs(ly) <= ROBOT_BODY_W / 2;
+  }
+
+  _handleDragStart(event) {
+    if (this.isRunning) return;
+    const rect = this.canvas.getBoundingClientRect();
+    const m = window.ruler.clientToMM(event.clientX, event.clientY, rect, this._scale);
+    const worldX = m.x;
+    const worldY = FIELD_H_MM - m.y;
+    if (!this._pointInRobot(worldX, worldY)) return;
+    this._dragPointerId = event.pointerId;
+    this._dragOffsetX = worldX - this.robot.x;
+    this._dragOffsetY = worldY - this.robot.y;
+    this.canvas.setPointerCapture(event.pointerId);
+    this.canvas.style.cursor = 'grabbing';
+    event.preventDefault();
+  }
+
+  _handleDragMove(event) {
+    if (this._dragPointerId !== event.pointerId) return;
+    const rect = this.canvas.getBoundingClientRect();
+    const m = window.ruler.clientToMM(event.clientX, event.clientY, rect, this._scale);
+    const x = m.x - this._dragOffsetX;
+    const y = (FIELD_H_MM - m.y) - this._dragOffsetY;
+    this.placeRobot(x, y);
+  }
+
+  _handleDragEnd(event) {
+    if (this._dragPointerId !== event.pointerId) return;
+    this._dragPointerId = null;
+    this.canvas.releasePointerCapture(event.pointerId);
+    this.canvas.style.cursor = '';
+  }
+
   // ── Command execution ───────────────────────────────────────────────────────
 
   // Port-kind validator. Mirrors py/spike_bridge.py _require so worker-routed
@@ -1285,6 +1360,7 @@ class RobotSimulator {
       heading:       r.heading,
       yaw_dDeg:      this._yawDeciDeg(),
       color:         r.sensors.colorValue,
+      reflection:    this.getColorSensorReflection(),
       distance_mm:   r.sensors.distanceMM,
       motors:        { ...r.motors },
       force_dn:      f.dn,
