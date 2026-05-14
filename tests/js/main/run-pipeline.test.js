@@ -137,3 +137,33 @@ test('handleReset: logs [Ready] message', () => {
   const lines = consoleLines(elementsById);
   assert.ok(lines.some(l => /\[Ready\]/.test(l)));
 });
+
+test('handleReset: when running, signals stop and keeps _stopRequested=true after reset', () => {
+  const { context, window } = makeMainEnv();
+  context.initSim();
+  // Pretend a program is in flight. Mimic the real reset(): it clears
+  // _stopRequested back to false as part of normalising state, which is the
+  // bug handleReset has to compensate for.
+  window.sim.isRunning      = true;
+  window.sim._stopRequested = false;
+  window.sim.reset = function () { this._stopRequested = false; };
+
+  context.handleReset();
+
+  // Worker commands flushed after the reset must still see the stop signal,
+  // otherwise the next Python step would act on the freshly-reset robot.
+  assert.strictEqual(window.sim._stopRequested, true);
+  assert.strictEqual(window.sim.isRunning,      false);
+});
+
+test('handleReset: when idle, does not poison _stopRequested', () => {
+  const { context, window } = makeMainEnv();
+  context.initSim();
+  window.sim.isRunning      = false;
+  window.sim._stopRequested = false;
+  window.sim.reset = function () { this._stopRequested = false; };
+
+  context.handleReset();
+
+  assert.strictEqual(window.sim._stopRequested, false);
+});

@@ -381,7 +381,13 @@ function handleStop() {
 }
 
 function handleReset() {
-  if (sim) sim.reset();
+  if (!sim) return;
+  const wasRunning = sim.isRunning;
+  if (wasRunning) handleStop();
+  sim.reset();
+  // reset() clears _stopRequested as part of normalising state; re-assert it
+  // so any worker command Python sends before it sees SystemExit still aborts.
+  if (wasRunning) sim._stopRequested = true;
   clearOutput();
   appendOutput('[Ready] Simulator reset.', 'info');
 }
