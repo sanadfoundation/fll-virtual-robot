@@ -184,9 +184,17 @@ const _MATHOP     = [
   ['sin','sin'],['cos','cos'],['tan','tan'],['asin','asin'],['acos','acos'],
   ['atan','atan'],['ln','ln'],['log','log'],['e ^','e ^'],['10 ^','10 ^'],
 ];
+// Sound dropdown: value is Spike's JSON-encoded selector string so files
+// saved by Spike's editor round-trip without falling back to defaults.
+// Common entries from the Spike sound library; the simulator's generator
+// just logs the chosen sound (no audio playback today).
+const _sndVal = (name) => `{"name":"${name}","location":"device"}`;
 const _SOUNDS = [
-  ['Cat Meow','cat'],['Dog Bark','dog'],['Tada','tada'],
-  ['Motor Start','motor'],['Beep','beep'],
+  ['Cat Meow',    _sndVal('Cat Meow 1')],
+  ['Dog Bark',    _sndVal('Dog 1')],
+  ['Tada',        _sndVal('Tada')],
+  ['Motor Start', _sndVal('Motor Start')],
+  ['Beep',        _sndVal('Beep')],
 ];
 
 // ── Per-block category emblems (from LEGO Education SPIKE Prime IDE) ─────────
@@ -309,9 +317,9 @@ const SPIKE_BLOCKS = [
   { type: 'flippermotor_motorGoDirectionToPosition',
     message0: '%1 go %3 to position %2',
     args0: [
-      { type: 'field_port_grid', name: 'PORT', mode: 'multi', value: 'A' },
-      { type: 'input_value',    name: 'POSITION',  check: ['Number','String'] },
-      { type: 'field_dropdown', name: 'DIRECTION', options: _SHORTEST },
+      { type: 'field_port_grid', name: 'PORT',     mode: 'multi', value: 'A' },
+      { type: 'field_angle_dial', name: 'POSITION', value: '0' },
+      { type: 'field_dropdown',  name: 'DIRECTION', options: _SHORTEST },
     ],
     inputsInline: true, previousStatement: null, nextStatement: null,
     colour: C_MOTOR, tooltip: 'Rotate motor to an absolute position (0–359 degrees).',
@@ -492,7 +500,7 @@ const SPIKE_BLOCKS = [
 
   { type: 'flipperlight_centerButtonLight',
     message0: 'set centre button light to %1',
-    args0: [{ type: 'field_dropdown', name: 'COLOR', options: _CENTRE_BTN_COLORS }],
+    args0: [{ type: 'field_color_strip', name: 'COLOR', value: '9' }],
     inputsInline: true, previousStatement: null, nextStatement: null,
     colour: C_LIGHT, tooltip: 'Set the centre button colour.',
   },
@@ -1181,7 +1189,15 @@ const SPIKE_BLOCKS = [
 // _distMoved, _timerMs, _motorSpeed, _motorAccel, _moveAccel, _stopMethod, etc.)
 // are seeded by generateBlocklyJS()'s preamble.
 
-const _SOUND_NOTES = { cat: 69, dog: 57, tada: 72, motor: 50, beep: 65 };
+// Key the simulator's beep frequencies on the JSON-encoded sound-library
+// names (matching `_SOUNDS` values). Unknown sounds fall back to 60.
+const _SOUND_NOTES = {
+  [_sndVal('Cat Meow 1')]:    69,
+  [_sndVal('Dog 1')]:         57,
+  [_sndVal('Tada')]:          72,
+  [_sndVal('Motor Start')]:   50,
+  [_sndVal('Beep')]:          65,
+};
 const _WHEEL_CIRC_MM = Math.PI * 56;
 const _MM_PER_MS_AT_100 = 0.9;
 
@@ -1237,7 +1253,7 @@ function registerGenerators(Blockly) {
   js['flippermotor_motorGoDirectionToPosition'] = (block) => {
     const port = block.getFieldValue('PORT');
     const dir  = block.getFieldValue('DIRECTION');
-    const pos  = val(block, 'POSITION', '0');
+    const pos  = block.getFieldValue('POSITION') || '0';
     let sign;
     // Matches motorVDir: clockwise (kid-facing wheel view) = wheel backward.
     if (dir === 'clockwise') sign = '-1';
@@ -1932,7 +1948,7 @@ const TOOLBOX_XML = `
       ${_shadowNum('VALUE', 1)}
     </block>
     <block type="flippermotor_motorGoDirectionToPosition">
-      ${_shadowNum('POSITION', 0)}
+      <field name="POSITION">0</field>
     </block>
     <block type="flippermotor_motorStartDirection"/>
     <block type="flippermotor_motorStop"/>
@@ -2901,6 +2917,253 @@ function _registerUltrasonicField(Blockly) {
   _ultrasonicFieldRegistered = true;
 }
 
+// ── Angle dial field ─────────────────────────────────────────────────────────
+// Spike's "go to position N" picker is a small 0–359° dial: drag the
+// indicator around a full circle to set the target angle. Same pattern as
+// the steering wheel but with a full 360° sweep and integer-degree values.
+
+let _angleFieldRegistered = false;
+function _registerAngleField(Blockly) {
+  if (_angleFieldRegistered) return;
+  if (!(Blockly.FieldDropdown && Blockly.fieldRegistry && Blockly.DropDownDiv)) return;
+
+  function _clampAngle(v) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return '0';
+    return String(((Math.round(n) % 360) + 360) % 360);
+  }
+
+  class FieldAngle extends Blockly.FieldDropdown {
+    static fromJson(options) {
+      return new FieldAngle(options.value, options);
+    }
+    constructor(value, opts) {
+      const initial = _clampAngle(value ?? 0);
+      const menuGenerator = function () {
+        const v = this.getValue ? (this.getValue() ?? initial) : initial;
+        return [[v, v]];
+      };
+      super(menuGenerator, undefined, opts || {});
+      this.SERIALIZABLE = true;
+      this.setValue(initial);
+    }
+
+    doClassValidation_(v) { return _clampAngle(v); }
+    getDisplayText_() { return this.getValue() + '°'; }
+
+    showEditor_() {
+      const SVG_NS = 'http://www.w3.org/2000/svg';
+      const root = document.createElement('div');
+      root.className = 'fll-angle-popup';
+
+      const svg = document.createElementNS(SVG_NS, 'svg');
+      svg.setAttribute('class', 'fll-angle-svg');
+      svg.setAttribute('viewBox', '0 0 100 100');
+
+      const ring = document.createElementNS(SVG_NS, 'circle');
+      ring.setAttribute('class', 'fll-angle-ring');
+      ring.setAttribute('cx', '50'); ring.setAttribute('cy', '50'); ring.setAttribute('r', '42');
+      svg.appendChild(ring);
+
+      for (let deg = 0; deg < 360; deg += 15) {
+        const long = (deg % 90 === 0);
+        const tick = document.createElementNS(SVG_NS, 'line');
+        const rad = deg * Math.PI / 180;
+        const r1 = 42 - (long ? 6 : 3);
+        const r2 = 42;
+        tick.setAttribute('x1', String(50 + r1 * Math.sin(rad)));
+        tick.setAttribute('y1', String(50 - r1 * Math.cos(rad)));
+        tick.setAttribute('x2', String(50 + r2 * Math.sin(rad)));
+        tick.setAttribute('y2', String(50 - r2 * Math.cos(rad)));
+        tick.setAttribute('class', 'fll-angle-tick' + (long ? ' long' : ''));
+        svg.appendChild(tick);
+      }
+
+      const indicator = document.createElementNS(SVG_NS, 'g');
+      indicator.setAttribute('class', 'fll-angle-indicator');
+      const line = document.createElementNS(SVG_NS, 'line');
+      line.setAttribute('x1', '50'); line.setAttribute('y1', '50');
+      line.setAttribute('x2', '50'); line.setAttribute('y2', '14');
+      indicator.appendChild(line);
+      const knob = document.createElementNS(SVG_NS, 'circle');
+      knob.setAttribute('cx', '50'); knob.setAttribute('cy', '14');
+      knob.setAttribute('r', '6');
+      indicator.appendChild(knob);
+      svg.appendChild(indicator);
+
+      const center = document.createElementNS(SVG_NS, 'circle');
+      center.setAttribute('class', 'fll-angle-center');
+      center.setAttribute('cx', '50'); center.setAttribute('cy', '50'); center.setAttribute('r', '4');
+      svg.appendChild(center);
+
+      const cdiv = document.createElement('div');
+      cdiv.className = 'fll-angle-controls';
+      const minus = document.createElement('button');
+      minus.type = 'button'; minus.className = 'fll-angle-btn'; minus.textContent = '−';
+      const plus = document.createElement('button');
+      plus.type = 'button'; plus.className = 'fll-angle-btn'; plus.textContent = '+';
+      const label = document.createElement('div');
+      label.className = 'fll-angle-label';
+      cdiv.appendChild(minus); cdiv.appendChild(label); cdiv.appendChild(plus);
+
+      const repaint = () => {
+        const deg = Number(this.getValue() || 0);
+        indicator.setAttribute('transform', 'rotate(' + deg + ' 50 50)');
+        label.textContent = deg + '°';
+      };
+
+      const setFromPointer = (clientX, clientY) => {
+        const rect = svg.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const dx = clientX - cx;
+        const dy = clientY - cy;
+        let deg = Math.atan2(dx, -dy) * 180 / Math.PI;
+        // Full 360°: wrap negative angles into 0..359.
+        if (deg < 0) deg += 360;
+        this.setValue(_clampAngle(deg));
+        repaint();
+      };
+
+      let dragging = false;
+      const onDown = (e) => { dragging = true; setFromPointer(e.clientX, e.clientY); e.preventDefault(); };
+      const onMove = (e) => { if (dragging) setFromPointer(e.clientX, e.clientY); };
+      const onUp = () => { dragging = false; };
+      svg.addEventListener('mousedown', onDown);
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+
+      minus.addEventListener('click', () => {
+        this.setValue(_clampAngle(Number(this.getValue() || 0) - 5));
+        repaint();
+      });
+      plus.addEventListener('click', () => {
+        this.setValue(_clampAngle(Number(this.getValue() || 0) + 5));
+        repaint();
+      });
+
+      root.appendChild(svg);
+      root.appendChild(cdiv);
+
+      const div = Blockly.DropDownDiv.getContentDiv();
+      div.appendChild(root);
+      Blockly.DropDownDiv.setColour(
+        this.sourceBlock_.getColour(),
+        this.sourceBlock_.style.colourTertiary,
+      );
+      Blockly.DropDownDiv.showPositionedByField(this, () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        if (root.parentNode) root.parentNode.removeChild(root);
+      });
+      repaint();
+    }
+  }
+
+  Blockly.fieldRegistry.register('field_angle_dial', FieldAngle);
+  _angleFieldRegistered = true;
+}
+
+// ── Color strip field ────────────────────────────────────────────────────────
+// Spike's centre-button colour picker is a tall vertical strip of solid
+// colour rectangles, one per value. Same colours as our existing
+// `_CENTRE_BTN_COLORS` dropdown — but rendered as a clean colour column
+// instead of the horizontal swatch menu Blockly produces by default.
+
+let _colorStripFieldRegistered = false;
+function _registerColorStripField(Blockly) {
+  if (_colorStripFieldRegistered) return;
+  if (!(Blockly.FieldDropdown && Blockly.fieldRegistry && Blockly.DropDownDiv)) return;
+
+  // Mirror of `_CENTRE_BTN_COLORS` but as plain (label, value, hex) tuples
+  // so the popup can render solid swatches without re-parsing data URIs.
+  const STRIP_COLORS = [
+    ['off',        '0',  '#ffffff', true],
+    ['pink',       '1',  '#ff80c0'],
+    ['violet',     '2',  '#b066d8'],
+    ['blue',       '3',  '#1d6dd1'],
+    ['light blue', '4',  '#6db3e6'],
+    ['cyan',       '5',  '#25b9d8'],
+    ['green',      '6',  '#1a9c4a'],
+    ['yellow',     '7',  '#f7c911'],
+    ['orange',     '8',  '#f08020'],
+    ['red',        '9',  '#d12a2a'],
+    ['white',      '10', '#ffffff'],
+  ];
+  const STRIP_VALUES = new Set(STRIP_COLORS.map(c => c[1]));
+
+  class FieldColorStrip extends Blockly.FieldDropdown {
+    static fromJson(options) {
+      return new FieldColorStrip(options.value, options);
+    }
+    constructor(value, opts) {
+      const initial = STRIP_VALUES.has(String(value)) ? String(value) : '9';
+      const menuGenerator = function () {
+        const v = this.getValue ? (this.getValue() || initial) : initial;
+        return [[v, v]];
+      };
+      super(menuGenerator, undefined, opts || {});
+      this.SERIALIZABLE = true;
+      this.setValue(initial);
+    }
+
+    doClassValidation_(v) {
+      const s = String(v);
+      return STRIP_VALUES.has(s) ? s : null;
+    }
+
+    getDisplayText_() {
+      // Show a coloured chip on the block face by injecting an inline SVG —
+      // Blockly will render the returned text as-is in a tspan, so for the
+      // chip we render via a thin Unicode block plus a colour set via CSS
+      // class. Simpler approach: just show the colour name short label.
+      const entry = STRIP_COLORS.find(c => c[1] === this.getValue());
+      return entry ? entry[0] : '?';
+    }
+
+    showEditor_() {
+      const root = document.createElement('div');
+      root.className = 'fll-cstrip-popup';
+      const list = document.createElement('div');
+      list.className = 'fll-cstrip-list';
+      const buttons = [];
+      const highlight = () => {
+        const cur = this.getValue();
+        for (const b of buttons) b.classList.toggle('selected', b.dataset.value === cur);
+      };
+      for (const [name, value, hex, empty] of STRIP_COLORS) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'fll-cstrip-swatch' + (empty ? ' empty' : '');
+        b.dataset.value = value;
+        b.style.background = hex;
+        b.title = name;
+        b.addEventListener('click', () => {
+          this.setValue(value);
+          highlight();
+        });
+        buttons.push(b);
+        list.appendChild(b);
+      }
+      root.appendChild(list);
+      highlight();
+
+      const div = Blockly.DropDownDiv.getContentDiv();
+      div.appendChild(root);
+      Blockly.DropDownDiv.setColour(
+        this.sourceBlock_.getColour(),
+        this.sourceBlock_.style.colourTertiary,
+      );
+      Blockly.DropDownDiv.showPositionedByField(this, () => {
+        if (root.parentNode) root.parentNode.removeChild(root);
+      });
+    }
+  }
+
+  Blockly.fieldRegistry.register('field_color_strip', FieldColorStrip);
+  _colorStripFieldRegistered = true;
+}
+
 // Registered once on first initBlockly() call.
 let _compactRendererRegistered = false;
 function _registerCompactRenderer(Blockly) {
@@ -2993,6 +3256,8 @@ function initBlockly(divId, themeName, initialXml) {
   _registerPortGridField(Blockly);
   _registerMatrixField(Blockly);
   _registerUltrasonicField(Blockly);
+  _registerAngleField(Blockly);
+  _registerColorStripField(Blockly);
   Blockly.defineBlocksWithJsonArray(SPIKE_BLOCKS.map(_withEmblem));
   registerGenerators(Blockly);
   _registerCompactRenderer(Blockly);

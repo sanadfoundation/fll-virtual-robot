@@ -1596,3 +1596,94 @@ body.feedback-modal-open { overflow: hidden; }
 .fll-ultra-action:hover {
   background: rgba(0, 0, 0, 0.18);
 }
+
+/* ── Angle dial popup ────────────────────────────────────────────────────── */
+/* Full 360° dial for the motor go-to-position picker. Reuses the styling
+   patterns of the steering wheel but allows a full sweep. */
+
+.blocklyDropDownContent:has(.fll-angle-popup) { max-height: none !important; }
+
+.fll-angle-popup {
+  padding: 12px;
+  width: 180px;
+  box-sizing: border-box;
+}
+
+.fll-angle-svg { width: 100%; height: auto; cursor: crosshair; }
+.fll-angle-ring { fill: rgba(255,255,255,0.08); stroke: rgba(255,255,255,0.85); stroke-width: 2; }
+.fll-angle-tick { stroke: rgba(255,255,255,0.55); stroke-width: 1.2; }
+.fll-angle-tick.long { stroke: rgba(255,255,255,0.95); stroke-width: 2; }
+.fll-angle-indicator line { stroke: #fff; stroke-width: 3; stroke-linecap: round; }
+.fll-angle-indicator circle { fill: #fff; }
+.fll-angle-center { fill: rgba(255,255,255,0.95); }
+
+.fll-angle-controls {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 10px; gap: 8px;
+}
+.fll-angle-btn {
+  appearance: none;
+  background: rgba(255,255,255,0.12);
+  border: 1.5px solid rgba(255,255,255,0.85);
+  border-radius: 50%;
+  color: #fff;
+  width: 30px; height: 30px;
+  font: 700 18px/1 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  cursor: pointer; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.fll-angle-btn:hover { background: rgba(255,255,255,0.22); }
+.fll-angle-label {
+  flex: 1; text-align: center; color: #fff;
+  font: 700 14px/1 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  letter-spacing: 0.02em;
+}
+
+/* ── Colour-strip popup ──────────────────────────────────────────────────── */
+/* Vertical column of solid colour rectangles, matching Spike's centre-button
+   colour picker. Selected colour is outlined with a white ring. */
+
+.blocklyDropDownContent:has(.fll-cstrip-popup) { max-height: none !important; }
+
+.fll-cstrip-popup {
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+.fll-cstrip-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 8px;
+  background: rgba(0,0,0,0.10);
+}
+
+.fll-cstrip-swatch {
+  appearance: none;
+  border: none;
+  width: 48px;
+  height: 26px;
+  border-radius: 5px;
+  cursor: pointer;
+  padding: 0;
+  outline: 2px solid transparent;
+  outline-offset: 1px;
+  transition: outline-color 80ms ease;
+}
+
+.fll-cstrip-swatch.empty {
+  /* "off" entry — diagonal red slash on white */
+  background: linear-gradient(to top right,
+    #fff calc(50% - 1.5px), #d33 calc(50% - 1.5px),
+    #d33 calc(50% + 1.5px), #fff calc(50% + 1.5px)) !important;
+  border: 1px solid #999;
+}
+
+.fll-cstrip-swatch.selected {
+  outline-color: #fff;
+}
+
+.fll-cstrip-swatch:hover {
+  outline-color: rgba(255,255,255,0.6);
+}

@@ -31,9 +31,13 @@
       { opcode: 'flippermotor_multiple-port-selector',
         fieldName: 'field_flippermotor_multiple-port-selector',
         defaultValue: 'A' },
-    // POSITION is an input_value on the Blockly side; do not demote it to a
-    // field. Spike's `flippermotor_custom-angle` selector shadow is rewritten
-    // to a math_number shadow by SHADOW_NORMALIZERS below.
+    // POSITION is a `field_angle` (custom dial) on the Blockly side. Spike's
+    // `flippermotor_custom-angle` selector shadow is rewritten to a
+    // math_number shadow by SHADOW_NORMALIZERS below; this contract entry
+    // then demotes that math_number shadow → the POSITION field. On export,
+    // the field value flows back out as an inline math_number primitive.
+    'flippermotor_motorGoDirectionToPosition|POSITION':
+      { opcode: 'math_number', fieldName: 'NUM', defaultValue: '0' },
     'flippermotor_motorStartDirection|PORT':
       { opcode: 'flippermotor_multiple-port-selector',
         fieldName: 'field_flippermotor_multiple-port-selector',
