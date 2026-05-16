@@ -2337,10 +2337,14 @@ function _registerSteeringField(Blockly) {
       cdiv.appendChild(label);
       cdiv.appendChild(plus);
 
+      // Spike's dial maps ±100 to ±135° from straight up — i.e. the
+      // indicator swings down to roughly 5 o'clock (right: 100) and
+      // 7 o'clock (left: -100), leaving a ~60° dead arc at the bottom.
+      const SWEEP = 135;
+
       const repaint = () => {
         const n = Number(this.getValue() ?? 0);
-        // -100..100 → -90°..+90° on the dial (top is 0, right is +100).
-        const angleDeg = n * 0.9;
+        const angleDeg = n * (SWEEP / 100);
         indicator.setAttribute('transform', 'rotate(' + angleDeg + ' 50 50)');
         label.textContent = _steerLabel(this.getValue());
       };
@@ -2351,12 +2355,12 @@ function _registerSteeringField(Blockly) {
         const cy = rect.top + rect.height / 2;
         const dx = clientX - cx;
         const dy = clientY - cy;
-        // Angle from up (0° = top, +90° = right, -90° = left). Clamp to ±90°
-        // (the bottom half maps to ±100 boundaries by sign of dx).
+        // Angle from straight up (0° = top, +90° = right, -90° = left).
+        // Clamp to ±135° to match Spike's sweep; pointers in the bottom
+        // dead arc snap to the nearer extreme.
         let deg = Math.atan2(dx, -dy) * 180 / Math.PI;
-        if (deg > 90) deg = 90;
-        else if (deg < -90) deg = -90;
-        this.setValue(_clampSteer(deg / 0.9));
+        deg = Math.max(-SWEEP, Math.min(SWEEP, deg));
+        this.setValue(_clampSteer(deg / (SWEEP / 100)));
         repaint();
       };
 
