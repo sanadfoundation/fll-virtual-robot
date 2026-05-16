@@ -75,25 +75,18 @@
         fieldName: 'field_flippermove_movement-port-selector',
         defaultValue: 'AB' },
     // STEERING is a custom field (FieldSteering) on the Blockly side, but
-    // Spike serializes it as an input with a math_number shadow OR — when
-    // saved from Spike's native editor — as a separate
-    // `flippermove_rotation-wheel` shadow block whose value lives in
-    // `field_flippermove_rotation-wheel`. Promote field → inline math_number
-    // on export; demote either inbound form → field on import.
+    // Spike serializes it as an input with a math_number shadow. The native
+    // Spike editor uses a `flippermove_rotation-wheel` widget shadow — that
+    // form is normalized to math_number by SHADOW_NORMALIZERS below before
+    // this demote runs.
     'flippermove_steer|STEERING':
-      { opcode: 'math_number', fieldName: 'NUM', defaultValue: '0',
-        altShadows: [{
-          opcode: 'flippermove_rotation-wheel',
-          fieldName: 'field_flippermove_rotation-wheel',
-        }],
-      },
+      { opcode: 'math_number', fieldName: 'NUM', defaultValue: '0' },
     'flippermove_startSteer|STEERING':
-      { opcode: 'math_number', fieldName: 'NUM', defaultValue: '0',
-        altShadows: [{
-          opcode: 'flippermove_rotation-wheel',
-          fieldName: 'field_flippermove_rotation-wheel',
-        }],
-      },
+      { opcode: 'math_number', fieldName: 'NUM', defaultValue: '0' },
+    // DISTANCE on setDistance is a Blockly input_value, not a field, so it
+    // stays as a math_number shadow. Spike emits its custom selector here too
+    // (see SHADOW_NORMALIZERS); no contract entry is needed for the field
+    // demote path, but listing it documents the slot.
 
     // ── flipperevents ─────────────────────────────────────────────────────
     'flipperevents_whenColor|PORT':
@@ -107,6 +100,10 @@
     'flipperevents_whenPressed|PORT':
       { opcode: 'flipperevents_force-sensor-selector',
         fieldName: 'field_flipperevents_force-sensor-selector',
+        defaultValue: 'A' },
+    'flipperevents_whenDistance|PORT':
+      { opcode: 'flipperevents_distance-sensor-selector',
+        fieldName: 'field_flipperevents_distance-sensor-selector',
         defaultValue: 'A' },
     'flipperevents_whenTilted|VALUE':
       { opcode: 'flipperevents_custom-tilted',
@@ -150,6 +147,61 @@
       { opcode: 'flippersensors_color-sensor-selector',
         fieldName: 'field_flippersensors_color-sensor-selector',
         defaultValue: 'A' },
+    'flippersensors_isTilted|VALUE':
+      { opcode: 'flippersensors_custom-tilted',
+        fieldName: 'field_flippersensors_custom-tilted',
+        defaultValue: '1' },
+
+    // ── flippermoremotor ──────────────────────────────────────────────────
+    // "More motor" extension blocks. Their PORT shadow opcodes are namespaced
+    // differently from `flippermotor_*` (note the `more`).
+    'flippermoremotor_motorGoToRelativePosition|PORT':
+      { opcode: 'flippermoremotor_multiple-port-selector',
+        fieldName: 'field_flippermoremotor_multiple-port-selector',
+        defaultValue: 'A' },
+    'flippermoremotor_motorSetDegreeCounted|PORT':
+      { opcode: 'flippermoremotor_multiple-port-selector',
+        fieldName: 'field_flippermoremotor_multiple-port-selector',
+        defaultValue: 'A' },
+    'flippermoremotor_motorStartPower|PORT':
+      { opcode: 'flippermoremotor_multiple-port-selector',
+        fieldName: 'field_flippermoremotor_multiple-port-selector',
+        defaultValue: 'A' },
+    'flippermoremotor_motorSetStopMethod|PORT':
+      { opcode: 'flippermoremotor_multiple-port-selector',
+        fieldName: 'field_flippermoremotor_multiple-port-selector',
+        defaultValue: 'A' },
+    'flippermoremotor_motorSetAcceleration|PORT':
+      { opcode: 'flippermoremotor_multiple-port-selector',
+        fieldName: 'field_flippermoremotor_multiple-port-selector',
+        defaultValue: 'A' },
+    'flippermoremotor_motorSetAcceleration|ACCELERATION':
+      // EXCEPTION: field is plain `acceleration`, NOT field_<opcode>
+      // (same shape as flipperlight_menu_orientation).
+      { opcode: 'flippermoremotor_menu_acceleration',
+        fieldName: 'acceleration',
+        defaultValue: '1000 1000' },
+    'flippermoremotor_position|PORT':
+      { opcode: 'flippermoremotor_single-motor-selector',
+        fieldName: 'field_flippermoremotor_single-motor-selector',
+        defaultValue: 'A' },
+    'flippermoremotor_power|PORT':
+      { opcode: 'flippermoremotor_single-motor-selector',
+        fieldName: 'field_flippermoremotor_single-motor-selector',
+        defaultValue: 'A' },
+
+    // ── flippermoremove ───────────────────────────────────────────────────
+    'flippermoremove_movementSetAcceleration|ACCELERATION':
+      // EXCEPTION: field is plain `acceleration`, NOT field_<opcode>.
+      { opcode: 'flippermoremove_menu_acceleration',
+        fieldName: 'acceleration',
+        defaultValue: '1000 1000' },
+
+    // ── flippermoresensors ────────────────────────────────────────────────
+    'flippermoresensors_rawColor|PORT':
+      { opcode: 'flippermoresensors_color-sensor-selector',
+        fieldName: 'field_flippermoresensors_color-sensor-selector',
+        defaultValue: 'A' },
 
     // ── flipperlight ──────────────────────────────────────────────────────
     'flipperlight_centerButtonLight|COLOR':
@@ -191,6 +243,56 @@
         fieldName: 'field_flippersound_sound-selector',
         defaultValue: '{"name":"Cat Meow 1","location":"device"}' },
   };
+
+  // ── Shadow normalizers ────────────────────────────────────────────────────
+  // Spike's native editor emits custom-widget shadow blocks for numeric inputs
+  // that the simulator should treat as plain numbers (e.g. the steering wheel
+  // and the move-distance picker). On import, rewrite each such shadow in
+  // place to a `math_number` shadow with the coerced value. Downstream the
+  // shadow then flows through the existing demote-to-field path (for fields
+  // like STEERING) OR the standard input shadow path (for input slots like
+  // setDistance DISTANCE) without needing two parallel code paths.
+  //
+  // `coerce` runs on the raw field value before placement. Default is identity.
+  const SHADOW_NORMALIZERS = {
+    'flippermove_rotation-wheel': {
+      fieldName: 'field_flippermove_rotation-wheel',
+      coerce: parseRotationWheelValue,
+    },
+    'flippermove_custom-set-move-distance-number': {
+      fieldName: 'field_flippermove_custom-set-move-distance-number',
+    },
+  };
+
+  // Spike's wheel widget renders steering as one of:
+  //   "right: 65"  → +65   (positive = right turn, matches our convention)
+  //   "left: 30"   → -30
+  //   "straight"   →  0
+  //   "0", "60"…   → as-is (older / manually edited files)
+  function parseRotationWheelValue(raw) {
+    if (raw == null) return '0';
+    const v = String(raw).trim();
+    if (v === '' || v.toLowerCase() === 'straight') return '0';
+    const right = /^right:\s*(-?\d+(?:\.\d+)?)$/i.exec(v);
+    if (right) return right[1];
+    const left = /^left:\s*(\d+(?:\.\d+)?)$/i.exec(v);
+    if (left) return '-' + left[1];
+    if (/^-?\d+(?:\.\d+)?$/.test(v)) return v;
+    return '0';
+  }
+
+  function normalizeSb3Shadows(sb3) {
+    for (const blk of Object.values(sb3)) {
+      if (!blk || !blk.shadow) continue;
+      const n = SHADOW_NORMALIZERS[blk.opcode];
+      if (!n) continue;
+      const entry = (blk.fields || {})[n.fieldName];
+      if (!entry) continue;
+      const value = n.coerce ? n.coerce(entry[0]) : String(entry[0]);
+      blk.opcode = 'math_number';
+      blk.fields = { NUM: [value, null] };
+    }
+  }
 
   const NUMERIC_DEFAULT = { opcode: 'math_number', fieldName: 'NUM', defaultValue: '10' };
   const STRING_DEFAULT  = { opcode: 'text',        fieldName: 'TEXT', defaultValue: '' };
@@ -400,6 +502,7 @@
 
   // ── sb3 blocks → Blockly serialization ───────────────────────────────────
   function sb3BlocksToBlocklyState(sb3Blocks) {
+    normalizeSb3Shadows(sb3Blocks);
     const tops = Object.entries(sb3Blocks)
       .filter(([_, b]) => b.topLevel === true)
       .map(([id, _]) => buildBlocklyBlock(sb3Blocks, id));
@@ -461,22 +564,10 @@
     }
     if (typeof slot !== 'string') return undefined;
     const shadow = sb3[slot];
-    if (!shadow) return undefined;
-    if (shadow.opcode === contract.opcode) {
-      const fieldEntry = (shadow.fields || {})[contract.fieldName];
-      if (!fieldEntry) return undefined;
-      return fieldEntry[0];
-    }
-    // Spike may emit an alternate selector shadow (e.g. STEERING stored as
-    // `flippermove_rotation-wheel` rather than `math_number`). Same numeric
-    // domain, different widget — accept declared alternates.
-    for (const alt of (contract.altShadows || [])) {
-      if (shadow.opcode !== alt.opcode) continue;
-      const fieldEntry = (shadow.fields || {})[alt.fieldName];
-      if (!fieldEntry) continue;
-      return fieldEntry[0];
-    }
-    return undefined;
+    if (!shadow || shadow.opcode !== contract.opcode) return undefined;
+    const fieldEntry = (shadow.fields || {})[contract.fieldName];
+    if (!fieldEntry) return undefined;
+    return fieldEntry[0];
   }
 
   function decodeInput(sb3, value) {

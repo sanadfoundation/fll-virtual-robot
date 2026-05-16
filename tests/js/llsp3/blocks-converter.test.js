@@ -462,7 +462,7 @@ test('decodeInput: flippermove_steer STEERING with flippermove_rotation-wheel sh
   // Spike's native editor stores STEERING as a separate
   // `flippermove_rotation-wheel` shadow block, not as an inline math_number
   // primitive. The wheel value lives in `field_flippermove_rotation-wheel`.
-  // Without this demotion the unknown block leaks into Blockly's input slot
+  // Without normalization the unknown block leaks into Blockly's input slot
   // and load fails with "missing a(n) STEERING connection".
   const ctx = env();
   const sb3 = {
@@ -490,6 +490,118 @@ test('decodeInput: flippermove_steer STEERING with flippermove_rotation-wheel sh
   assert.strictEqual(top.type, 'flippermove_steer');
   assert.strictEqual(top.fields && top.fields.STEERING, '60');
   assert.strictEqual(top.inputs && top.inputs.STEERING, undefined);
+});
+
+test('decodeInput: rotation-wheel labeled "right: N" / "left: N" / "straight" normalize correctly', () => {
+  // The Spike rotation-wheel widget can store its value in any of several
+  // textual forms — labeled, bare, or "straight". Verify each round-trips
+  // to the right signed integer in the STEERING field.
+  const ctx = env();
+  const cases = [
+    { raw: 'right: 65',   want: '65'   },
+    { raw: 'left: 30',    want: '-30'  },
+    { raw: 'straight',    want: '0'    },
+    { raw: '60',          want: '60'   },
+    { raw: '-25',         want: '-25'  },
+    { raw: 'right: 12.5', want: '12.5' },
+  ];
+  for (const c of cases) {
+    const sb3 = {
+      S: { opcode: 'flippermove_steer', next: null, parent: null,
+           inputs: { STEERING: [1, 'W'], VALUE: [1, [4, '1']] },
+           fields: { UNIT: ['rotations', null] },
+           shadow: false, topLevel: true, x: 0, y: 0 },
+      W: { opcode: 'flippermove_rotation-wheel', next: null, parent: 'S',
+           inputs: {}, fields: { 'field_flippermove_rotation-wheel': [c.raw, null] },
+           shadow: true, topLevel: false },
+    };
+    const top = ctx.LLSP3.blocks.sb3BlocksToBlocklyState(sb3).blocks.blocks[0];
+    assert.strictEqual(top.fields.STEERING, c.want,
+      `rotation-wheel ${JSON.stringify(c.raw)} should map to ${c.want}`);
+  }
+});
+
+test('decodeInput: flippermove_setDistance DISTANCE keeps a math_number shadow (input slot, not field)', () => {
+  // setDistance DISTANCE is an input_value on the Blockly side — connecting a
+  // variable should work. So Spike's `custom-set-move-distance-number` shadow
+  // must be normalized to a math_number shadow that lives in the input slot,
+  // not demoted to a field.
+  const ctx = env();
+  const sb3 = {
+    D: { opcode: 'flippermove_setDistance', next: null, parent: null,
+         inputs: { DISTANCE: [1, 'N'] },
+         fields: { UNIT: ['cm', null] },
+         shadow: false, topLevel: true, x: 0, y: 0 },
+    N: { opcode: 'flippermove_custom-set-move-distance-number',
+         next: null, parent: 'D', inputs: {},
+         fields: { 'field_flippermove_custom-set-move-distance-number': ['17.5', null] },
+         shadow: true, topLevel: false },
+  };
+  const top = ctx.LLSP3.blocks.sb3BlocksToBlocklyState(sb3).blocks.blocks[0];
+  assert.strictEqual(top.type, 'flippermove_setDistance');
+  assert.ok(top.inputs && top.inputs.DISTANCE, 'DISTANCE remains an input');
+  assert.strictEqual(top.inputs.DISTANCE.shadow.type, 'math_number');
+  assert.strictEqual(top.inputs.DISTANCE.shadow.fields.NUM, '17.5');
+  assert.strictEqual(top.fields && top.fields.DISTANCE, undefined,
+    'DISTANCE must NOT be demoted to a field');
+});
+
+test('decodeInput: flippersensors_isTilted VALUE with custom-tilted shadow demotes to field', () => {
+  const ctx = env();
+  const sb3 = {
+    T: { opcode: 'flippersensors_isTilted', next: null, parent: null,
+         inputs: { VALUE: [1, 'V'] }, fields: {},
+         shadow: false, topLevel: true, x: 0, y: 0 },
+    V: { opcode: 'flippersensors_custom-tilted', next: null, parent: 'T',
+         inputs: {}, fields: { 'field_flippersensors_custom-tilted': ['3', null] },
+         shadow: true, topLevel: false },
+  };
+  const top = ctx.LLSP3.blocks.sb3BlocksToBlocklyState(sb3).blocks.blocks[0];
+  assert.strictEqual(top.fields && top.fields.VALUE, '3');
+  assert.strictEqual(top.inputs && top.inputs.VALUE, undefined);
+});
+
+test('decodeInput: flippermoremotor PORT shadows demote to field', () => {
+  // Sample one from each multi-port and single-motor family to confirm the
+  // new contract entries land in the right slot.
+  const ctx = env();
+  const sb3 = {
+    A: { opcode: 'flippermoremotor_motorGoToRelativePosition', next: null, parent: null,
+         inputs: { PORT: [1, 'PA'], POSITION: [1, [4, '90']] },
+         fields: {}, shadow: false, topLevel: true, x: 0, y: 0 },
+    PA: { opcode: 'flippermoremotor_multiple-port-selector', next: null, parent: 'A',
+          inputs: {}, fields: { 'field_flippermoremotor_multiple-port-selector': ['CE', null] },
+          shadow: true, topLevel: false },
+    B: { opcode: 'flippermoremotor_position', next: null, parent: null,
+         inputs: { PORT: [1, 'PB'] },
+         fields: {}, shadow: false, topLevel: true, x: 0, y: 0 },
+    PB: { opcode: 'flippermoremotor_single-motor-selector', next: null, parent: 'B',
+          inputs: {}, fields: { 'field_flippermoremotor_single-motor-selector': ['B', null] },
+          shadow: true, topLevel: false },
+  };
+  const blocks = ctx.LLSP3.blocks.sb3BlocksToBlocklyState(sb3).blocks.blocks;
+  const a = blocks.find(b => b.type === 'flippermoremotor_motorGoToRelativePosition');
+  const b = blocks.find(b => b.type === 'flippermoremotor_position');
+  assert.strictEqual(a.fields.PORT, 'CE');
+  assert.strictEqual(b.fields.PORT, 'B');
+});
+
+test('decodeInput: ACCELERATION menu (exception field name `acceleration`) demotes to field', () => {
+  // `flippermoremove_menu_acceleration` / `flippermoremotor_menu_acceleration`
+  // store their value under the plain key `acceleration`, not the standard
+  // `field_<opcode>` pattern (same exception as flipperlight_menu_orientation).
+  const ctx = env();
+  const sb3 = {
+    A: { opcode: 'flippermoremove_movementSetAcceleration', next: null, parent: null,
+         inputs: { ACCELERATION: [1, 'M'] }, fields: {},
+         shadow: false, topLevel: true, x: 0, y: 0 },
+    M: { opcode: 'flippermoremove_menu_acceleration', next: null, parent: 'A',
+         inputs: {}, fields: { acceleration: ['3000 3000', null] },
+         shadow: true, topLevel: false },
+  };
+  const top = ctx.LLSP3.blocks.sb3BlocksToBlocklyState(sb3).blocks.blocks[0];
+  assert.strictEqual(top.fields && top.fields.ACCELERATION, '3000 3000');
+  assert.strictEqual(top.inputs && top.inputs.ACCELERATION, undefined);
 });
 
 test('emitBlock: all field values are strings (Scratch 3 spec)', () => {
