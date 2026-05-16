@@ -2306,11 +2306,50 @@ function _registerPortGridField(Blockly) {
       const grid = document.createElement('div');
       grid.className = 'fll-port-grid-cells';
 
+      // For multi-capable blocks, opening the popup defaults to single-pick
+      // behavior (clicking a port replaces the selection) unless the block
+      // already has 2+ ports selected. The user must explicitly click
+      // MULTIPLE (or ALL) to opt into multi-toggle behavior — matches Spike's
+      // "intentional multi-select" UX.
+      this.submode_ = this.mode_ === 'multi'
+        ? ((this.getValue() || '').length > 1 ? 'multi-pick' : 'single-pick')
+        : null;
+
+      const actions = document.createElement('div');
+      actions.className = 'fll-port-actions';
+
       const renderButtons = () => {
         const selected = new Set((this.getValue() || '').split(''));
         for (const btn of grid.querySelectorAll('button')) {
           btn.classList.toggle('selected', selected.has(btn.dataset.port));
         }
+      };
+
+      const renderActions = () => {
+        actions.innerHTML = '';
+        if (this.mode_ !== 'multi') return;
+        if (this.submode_ === 'single-pick') {
+          const multi = document.createElement('button');
+          multi.type = 'button';
+          multi.className = 'fll-port-action';
+          multi.textContent = 'MULTIPLE';
+          multi.addEventListener('click', () => {
+            this.submode_ = 'multi-pick';
+            renderActions();
+          });
+          actions.appendChild(multi);
+        }
+        const all = document.createElement('button');
+        all.type = 'button';
+        all.className = 'fll-port-action';
+        all.textContent = 'ALL';
+        all.addEventListener('click', () => {
+          this.setValue(PORTS.join(''));
+          this.submode_ = 'multi-pick';
+          renderButtons();
+          renderActions();
+        });
+        actions.appendChild(all);
       };
 
       for (const p of PORTS) {
@@ -2326,21 +2365,7 @@ function _registerPortGridField(Blockly) {
         grid.appendChild(btn);
       }
       root.appendChild(grid);
-
-      if (this.mode_ === 'multi') {
-        const actions = document.createElement('div');
-        actions.className = 'fll-port-actions';
-        const all = document.createElement('button');
-        all.type = 'button';
-        all.className = 'fll-port-action';
-        all.textContent = 'ALL';
-        all.addEventListener('click', () => {
-          this.setValue(PORTS.join(''));
-          renderButtons();
-        });
-        actions.appendChild(all);
-        root.appendChild(actions);
-      }
+      root.appendChild(actions);
 
       const div = Blockly.DropDownDiv.getContentDiv();
       div.appendChild(root);
@@ -2349,19 +2374,19 @@ function _registerPortGridField(Blockly) {
         this.sourceBlock_.style.colourTertiary,
       );
       Blockly.DropDownDiv.showPositionedByField(this, () => {
-        // Clean up on close.
         if (root.parentNode) root.parentNode.removeChild(root);
       });
       renderButtons();
+      renderActions();
     }
 
     _togglePort(p) {
-      const current = (this.getValue() || '').split('');
       if (this.mode_ === 'single') {
         this.setValue(p);
         this._lastOrder = [p];
         return;
       }
+      const current = (this.getValue() || '').split('');
       const has = current.includes(p);
       if (this.mode_ === 'pair') {
         if (has) {
@@ -2380,11 +2405,17 @@ function _registerPortGridField(Blockly) {
         this.setValue(_sortPorts(trimmed.join('')));
         return;
       }
-      // multi
+      // multi mode
+      if (this.submode_ === 'single-pick') {
+        // Treat like single mode: clicking replaces the selection.
+        this.setValue(p);
+        return;
+      }
+      // multi-pick: toggle membership, but keep at least one port selected.
       let next;
       if (has) {
         next = current.filter(x => x !== p);
-        if (next.length === 0) return;  // keep at least one selected
+        if (next.length === 0) return;
       } else {
         next = current.concat(p);
       }
