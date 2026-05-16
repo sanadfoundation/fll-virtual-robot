@@ -598,9 +598,9 @@ class RobotSimulator {
 
     const bw = ROBOT_BODY_W * s;
     const bh = ROBOT_BODY_H * s;
-    const ww = 22 * s;   // wheel width
-    const wh = 56 * s;   // wheel height
-    const wInset = 10 * s;
+    const ww = 28 * s;   // wheel width (Spike Prime 56×28 wheel)
+    const wh = 56 * s;   // wheel diameter
+    const wInset = 12 * s;
 
     // Shadow
     ctx.shadowColor = 'rgba(0,0,0,0.25)';
@@ -631,9 +631,9 @@ class RobotSimulator {
     ctx.fill();
     ctx.stroke();
 
-    // Hub brick (Spike Prime = light gray hub)
-    const hw = 90 * s;
-    const hh = 80 * s;
+    // Hub brick (Spike Prime Large Hub = ~114 × 108 mm)
+    const hw = 110 * s;
+    const hh = 108 * s;
     ctx.fillStyle = '#a8a8c0';
     ctx.strokeStyle = '#7070a0';
     ctx.lineWidth = 1 * s;
