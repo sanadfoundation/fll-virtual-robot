@@ -31,10 +31,9 @@
       { opcode: 'flippermotor_multiple-port-selector',
         fieldName: 'field_flippermotor_multiple-port-selector',
         defaultValue: 'A' },
-    'flippermotor_motorGoDirectionToPosition|POSITION':
-      { opcode: 'flippermotor_custom-angle',
-        fieldName: 'field_flippermotor_custom-angle',
-        defaultValue: '0' },
+    // POSITION is an input_value on the Blockly side; do not demote it to a
+    // field. Spike's `flippermotor_custom-angle` selector shadow is rewritten
+    // to a math_number shadow by SHADOW_NORMALIZERS below.
     'flippermotor_motorStartDirection|PORT':
       { opcode: 'flippermotor_multiple-port-selector',
         fieldName: 'field_flippermotor_multiple-port-selector',
@@ -261,6 +260,9 @@
     },
     'flippermove_custom-set-move-distance-number': {
       fieldName: 'field_flippermove_custom-set-move-distance-number',
+    },
+    'flippermotor_custom-angle': {
+      fieldName: 'field_flippermotor_custom-angle',
     },
   };
 
