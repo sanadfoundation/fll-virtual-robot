@@ -1528,33 +1528,49 @@ body.feedback-modal-open { overflow: hidden; }
 
 .fll-ultra-popup {
   padding: 12px;
-  width: 160px;
+  width: 180px;
   box-sizing: border-box;
 }
 
-.fll-ultra-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  padding: 10px;
-  border: 1.5px solid rgba(255, 255, 255, 0.55);
-  border-radius: 50px / 36px;   /* eye-pair pill, slightly oval */
+/* Two round "eyes" side-by-side. Each eye is a circle clipped by its own
+   border-radius:50% + overflow:hidden; the two halves inside it are flex
+   rectangles, so they render as the top and bottom semicircles. */
+.fll-ultra-eyes {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  padding: 14px 10px;
 }
 
-.fll-ultra-cell {
-  aspect-ratio: 1;
+.fll-ultra-eye {
+  display: flex;
+  flex-direction: column;
+  width: 64px;
+  height: 64px;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.fll-ultra-half {
+  flex: 1;
   background: #fff;
   border: none;
-  border-radius: 50%;
+  padding: 0;
   cursor: pointer;
   opacity: 0.15;
   transition: opacity 60ms ease;
-  padding: 0;
 }
 
-.fll-ultra-cell:hover {
-  outline: 1.5px solid rgba(255, 255, 255, 0.8);
-  outline-offset: 1px;
+.fll-ultra-half-top {
+  /* Horizontal divider across the centre of the eye. */
+  border-bottom: 1.5px solid rgba(255, 255, 255, 0.85);
+}
+
+.fll-ultra-half:hover {
+  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline-offset: -2px;
 }
 
 .fll-ultra-actions {

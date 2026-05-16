@@ -2834,31 +2834,36 @@ function _registerUltrasonicField(Blockly) {
       const arr = _parseUltra(this.getValue()) || [100,100,100,100];
       const applyValue = () => this.setValue(_formatUltra(arr));
 
-      // 2×2 grid of LED buttons. Layout matches the wire order:
-      //   [0] L-top    [2] R-top
-      //   [1] L-bottom [3] R-bottom
-      const grid = document.createElement('div');
-      grid.className = 'fll-ultra-grid';
+      // Two eye-shaped containers, each split into a top and bottom half by
+      // a horizontal divider. The four halves map to the four wire values
+      // in order: left-top, left-bottom, right-top, right-bottom.
+      const eyes = document.createElement('div');
+      eyes.className = 'fll-ultra-eyes';
       const cells = [];
       const paintCell = (i) => {
         cells[i].style.opacity = String(0.15 + (arr[i] / 100) * 0.85);
       };
-      const order = [0, 2, 1, 3];  // top-left, top-right, bottom-left, bottom-right
-      for (const i of order) {
-        const cell = document.createElement('button');
-        cell.type = 'button';
-        cell.className = 'fll-ultra-cell';
-        cell.dataset.idx = String(i);
-        cell.addEventListener('click', () => {
-          // Cycle 100 → 50 → 0 → 100.
-          arr[i] = arr[i] >= 100 ? 50 : arr[i] >= 50 ? 0 : 100;
-          paintCell(i);
-          applyValue();
-        });
-        cells[i] = cell;
-        grid.appendChild(cell);
-        paintCell(i);
+      const eyeLayout = [[0, 1], [2, 3]];  // [leftEye, rightEye] each: [top, bottom]
+      for (const [topIdx, botIdx] of eyeLayout) {
+        const eye = document.createElement('div');
+        eye.className = 'fll-ultra-eye';
+        for (const [idx, half] of [[topIdx, 'top'], [botIdx, 'bottom']]) {
+          const cell = document.createElement('button');
+          cell.type = 'button';
+          cell.className = 'fll-ultra-half fll-ultra-half-' + half;
+          cell.dataset.idx = String(idx);
+          cell.addEventListener('click', () => {
+            arr[idx] = arr[idx] >= 100 ? 50 : arr[idx] >= 50 ? 0 : 100;
+            paintCell(idx);
+            applyValue();
+          });
+          cells[idx] = cell;
+          eye.appendChild(cell);
+          paintCell(idx);
+        }
+        eyes.appendChild(eye);
       }
+      const grid = eyes;  // keep the variable name used below
 
       const actions = document.createElement('div');
       actions.className = 'fll-ultra-actions';
