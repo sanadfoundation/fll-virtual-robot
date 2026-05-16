@@ -500,11 +500,11 @@ const SPIKE_BLOCKS = [
   { type: 'flipperlight_ultrasonicLightUp',
     message0: 'distance sensor %1 light up %2',
     args0: [
-      { type: 'field_port_grid', name: 'PORT', mode: 'single', value: 'A' },
-      { type: 'input_value',    name: 'VALUE', check: 'String' },
+      { type: 'field_port_grid', name: 'PORT',  mode: 'single', value: 'A' },
+      { type: 'field_ultrasonic', name: 'VALUE', value: '100 100 100 100' },
     ],
     inputsInline: true, previousStatement: null, nextStatement: null,
-    colour: C_LIGHT, tooltip: 'Light up the distance sensor LEDs (e.g. "100 100 100 100").',
+    colour: C_LIGHT, tooltip: 'Light up the distance sensor LEDs.',
   },
 
   // ── SOUND ───────────────────────────────────────────────────────────────────
@@ -1991,7 +1991,7 @@ const TOOLBOX_XML = `
     <block type="flipperlight_lightDisplaySetOrientation"/>
     <block type="flipperlight_centerButtonLight"/>
     <block type="flipperlight_ultrasonicLightUp">
-      ${_shadowText('VALUE', '100 100 100 100')}
+      <field name="VALUE">100 100 100 100</field>
     </block>
   </category>
 
@@ -2772,6 +2772,130 @@ function _registerMatrixField(Blockly) {
   _matrixFieldRegistered = true;
 }
 
+// ── Ultrasonic LEDs field ────────────────────────────────────────────────────
+// Spike's distance sensor has four LEDs arranged as two "eyes" (each eye
+// has a top and bottom segment). The wire value is a space-separated string
+// of four brightness numbers 0..100, ordered:
+//     "<L_top> <L_bottom> <R_top> <R_bottom>"
+// We mirror that with a 2×2 grid of brightness buttons. Each button cycles
+// 100 → 50 → 0 → 100 on click; FILL / CLEAR set or zero all four at once.
+
+const _ULTRA_DEFAULT = '100 100 100 100';
+
+let _ultrasonicFieldRegistered = false;
+function _registerUltrasonicField(Blockly) {
+  if (_ultrasonicFieldRegistered) return;
+  if (!(Blockly.FieldDropdown && Blockly.fieldRegistry && Blockly.DropDownDiv)) return;
+
+  function _parseUltra(v) {
+    if (typeof v !== 'string') return null;
+    const parts = v.trim().split(/\s+/);
+    if (parts.length !== 4) return null;
+    const nums = parts.map(p => Number(p));
+    if (!nums.every(n => Number.isFinite(n))) return null;
+    return nums.map(n => Math.max(0, Math.min(100, Math.round(n))));
+  }
+  function _formatUltra(arr) {
+    return arr.map(n => String(n)).join(' ');
+  }
+  function _normalizeUltra(v) {
+    const arr = _parseUltra(v);
+    return arr ? _formatUltra(arr) : null;
+  }
+
+  class FieldUltrasonic extends Blockly.FieldDropdown {
+    static fromJson(options) {
+      return new FieldUltrasonic(options.value, options);
+    }
+    constructor(value, opts) {
+      const initial = _normalizeUltra(value) || _ULTRA_DEFAULT;
+      const menuGenerator = function () {
+        const v = this.getValue ? (this.getValue() || initial) : initial;
+        return [[v, v]];
+      };
+      super(menuGenerator, undefined, opts || {});
+      this.SERIALIZABLE = true;
+      this.setValue(initial);
+    }
+
+    doClassValidation_(v) {
+      return _normalizeUltra(v);
+    }
+
+    getDisplayText_() {
+      // Compact eye-pair pictogram for the on-block chip.
+      return '◔◔';
+    }
+
+    showEditor_() {
+      const root = document.createElement('div');
+      root.className = 'fll-ultra-popup';
+
+      const arr = _parseUltra(this.getValue()) || [100,100,100,100];
+      const applyValue = () => this.setValue(_formatUltra(arr));
+
+      // 2×2 grid of LED buttons. Layout matches the wire order:
+      //   [0] L-top    [2] R-top
+      //   [1] L-bottom [3] R-bottom
+      const grid = document.createElement('div');
+      grid.className = 'fll-ultra-grid';
+      const cells = [];
+      const paintCell = (i) => {
+        cells[i].style.opacity = String(0.15 + (arr[i] / 100) * 0.85);
+      };
+      const order = [0, 2, 1, 3];  // top-left, top-right, bottom-left, bottom-right
+      for (const i of order) {
+        const cell = document.createElement('button');
+        cell.type = 'button';
+        cell.className = 'fll-ultra-cell';
+        cell.dataset.idx = String(i);
+        cell.addEventListener('click', () => {
+          // Cycle 100 → 50 → 0 → 100.
+          arr[i] = arr[i] >= 100 ? 50 : arr[i] >= 50 ? 0 : 100;
+          paintCell(i);
+          applyValue();
+        });
+        cells[i] = cell;
+        grid.appendChild(cell);
+        paintCell(i);
+      }
+
+      const actions = document.createElement('div');
+      actions.className = 'fll-ultra-actions';
+      const fill = document.createElement('button');
+      fill.type = 'button'; fill.className = 'fll-ultra-action'; fill.textContent = 'FILL';
+      fill.addEventListener('click', () => {
+        for (let i = 0; i < 4; i++) { arr[i] = 100; paintCell(i); }
+        applyValue();
+      });
+      const clear = document.createElement('button');
+      clear.type = 'button'; clear.className = 'fll-ultra-action'; clear.textContent = 'CLEAR';
+      clear.addEventListener('click', () => {
+        for (let i = 0; i < 4; i++) { arr[i] = 0; paintCell(i); }
+        applyValue();
+      });
+      actions.appendChild(fill);
+      actions.appendChild(clear);
+
+      root.appendChild(grid);
+      root.appendChild(actions);
+
+      const div = Blockly.DropDownDiv.getContentDiv();
+      div.appendChild(root);
+      Blockly.DropDownDiv.setColour(
+        this.sourceBlock_.getColour(),
+        this.sourceBlock_.style.colourTertiary,
+      );
+      Blockly.DropDownDiv.showPositionedByField(this, () => {
+        if (root.parentNode) root.parentNode.removeChild(root);
+      });
+    }
+  }
+
+  Blockly.fieldRegistry.register('field_ultrasonic', FieldUltrasonic);
+  _ultrasonicFieldRegistered = true;
+}
+
 // Registered once on first initBlockly() call.
 let _compactRendererRegistered = false;
 function _registerCompactRenderer(Blockly) {
@@ -2863,6 +2987,7 @@ function initBlockly(divId, themeName, initialXml) {
   _registerSteeringField(Blockly);
   _registerPortGridField(Blockly);
   _registerMatrixField(Blockly);
+  _registerUltrasonicField(Blockly);
   Blockly.defineBlocksWithJsonArray(SPIKE_BLOCKS.map(_withEmblem));
   registerGenerators(Blockly);
   _registerCompactRenderer(Blockly);

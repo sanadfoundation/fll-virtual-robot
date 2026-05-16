@@ -320,9 +320,10 @@
 
   // Inputs whose default shadow should be `text` rather than `math_number`
   // (when there is NO contract entry — entries above take precedence).
-  const STRING_INPUT_KEYS = new Set([
-    'flipperlight_ultrasonicLightUp|VALUE',
-  ]);
+  // Currently empty: every previously-string-defaulted input now has either
+  // a proper contract entry above or a custom field that doesn't need a
+  // default shadow.
+  const STRING_INPUT_KEYS = new Set();
 
   function shadowFor(opcode, inputName) {
     const key = `${opcode}|${inputName}`;

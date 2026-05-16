@@ -1516,3 +1516,67 @@ body.feedback-modal-open { overflow: hidden; }
   font: 700 14px/1 'Helvetica Neue', Helvetica, Arial, sans-serif;
   letter-spacing: 0.02em;
 }
+
+/* ── Ultrasonic LED field popup ──────────────────────────────────────────── */
+/* Four LED cells in a 2×2 grid, mirroring the SPIKE distance-sensor's two
+   eyes. Each cell cycles 100 → 50 → 0 → 100 on click and renders the
+   brightness via opacity over the block-coloured DropDownDiv. */
+
+.blocklyDropDownContent:has(.fll-ultra-popup) {
+  max-height: none !important;
+}
+
+.fll-ultra-popup {
+  padding: 12px;
+  width: 160px;
+  box-sizing: border-box;
+}
+
+.fll-ultra-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 10px;
+  border: 1.5px solid rgba(255, 255, 255, 0.55);
+  border-radius: 50px / 36px;   /* eye-pair pill, slightly oval */
+}
+
+.fll-ultra-cell {
+  aspect-ratio: 1;
+  background: #fff;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  opacity: 0.15;
+  transition: opacity 60ms ease;
+  padding: 0;
+}
+
+.fll-ultra-cell:hover {
+  outline: 1.5px solid rgba(255, 255, 255, 0.8);
+  outline-offset: 1px;
+}
+
+.fll-ultra-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.fll-ultra-action {
+  appearance: none;
+  background: transparent;
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  border-radius: 8px;
+  color: #fff;
+  padding: 6px 0;
+  min-width: 60px;
+  font: 700 12px/1 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.fll-ultra-action:hover {
+  background: rgba(0, 0, 0, 0.18);
+}
