@@ -1273,7 +1273,7 @@ body.feedback-modal-open { overflow: hidden; }
   padding: 10px;
   /* Fixed width keeps the popup from jumping when toggling between
      MULTIPLE (8 chars) and SINGLE (6 chars). */
-  width: 200px;
+  width: 180px;
   box-sizing: border-box;
 }
 
@@ -1321,12 +1321,12 @@ body.feedback-modal-open { overflow: hidden; }
   border: 1.5px solid rgba(255, 255, 255, 0.85);
   border-radius: 10px;
   color: #fff;
-  padding: 8px 0;
+  padding: 7px 0;
   /* min-width keeps SINGLE / MULTIPLE / ALL chips the same size — without
      it, swapping the toggle label between MULTIPLE (8 chars) and SINGLE
      (6 chars) shifts the action row width visibly. */
-  min-width: 80px;
-  font: 700 14px/1 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  min-width: 70px;
+  font: 700 13px/1 'Helvetica Neue', Helvetica, Arial, sans-serif;
   letter-spacing: 0.04em;
   cursor: pointer;
 }
