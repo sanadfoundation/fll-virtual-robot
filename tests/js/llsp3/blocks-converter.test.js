@@ -586,6 +586,40 @@ test('decodeInput: flippermoremotor PORT shadows demote to field', () => {
   assert.strictEqual(b.fields.PORT, 'B');
 });
 
+test('decodeInput: event_broadcast_menu shadow becomes a text shadow on event_broadcast', () => {
+  // Spike (and Scratch generally) emit broadcast names as either an inline
+  // type-11 primitive or a separate event_broadcast_menu shadow. Our
+  // event_broadcast block expects a text shadow in BROADCAST_INPUT; the
+  // normalizer rewrites the menu form so it lands correctly.
+  const ctx = env();
+  const sb3 = {
+    A: { opcode: 'event_broadcast', next: null, parent: null,
+         inputs: { BROADCAST_INPUT: [1, 'M'] }, fields: {},
+         shadow: false, topLevel: true, x: 0, y: 0 },
+    M: { opcode: 'event_broadcast_menu', next: null, parent: 'A',
+         inputs: {}, fields: { BROADCAST_OPTION: ['hello-world', null] },
+         shadow: true, topLevel: false },
+  };
+  const top = ctx.LLSP3.blocks.sb3BlocksToBlocklyState(sb3).blocks.blocks[0];
+  assert.strictEqual(top.type, 'event_broadcast');
+  assert.ok(top.inputs && top.inputs.BROADCAST_INPUT, 'BROADCAST_INPUT remains an input');
+  assert.strictEqual(top.inputs.BROADCAST_INPUT.shadow.type, 'text');
+  assert.strictEqual(top.inputs.BROADCAST_INPUT.shadow.fields.TEXT, 'hello-world');
+});
+
+test('decodeInput: inline event_broadcast primitive (type 11) decodes as text', () => {
+  // Same case but with the inline form `[1, [11, "name", "id"]]`.
+  const ctx = env();
+  const sb3 = {
+    A: { opcode: 'event_broadcast', next: null, parent: null,
+         inputs: { BROADCAST_INPUT: [1, [11, 'greet', 'gID']] }, fields: {},
+         shadow: false, topLevel: true, x: 0, y: 0 },
+  };
+  const top = ctx.LLSP3.blocks.sb3BlocksToBlocklyState(sb3).blocks.blocks[0];
+  assert.strictEqual(top.inputs.BROADCAST_INPUT.shadow.type, 'text');
+  assert.strictEqual(top.inputs.BROADCAST_INPUT.shadow.fields.TEXT, 'greet');
+});
+
 test('decodeInput: ACCELERATION menu (exception field name `acceleration`) demotes to field', () => {
   // `flippermoremove_menu_acceleration` / `flippermoremotor_menu_acceleration`
   // store their value under the plain key `acceleration`, not the standard

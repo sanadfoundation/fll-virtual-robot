@@ -41,10 +41,28 @@ function _pairPillSvg(label) {
 const _pairOpt = (label, value) =>
   [{ src: _dataUri(_pairPillSvg(label)), width: 40, height: 20, alt: label }, value];
 
-// Drive pair selector — only A+B is a valid drive pair under the canonical config.
-const _PAIRS = [
-  _pairOpt('A+B','AB'),
-];
+// Spike's grid selectors emit any non-empty subset of ports A–F. We mirror
+// every combination so an imported .llsp3 with PAIR=CF or PORT=ABCDEF
+// doesn't fall back to the default. The dropdown is long; switching to a
+// grid widget is a UX follow-up.
+function _portSubsets(minSize) {
+  const ports = ['A','B','C','D','E','F'];
+  const out = [];
+  for (let n = 1; n < (1 << ports.length); n++) {
+    let s = '';
+    for (let i = 0; i < ports.length; i++) if (n & (1 << i)) s += ports[i];
+    if (s.length >= minSize) out.push(s);
+  }
+  return out.sort((a,b) => a.length === b.length ? a.localeCompare(b) : a.length - b.length);
+}
+
+// Drive-pair selector: exactly two motors. 15 combinations.
+const _PAIRS = _portSubsets(2)
+  .filter(s => s.length === 2)
+  .map(s => _pairOpt(s[0] + '+' + s[1], s));
+
+// Multi-motor selector: any non-empty subset, 63 combinations.
+const _PORTS_MULTI = _portSubsets(1).map(s => [s, s]);
 
 // Direction selectors render as image-only dropdowns: a small white pill
 // containing the LEGO arrow glyph. Standard Blockly's field_dropdown supports
@@ -115,39 +133,54 @@ const _CENTRE_BTN_COLORS = [
 ];
 
 const _TILT       = [['forward','1'],['backward','2'],['left','3'],['right','4']];
-const _ORIENT     = [['front','front'],['back','back'],['top','top'],['bottom','bottom'],['left side','left side'],['right side','right side']];
-const _ORIENT_UP  = [['front','front'],['back','back'],['top','up'],['bottom','down'],['left side','leftside'],['right side','rightside']];
+// Spike's orientation enum (the face-pointing-up dropdown). Values are
+// `front`/`back`/`up`/`down`/`leftside`/`rightside`. The (now removed)
+// plain-label form was inconsistent with Spike's wire serialization.
+const _ORIENT     = [['front','front'],['back','back'],['top','up'],['bottom','down'],['left side','leftside'],['right side','rightside']];
+const _ORIENT_UP  = _ORIENT;
 const _DISP_ORIENT= [['upright','1'],['left','2'],['right','3'],['upside down','4']];
 const _AXIS_PRY   = [['pitch','pitch'],['roll','roll'],['yaw','yaw']];
 const _AXIS_XYZ   = [['x','x'],['y','y'],['z','z']];
 const _RAW_RGB    = [['red','0'],['green','1'],['blue','2']];
 const _GESTURE    = [['shaken','shake'],['tapped','tapped'],['falling','freefall']];
-const _MOTION     = [['shaken','shake'],['tapped','tapped'],['falling','falling']];
+// Spike's wire values (verified against alexandrehardy/lego-spike-simulator):
+// motion uses `freefall`, not `falling`; force-sensor states use the
+// no-hyphen form `hardpressed`. Older sb3 files that used `falling` /
+// `hard-pressed` won't match these options but Blockly will fall back to
+// the first option (acceptable, single-character drift).
+const _MOTION     = [['shaken','shake'],['tapped','tapped'],['falling','freefall']];
 const _BTN_LR     = [['left','left'],['right','right']];
 const _BTN_EVT    = [['pressed','pressed'],['released','released']];
-const _PRESS_OPT  = [['pressed','pressed'],['hard-pressed','hard-pressed'],['released','released'],['pressure changed','pressure changed']];
-const _PRESS_IS   = [['pressed','pressed'],['hard-pressed','hard-pressed'],['released','released']];
+const _PRESS_OPT  = [['pressed','pressed'],['hard-pressed','hardpressed'],['released','released'],['pressure changed','pressure changed']];
+const _PRESS_IS   = [['pressed','pressed'],['hard-pressed','hardpressed'],['released','released']];
 const _COMPARE    = [['closer than','<'],['exactly at','='],['further than','>']];
 const _COMPARE_LT = [['<','<'],['=','='],['>','>']];
 const _STOP_KIND  = [['all','all'],['and exit program','program'],['this stack','this']];
 
 // Stop-method icons: down-arrow-into-floor (brake), padlock (hold), dashed
-// arrow (coast). Acceleration: 1/2/3 chevrons pointing right.
+// arrow (coast), plain "Stop" glyph (continue). Acceleration: 1/2/3
+// chevrons pointing right.
+//
+// Spike's wire values for the stop method are the numeric strings
+// "0" (brake), "1" (hold), "2" (coast), "3" (continue/smart-brake).
+// Confirmed against alexandrehardy/lego-spike-simulator.
 const _STOP_ICONS = {
-  brake: '<path d="M24 8 V30 M16 22 L24 30 L32 22" stroke="#222" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="10" y1="36" x2="38" y2="36" stroke="#222" stroke-width="3" stroke-linecap="round"/>',
-  hold:  '<path d="M16 24 v-6 a8 8 0 0 1 16 0 v6" stroke="#222" stroke-width="3" fill="none"/><rect x="12" y="22" width="24" height="18" rx="2" fill="#222"/><circle cx="24" cy="30" r="2.5" fill="#fff"/>',
-  coast: '<line x1="6" y1="24" x2="13" y2="24" stroke="#999" stroke-width="3" stroke-linecap="round" stroke-dasharray="4 3"/><path d="M14 24 L36 24 M28 16 L36 24 L28 32" stroke="#222" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+  '0': '<path d="M24 8 V30 M16 22 L24 30 L32 22" stroke="#222" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="10" y1="36" x2="38" y2="36" stroke="#222" stroke-width="3" stroke-linecap="round"/>',
+  '1': '<path d="M16 24 v-6 a8 8 0 0 1 16 0 v6" stroke="#222" stroke-width="3" fill="none"/><rect x="12" y="22" width="24" height="18" rx="2" fill="#222"/><circle cx="24" cy="30" r="2.5" fill="#fff"/>',
+  '2': '<line x1="6" y1="24" x2="13" y2="24" stroke="#999" stroke-width="3" stroke-linecap="round" stroke-dasharray="4 3"/><path d="M14 24 L36 24 M28 16 L36 24 L28 32" stroke="#222" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+  '3': '<rect x="14" y="14" width="20" height="20" rx="2" fill="#222"/>',
 };
-function _stopMethodSvg(kind) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">${_STOP_ICONS[kind]}</svg>`;
+function _stopMethodSvg(value) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">${_STOP_ICONS[value]}</svg>`;
 }
 const _stopOpt = (alt, value) =>
   [{ src: _dataUri(_stopMethodSvg(value)), width: 24, height: 24, alt }, value];
 
 const _STOP_METHOD = [
-  _stopOpt('brake',         'brake'),
-  _stopOpt('hold position', 'hold'),
-  _stopOpt('coast',         'coast'),
+  _stopOpt('brake',         '0'),
+  _stopOpt('hold position', '1'),
+  _stopOpt('coast',         '2'),
+  _stopOpt('continue',      '3'),
 ];
 
 function _accelSvg(level) {
@@ -292,7 +325,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippermotor_motorTurnForDirection',
     message0: '%1 run %2 for %3 %4',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',      options: _PORTS_SINGLE },
+      { type: 'field_dropdown', name: 'PORT',      options: _PORTS_MULTI },
       { type: 'field_dropdown', name: 'DIRECTION', options: _DIR_CW_CCW },
       { type: 'input_value',    name: 'VALUE',     check: ['Number','String'] },
       { type: 'field_dropdown', name: 'UNIT',      options: _MOTOR_UNITS },
@@ -304,7 +337,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippermotor_motorGoDirectionToPosition',
     message0: '%1 go %3 to position %2',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',      options: _PORTS_SINGLE },
+      { type: 'field_dropdown', name: 'PORT',      options: _PORTS_MULTI },
       { type: 'input_value',    name: 'POSITION',  check: ['Number','String'] },
       { type: 'field_dropdown', name: 'DIRECTION', options: _SHORTEST },
     ],
@@ -315,7 +348,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippermotor_motorStartDirection',
     message0: '%1 start motor %2',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',      options: _PORTS_SINGLE },
+      { type: 'field_dropdown', name: 'PORT',      options: _PORTS_MULTI },
       { type: 'field_dropdown', name: 'DIRECTION', options: _DIR_CW_CCW },
     ],
     inputsInline: true, previousStatement: null, nextStatement: null,
@@ -324,7 +357,7 @@ const SPIKE_BLOCKS = [
 
   { type: 'flippermotor_motorStop',
     message0: '%1 stop motor',
-    args0: [{ type: 'field_dropdown', name: 'PORT', options: _PORTS_SINGLE }],
+    args0: [{ type: 'field_dropdown', name: 'PORT', options: _PORTS_MULTI }],
     inputsInline: true, previousStatement: null, nextStatement: null,
     colour: C_MOTOR, tooltip: 'Stop a motor.',
   },
@@ -332,7 +365,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippermotor_motorSetSpeed',
     message0: '%1 set speed to %2 %%',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',  options: _PORTS_SINGLE },
+      { type: 'field_dropdown', name: 'PORT',  options: _PORTS_MULTI },
       { type: 'input_value',    name: 'SPEED', check: ['Number','String'] },
     ],
     inputsInline: true, previousStatement: null, nextStatement: null,
@@ -1068,7 +1101,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippermoremotor_motorGoToRelativePosition',
     message0: 'go motor %1 to relative position %2 at %3 %% speed',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',     options: _PORTS_SINGLE },
+      { type: 'field_dropdown', name: 'PORT',     options: _PORTS_MULTI },
       { type: 'input_value',    name: 'POSITION', check: ['Number','String'] },
       { type: 'input_value',    name: 'SPEED',    check: ['Number','String'] },
     ],
@@ -1079,7 +1112,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippermoremotor_motorStartPower',
     message0: 'start motor %1 at %2 %% power',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',  options: _PORTS_SINGLE },
+      { type: 'field_dropdown', name: 'PORT',  options: _PORTS_MULTI },
       { type: 'input_value',    name: 'POWER', check: ['Number','String'] },
     ],
     inputsInline: true, previousStatement: null, nextStatement: null,
@@ -1089,7 +1122,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippermoremotor_motorSetStopMethod',
     message0: 'set motor %1 to %2 at stop',
     args0: [
-      { type: 'field_dropdown', name: 'PORT', options: _PORTS_SINGLE },
+      { type: 'field_dropdown', name: 'PORT', options: _PORTS_MULTI },
       { type: 'field_dropdown', name: 'STOP', options: _STOP_METHOD },
     ],
     inputsInline: true, previousStatement: null, nextStatement: null,
@@ -1099,7 +1132,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippermoremotor_motorSetAcceleration',
     message0: 'set motor %1 acceleration to %2',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',         options: _PORTS_SINGLE },
+      { type: 'field_dropdown', name: 'PORT',         options: _PORTS_MULTI },
       { type: 'field_dropdown', name: 'ACCELERATION', options: _ACCEL },
     ],
     inputsInline: true, previousStatement: null, nextStatement: null,
@@ -1109,7 +1142,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippermoremotor_motorSetDegreeCounted',
     message0: 'set motor %1 relative position to %2',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',  options: _PORTS_SINGLE },
+      { type: 'field_dropdown', name: 'PORT',  options: _PORTS_MULTI },
       { type: 'input_value',    name: 'VALUE', check: ['Number','String'] },
     ],
     inputsInline: true, previousStatement: null, nextStatement: null,
@@ -2524,7 +2557,7 @@ function generateBlocklyJS(workspace) {
     `var _moveRotMM     = ${(Math.PI * 56).toFixed(4)};`,  // default 17.6 cm wheel circumference in mm
     `var _distMoved     = 0;`,
     `var _timerMs       = performance.now();`,
-    `var _stopMethod    = 'brake';`,
+    `var _stopMethod    = '0';`,
     `var _moveAccel     = '3000 3000';`,
     `var _motorStop     = {};`,
     `var _motorAccel    = {};`,

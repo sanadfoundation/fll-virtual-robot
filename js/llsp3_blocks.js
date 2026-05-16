@@ -264,6 +264,15 @@
     'flippermotor_custom-angle': {
       fieldName: 'field_flippermotor_custom-angle',
     },
+    // Scratch's broadcast-menu shadow: rewrite to a `text` shadow so it can
+    // sit in the BROADCAST_INPUT slot of our `event_broadcast` block (which
+    // accepts a String input). Otherwise Blockly errors with "Invalid block
+    // definition for type: event_broadcast_menu".
+    'event_broadcast_menu': {
+      fieldName: 'BROADCAST_OPTION',
+      target: 'text',
+      targetField: 'TEXT',
+    },
   };
 
   // Spike's wheel widget renders steering as one of:
@@ -291,8 +300,10 @@
       const entry = (blk.fields || {})[n.fieldName];
       if (!entry) continue;
       const value = n.coerce ? n.coerce(entry[0]) : String(entry[0]);
-      blk.opcode = 'math_number';
-      blk.fields = { NUM: [value, null] };
+      const target = n.target || 'math_number';
+      const targetField = n.targetField || 'NUM';
+      blk.opcode = target;
+      blk.fields = { [targetField]: [value, null] };
     }
   }
 
@@ -591,7 +602,9 @@
         }
         if (ptype === 9)  return { type: 'colour_picker', fields: { COLOUR: pval } };
         if (ptype === 10) return { type: 'text', fields: { TEXT: pval } };
-        if (ptype === 11) return { type: 'event_broadcast_menu', fields: { BROADCAST_OPTION: pval } };
+        // Scratch's broadcast-menu inline primitive. Our event_broadcast model
+        // uses a text shadow in BROADCAST_INPUT, not a separate menu block.
+        if (ptype === 11) return { type: 'text', fields: { TEXT: pval } };
         return { type: 'math_number', fields: { NUM: String(pval) } };
       }
       const blk = buildBlocklyBlock(sb3, slot);
