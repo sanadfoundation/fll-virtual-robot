@@ -1271,7 +1271,10 @@ body.feedback-modal-open { overflow: hidden; }
 
 .fll-port-grid {
   padding: 10px;
-  min-width: 160px;
+  /* Fixed width keeps the popup from jumping when toggling between
+     MULTIPLE (8 chars) and SINGLE (6 chars). */
+  width: 200px;
+  box-sizing: border-box;
 }
 
 .fll-port-grid-cells {
@@ -1318,7 +1321,11 @@ body.feedback-modal-open { overflow: hidden; }
   border: 1.5px solid rgba(255, 255, 255, 0.85);
   border-radius: 10px;
   color: #fff;
-  padding: 8px 18px;
+  padding: 8px 0;
+  /* min-width keeps SINGLE / MULTIPLE / ALL chips the same size — without
+     it, swapping the toggle label between MULTIPLE (8 chars) and SINGLE
+     (6 chars) shifts the action row width visibly. */
+  min-width: 80px;
   font: 700 14px/1 'Helvetica Neue', Helvetica, Arial, sans-serif;
   letter-spacing: 0.04em;
   cursor: pointer;
