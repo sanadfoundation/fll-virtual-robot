@@ -2266,21 +2266,35 @@ function _registerSteeringField(Blockly) {
 let _portGridFieldRegistered = false;
 function _registerPortGridField(Blockly) {
   if (_portGridFieldRegistered) return;
-  if (!(Blockly.Field && Blockly.fieldRegistry && Blockly.DropDownDiv)) return;
+  if (!(Blockly.FieldDropdown && Blockly.fieldRegistry && Blockly.DropDownDiv)) return;
 
   const PORTS = ['A','B','C','D','E','F'];
 
-  class FieldPortGrid extends Blockly.Field {
+  // Extends FieldDropdown so we inherit the Zelos chip styling (rounded
+  // background, internal padding, dropdown caret SVG) for free. We never
+  // actually display Blockly's auto-menu — `showEditor_` is overridden to
+  // open our custom grid popup. The menu generator returns a single
+  // placeholder option matching the current value so FieldDropdown's
+  // internal "is this value valid?" check passes.
+  class FieldPortGrid extends Blockly.FieldDropdown {
     static fromJson(options) {
       return new FieldPortGrid(options.value, options);
     }
     constructor(value, opts) {
       const mode = (opts && opts.mode) || 'multi';
       const initial = _normalizePortValue(value, mode) || (mode === 'pair' ? 'AB' : 'A');
-      super(initial);
+      // Dynamic menuGenerator: always reports the current value as an
+      // available option, satisfying FieldDropdown without enumerating all
+      // 63 multi-port combinations.
+      const menuGenerator = function () {
+        const v = this.getValue ? (this.getValue() || initial) : initial;
+        return [[v, v]];
+      };
+      super(menuGenerator, undefined, opts || {});
       this.mode_ = mode;
       this.SERIALIZABLE = true;
-      this._lastOrder = initial.split('');  // pair mode: track click order
+      this._lastOrder = initial.split('');
+      this.setValue(initial);
     }
 
     doClassValidation_(newValue) {
@@ -2328,17 +2342,30 @@ function _registerPortGridField(Blockly) {
       const renderActions = () => {
         actions.innerHTML = '';
         if (this.mode_ !== 'multi') return;
+        // Toggle button: 'MULTIPLE' in single-pick (escalates), 'SINGLE' in
+        // multi-pick (drops back to one port + replace-on-click behavior).
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'fll-port-action';
         if (this.submode_ === 'single-pick') {
-          const multi = document.createElement('button');
-          multi.type = 'button';
-          multi.className = 'fll-port-action';
-          multi.textContent = 'MULTIPLE';
-          multi.addEventListener('click', () => {
+          toggle.textContent = 'MULTIPLE';
+          toggle.addEventListener('click', () => {
             this.submode_ = 'multi-pick';
             renderActions();
           });
-          actions.appendChild(multi);
+        } else {
+          toggle.textContent = 'SINGLE';
+          toggle.addEventListener('click', () => {
+            // Truncate to a single port (the first selected, alphabetically)
+            // and resume replace-on-click behavior.
+            const first = (this.getValue() || 'A').slice(0, 1);
+            this.setValue(first);
+            this.submode_ = 'single-pick';
+            renderButtons();
+            renderActions();
+          });
         }
+        actions.appendChild(toggle);
         const all = document.createElement('button');
         all.type = 'button';
         all.className = 'fll-port-action';
