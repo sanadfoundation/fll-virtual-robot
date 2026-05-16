@@ -1255,3 +1255,68 @@ body.feedback-modal-open { overflow: hidden; }
 .port-force-button:active {
   border-color: var(--blue);
 }
+
+/* ── Port grid field popup ───────────────────────────────────────────────── */
+/* The popup is hosted inside Blockly's DropDownDiv (which paints its own
+   coloured background to match the source block). Cells use white outlines
+   that pop against the block colour; selected cells fill with white and
+   show the port letter in the block's tertiary colour. */
+
+.fll-port-grid {
+  padding: 12px;
+  min-width: 180px;
+}
+
+.fll-port-grid-cells {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.65);
+  border-radius: 14px;
+}
+
+.fll-port-cell {
+  appearance: none;
+  background: transparent;
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  border-radius: 8px;
+  color: #fff;
+  font: 700 18px/1 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  aspect-ratio: 1;
+  cursor: pointer;
+  transition: background-color 80ms ease, color 80ms ease;
+}
+
+.fll-port-cell:hover {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.fll-port-cell.selected {
+  background: rgba(0, 0, 0, 0.55);
+  border-color: rgba(0, 0, 0, 0.55);
+  color: #fff;
+}
+
+.fll-port-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.fll-port-action {
+  appearance: none;
+  background: transparent;
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  border-radius: 10px;
+  color: #fff;
+  padding: 8px 18px;
+  font: 700 14px/1 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.fll-port-action:hover {
+  background: rgba(0, 0, 0, 0.18);
+}

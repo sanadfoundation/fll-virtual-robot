@@ -27,42 +27,14 @@ const C_MYBLOCKS = '#ff5d64';
 // validation in the simulator catches wrong-port calls in the meantime.
 // When per-instance port customization lands, this becomes a function of
 // the live config.
-const _PORTS_SINGLE = [['A','A'],['B','B'],['C','C'],['D','D'],['E','E'],['F','F']];
+// Port selection is handled by `field_port_grid` (defined further down) —
+// a 2×3 grid widget matching Spike's native picker. Single, pair, and multi
+// modes all flow through that one field; no separate dropdown option lists
+// are needed.
 
 // Inline-SVG → data URI so we can ship icon dropdowns without per-asset files.
 const _dataUri = (svg) =>
   'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
-
-// Pair pills: the option is rendered as a small white rounded pill with the
-// "A+B" label baked in, mirroring LEGO's movement-pair selector chrome.
-function _pairPillSvg(label) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 32"><rect x="2" y="3" width="60" height="26" rx="13" fill="#fff" stroke="#222" stroke-width="2"/><text x="32" y="22" font-family="Helvetica,Arial,sans-serif" font-size="16" font-weight="700" text-anchor="middle" fill="#222">${label}</text></svg>`;
-}
-const _pairOpt = (label, value) =>
-  [{ src: _dataUri(_pairPillSvg(label)), width: 40, height: 20, alt: label }, value];
-
-// Spike's grid selectors emit any non-empty subset of ports A–F. We mirror
-// every combination so an imported .llsp3 with PAIR=CF or PORT=ABCDEF
-// doesn't fall back to the default. The dropdown is long; switching to a
-// grid widget is a UX follow-up.
-function _portSubsets(minSize) {
-  const ports = ['A','B','C','D','E','F'];
-  const out = [];
-  for (let n = 1; n < (1 << ports.length); n++) {
-    let s = '';
-    for (let i = 0; i < ports.length; i++) if (n & (1 << i)) s += ports[i];
-    if (s.length >= minSize) out.push(s);
-  }
-  return out.sort((a,b) => a.length === b.length ? a.localeCompare(b) : a.length - b.length);
-}
-
-// Drive-pair selector: exactly two motors. 15 combinations.
-const _PAIRS = _portSubsets(2)
-  .filter(s => s.length === 2)
-  .map(s => _pairOpt(s[0] + '+' + s[1], s));
-
-// Multi-motor selector: any non-empty subset, 63 combinations.
-const _PORTS_MULTI = _portSubsets(1).map(s => [s, s]);
 
 // Direction selectors render as image-only dropdowns: a small white pill
 // containing the LEGO arrow glyph. Standard Blockly's field_dropdown supports
@@ -325,7 +297,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippermotor_motorTurnForDirection',
     message0: '%1 run %2 for %3 %4',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',      options: _PORTS_MULTI },
+      { type: 'field_port_grid', name: 'PORT', mode: 'multi', value: 'A' },
       { type: 'field_dropdown', name: 'DIRECTION', options: _DIR_CW_CCW },
       { type: 'input_value',    name: 'VALUE',     check: ['Number','String'] },
       { type: 'field_dropdown', name: 'UNIT',      options: _MOTOR_UNITS },
@@ -337,7 +309,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippermotor_motorGoDirectionToPosition',
     message0: '%1 go %3 to position %2',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',      options: _PORTS_MULTI },
+      { type: 'field_port_grid', name: 'PORT', mode: 'multi', value: 'A' },
       { type: 'input_value',    name: 'POSITION',  check: ['Number','String'] },
       { type: 'field_dropdown', name: 'DIRECTION', options: _SHORTEST },
     ],
@@ -348,7 +320,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippermotor_motorStartDirection',
     message0: '%1 start motor %2',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',      options: _PORTS_MULTI },
+      { type: 'field_port_grid', name: 'PORT', mode: 'multi', value: 'A' },
       { type: 'field_dropdown', name: 'DIRECTION', options: _DIR_CW_CCW },
     ],
     inputsInline: true, previousStatement: null, nextStatement: null,
@@ -357,7 +329,7 @@ const SPIKE_BLOCKS = [
 
   { type: 'flippermotor_motorStop',
     message0: '%1 stop motor',
-    args0: [{ type: 'field_dropdown', name: 'PORT', options: _PORTS_MULTI }],
+    args0: [{ type: 'field_port_grid', name: 'PORT', mode: 'multi', value: 'A' }],
     inputsInline: true, previousStatement: null, nextStatement: null,
     colour: C_MOTOR, tooltip: 'Stop a motor.',
   },
@@ -365,7 +337,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippermotor_motorSetSpeed',
     message0: '%1 set speed to %2 %%',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',  options: _PORTS_MULTI },
+      { type: 'field_port_grid', name: 'PORT', mode: 'multi', value: 'A' },
       { type: 'input_value',    name: 'SPEED', check: ['Number','String'] },
     ],
     inputsInline: true, previousStatement: null, nextStatement: null,
@@ -374,14 +346,14 @@ const SPIKE_BLOCKS = [
 
   { type: 'flippermotor_absolutePosition',
     message0: '%1 position',
-    args0: [{ type: 'field_dropdown', name: 'PORT', options: _PORTS_SINGLE }],
+    args0: [{ type: 'field_port_grid', name: 'PORT', mode: 'single', value: 'A' }],
     output: 'Number', colour: C_MOTOR,
     tooltip: 'Current motor position in degrees (0–359).',
   },
 
   { type: 'flippermotor_speed',
     message0: '%1 speed',
-    args0: [{ type: 'field_dropdown', name: 'PORT', options: _PORTS_SINGLE }],
+    args0: [{ type: 'field_port_grid', name: 'PORT', mode: 'single', value: 'A' }],
     output: 'Number', colour: C_MOTOR,
     tooltip: 'Current motor speed.',
   },
@@ -439,7 +411,7 @@ const SPIKE_BLOCKS = [
 
   { type: 'flippermove_setMovementPair',
     message0: 'set movement motors to %1',
-    args0: [{ type: 'field_dropdown', name: 'PAIR', options: _PAIRS }],
+    args0: [{ type: 'field_port_grid', name: 'PAIR', mode: 'pair', value: 'AB' }],
     inputsInline: true, previousStatement: null, nextStatement: null,
     colour: C_MOVEMENT, tooltip: 'Choose which two ports drive the robot.',
   },
@@ -528,7 +500,7 @@ const SPIKE_BLOCKS = [
   { type: 'flipperlight_ultrasonicLightUp',
     message0: 'distance sensor %1 light up %2',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',  options: _PORTS_SINGLE },
+      { type: 'field_port_grid', name: 'PORT', mode: 'single', value: 'A' },
       { type: 'input_value',    name: 'VALUE', check: 'String' },
     ],
     inputsInline: true, previousStatement: null, nextStatement: null,
@@ -631,7 +603,7 @@ const SPIKE_BLOCKS = [
   { type: 'flipperevents_whenColor',
     message0: 'when colour sensor on %1 sees %2',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',   options: _PORTS_SINGLE },
+      { type: 'field_port_grid', name: 'PORT', mode: 'single', value: 'A' },
       { type: 'field_dropdown', name: 'OPTION', options: _COLORS },
     ],
     nextStatement: null, colour: C_EVENT,
@@ -641,7 +613,7 @@ const SPIKE_BLOCKS = [
   { type: 'flipperevents_whenPressed',
     message0: 'when force sensor on %1 is %2',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',   options: _PORTS_SINGLE },
+      { type: 'field_port_grid', name: 'PORT', mode: 'single', value: 'A' },
       { type: 'field_dropdown', name: 'OPTION', options: _PRESS_OPT },
     ],
     nextStatement: null, colour: C_EVENT,
@@ -651,7 +623,7 @@ const SPIKE_BLOCKS = [
   { type: 'flipperevents_whenDistance',
     message0: 'when distance sensor on %1 is %2 %3 %4',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',       options: _PORTS_SINGLE },
+      { type: 'field_port_grid', name: 'PORT', mode: 'single', value: 'A' },
       { type: 'field_dropdown', name: 'COMPARATOR', options: _COMPARE },
       { type: 'input_value',    name: 'VALUE',      check: ['Number','String'] },
       { type: 'field_dropdown', name: 'UNIT',       options: _DIST_RANGE },
@@ -798,7 +770,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippersensors_isColor',
     message0: 'colour sensor on %1 is %2 ?',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',  options: _PORTS_SINGLE },
+      { type: 'field_port_grid', name: 'PORT', mode: 'single', value: 'A' },
       { type: 'field_dropdown', name: 'VALUE', options: _COLORS },
     ],
     output: 'Boolean', colour: C_SENSOR,
@@ -807,7 +779,7 @@ const SPIKE_BLOCKS = [
 
   { type: 'flippersensors_color',
     message0: 'colour sensor on %1 colour',
-    args0: [{ type: 'field_dropdown', name: 'PORT', options: _PORTS_SINGLE }],
+    args0: [{ type: 'field_port_grid', name: 'PORT', mode: 'single', value: 'A' }],
     output: 'Number', colour: C_SENSOR,
     tooltip: 'Detected colour code.',
   },
@@ -815,7 +787,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippersensors_isReflectivity',
     message0: 'colour sensor on %1 reflection %2 %3 %%',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',       options: _PORTS_SINGLE },
+      { type: 'field_port_grid', name: 'PORT', mode: 'single', value: 'A' },
       { type: 'field_dropdown', name: 'COMPARATOR', options: _COMPARE_LT },
       { type: 'input_value',    name: 'VALUE',      check: ['Number','String'] },
     ],
@@ -825,7 +797,7 @@ const SPIKE_BLOCKS = [
 
   { type: 'flippersensors_reflectivity',
     message0: 'colour sensor on %1 reflected light',
-    args0: [{ type: 'field_dropdown', name: 'PORT', options: _PORTS_SINGLE }],
+    args0: [{ type: 'field_port_grid', name: 'PORT', mode: 'single', value: 'A' }],
     output: 'Number', colour: C_SENSOR,
     tooltip: 'Reflected-light percentage (0–100).',
   },
@@ -833,7 +805,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippersensors_isPressed',
     message0: 'force sensor on %1 is %2 ?',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',   options: _PORTS_SINGLE },
+      { type: 'field_port_grid', name: 'PORT', mode: 'single', value: 'A' },
       { type: 'field_dropdown', name: 'OPTION', options: _PRESS_IS },
     ],
     output: 'Boolean', colour: C_SENSOR,
@@ -843,7 +815,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippersensors_force',
     message0: 'force sensor on %1 pressure in %2',
     args0: [
-      { type: 'field_dropdown', name: 'PORT', options: _PORTS_SINGLE },
+      { type: 'field_port_grid', name: 'PORT', mode: 'single', value: 'A' },
       { type: 'field_dropdown', name: 'UNIT', options: _FORCE_UNITS },
     ],
     output: 'Number', colour: C_SENSOR,
@@ -853,7 +825,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippersensors_isDistance',
     message0: 'distance sensor on %1 is %2 %3 %4 ?',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',       options: _PORTS_SINGLE },
+      { type: 'field_port_grid', name: 'PORT', mode: 'single', value: 'A' },
       { type: 'field_dropdown', name: 'COMPARATOR', options: _COMPARE },
       { type: 'input_value',    name: 'VALUE',      check: ['Number','String'] },
       { type: 'field_dropdown', name: 'UNIT',       options: _DIST_RANGE },
@@ -865,7 +837,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippersensors_distance',
     message0: 'distance sensor on %1 distance in %2',
     args0: [
-      { type: 'field_dropdown', name: 'PORT', options: _PORTS_SINGLE },
+      { type: 'field_port_grid', name: 'PORT', mode: 'single', value: 'A' },
       { type: 'field_dropdown', name: 'UNIT', options: _DIST_RANGE },
     ],
     output: 'Number', colour: C_SENSOR,
@@ -1101,7 +1073,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippermoremotor_motorGoToRelativePosition',
     message0: 'go motor %1 to relative position %2 at %3 %% speed',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',     options: _PORTS_MULTI },
+      { type: 'field_port_grid', name: 'PORT', mode: 'multi', value: 'A' },
       { type: 'input_value',    name: 'POSITION', check: ['Number','String'] },
       { type: 'input_value',    name: 'SPEED',    check: ['Number','String'] },
     ],
@@ -1112,7 +1084,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippermoremotor_motorStartPower',
     message0: 'start motor %1 at %2 %% power',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',  options: _PORTS_MULTI },
+      { type: 'field_port_grid', name: 'PORT', mode: 'multi', value: 'A' },
       { type: 'input_value',    name: 'POWER', check: ['Number','String'] },
     ],
     inputsInline: true, previousStatement: null, nextStatement: null,
@@ -1122,7 +1094,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippermoremotor_motorSetStopMethod',
     message0: 'set motor %1 to %2 at stop',
     args0: [
-      { type: 'field_dropdown', name: 'PORT', options: _PORTS_MULTI },
+      { type: 'field_port_grid', name: 'PORT', mode: 'multi', value: 'A' },
       { type: 'field_dropdown', name: 'STOP', options: _STOP_METHOD },
     ],
     inputsInline: true, previousStatement: null, nextStatement: null,
@@ -1132,7 +1104,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippermoremotor_motorSetAcceleration',
     message0: 'set motor %1 acceleration to %2',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',         options: _PORTS_MULTI },
+      { type: 'field_port_grid', name: 'PORT', mode: 'multi', value: 'A' },
       { type: 'field_dropdown', name: 'ACCELERATION', options: _ACCEL },
     ],
     inputsInline: true, previousStatement: null, nextStatement: null,
@@ -1142,7 +1114,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippermoremotor_motorSetDegreeCounted',
     message0: 'set motor %1 relative position to %2',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',  options: _PORTS_MULTI },
+      { type: 'field_port_grid', name: 'PORT', mode: 'multi', value: 'A' },
       { type: 'input_value',    name: 'VALUE', check: ['Number','String'] },
     ],
     inputsInline: true, previousStatement: null, nextStatement: null,
@@ -1151,13 +1123,13 @@ const SPIKE_BLOCKS = [
 
   { type: 'flippermoremotor_power',
     message0: 'motor %1 power',
-    args0: [{ type: 'field_dropdown', name: 'PORT', options: _PORTS_SINGLE }],
+    args0: [{ type: 'field_port_grid', name: 'PORT', mode: 'single', value: 'A' }],
     output: 'Number', colour: C_MOTOR, tooltip: 'Motor power reporter.',
   },
 
   { type: 'flippermoremotor_position',
     message0: 'motor %1 relative position',
-    args0: [{ type: 'field_dropdown', name: 'PORT', options: _PORTS_SINGLE }],
+    args0: [{ type: 'field_port_grid', name: 'PORT', mode: 'single', value: 'A' }],
     output: 'Number', colour: C_MOTOR, tooltip: 'Motor relative position reporter.',
   },
 
@@ -1173,7 +1145,7 @@ const SPIKE_BLOCKS = [
   { type: 'flippermoresensors_rawColor',
     message0: 'colour sensor on %1 raw %2',
     args0: [
-      { type: 'field_dropdown', name: 'PORT',  options: _PORTS_SINGLE },
+      { type: 'field_port_grid', name: 'PORT', mode: 'single', value: 'A' },
       { type: 'field_dropdown', name: 'COLOR', options: _RAW_RGB },
     ],
     output: 'Number', colour: C_SENSOR, tooltip: 'Raw R/G/B reading from colour sensor.',
@@ -2280,6 +2252,166 @@ function _registerSteeringField(Blockly) {
   _steeringFieldRegistered = true;
 }
 
+// ── Port grid field ──────────────────────────────────────────────────────────
+// Spike's port picker is a 2×3 grid of A–F buttons (with optional "ALL" /
+// "MULTIPLE" actions) rather than a flat dropdown. The value on the wire is
+// a concatenation of selected port letters ("A", "AB", "CF", "ABCDEF") —
+// matching what Spike's flippermotor_multiple-port-selector emits.
+//
+// Modes:
+//   'single' — exactly one port; clicking another port replaces the selection
+//   'pair'   — exactly two ports; clicking a third port replaces the oldest
+//   'multi'  — any non-empty subset; "ALL" selects A–F at once
+
+let _portGridFieldRegistered = false;
+function _registerPortGridField(Blockly) {
+  if (_portGridFieldRegistered) return;
+  if (!(Blockly.Field && Blockly.fieldRegistry && Blockly.DropDownDiv)) return;
+
+  const PORTS = ['A','B','C','D','E','F'];
+
+  class FieldPortGrid extends Blockly.Field {
+    static fromJson(options) {
+      return new FieldPortGrid(options.value, options);
+    }
+    constructor(value, opts) {
+      const mode = (opts && opts.mode) || 'multi';
+      const initial = _normalizePortValue(value, mode) || (mode === 'pair' ? 'AB' : 'A');
+      super(initial);
+      this.mode_ = mode;
+      this.SERIALIZABLE = true;
+      this._lastOrder = initial.split('');  // pair mode: track click order
+    }
+
+    doClassValidation_(newValue) {
+      return _normalizePortValue(newValue, this.mode_);
+    }
+
+    getText_() {
+      const v = this.getValue() || '';
+      // Pair label: "A+B". Multi label: "A+B+C" only feels right up to a few
+      // ports; collapse "ABCDEF" to "ALL" for readability.
+      if (this.mode_ === 'pair') return v.split('').join('+');
+      if (this.mode_ === 'multi') {
+        if (v.length === PORTS.length) return 'ALL';
+        if (v.length <= 3) return v.split('').join('+');
+        return v;
+      }
+      return v;
+    }
+
+    showEditor_() {
+      const root = document.createElement('div');
+      root.className = 'fll-port-grid fll-port-grid-' + this.mode_;
+      const grid = document.createElement('div');
+      grid.className = 'fll-port-grid-cells';
+
+      const renderButtons = () => {
+        const selected = new Set((this.getValue() || '').split(''));
+        for (const btn of grid.querySelectorAll('button')) {
+          btn.classList.toggle('selected', selected.has(btn.dataset.port));
+        }
+      };
+
+      for (const p of PORTS) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'fll-port-cell';
+        btn.dataset.port = p;
+        btn.textContent = p;
+        btn.addEventListener('click', () => {
+          this._togglePort(p);
+          renderButtons();
+        });
+        grid.appendChild(btn);
+      }
+      root.appendChild(grid);
+
+      if (this.mode_ === 'multi') {
+        const actions = document.createElement('div');
+        actions.className = 'fll-port-actions';
+        const all = document.createElement('button');
+        all.type = 'button';
+        all.className = 'fll-port-action';
+        all.textContent = 'ALL';
+        all.addEventListener('click', () => {
+          this.setValue(PORTS.join(''));
+          renderButtons();
+        });
+        actions.appendChild(all);
+        root.appendChild(actions);
+      }
+
+      const div = Blockly.DropDownDiv.getContentDiv();
+      div.appendChild(root);
+      Blockly.DropDownDiv.setColour(
+        this.sourceBlock_.getColour(),
+        this.sourceBlock_.style.colourTertiary,
+      );
+      Blockly.DropDownDiv.showPositionedByField(this, () => {
+        // Clean up on close.
+        if (root.parentNode) root.parentNode.removeChild(root);
+      });
+      renderButtons();
+    }
+
+    _togglePort(p) {
+      const current = (this.getValue() || '').split('');
+      if (this.mode_ === 'single') {
+        this.setValue(p);
+        this._lastOrder = [p];
+        return;
+      }
+      const has = current.includes(p);
+      if (this.mode_ === 'pair') {
+        if (has) {
+          // Don't drop below 2; ignore deselect that would leave one port.
+          if (current.length <= 2) return;
+          const next = current.filter(x => x !== p);
+          this.setValue(_sortPorts(next.join('')));
+          this._lastOrder = this._lastOrder.filter(x => x !== p);
+          return;
+        }
+        // Add a new port. If already at 2, drop the oldest.
+        const order = this._lastOrder.filter(x => current.includes(x));
+        order.push(p);
+        const trimmed = order.slice(-2);
+        this._lastOrder = trimmed;
+        this.setValue(_sortPorts(trimmed.join('')));
+        return;
+      }
+      // multi
+      let next;
+      if (has) {
+        next = current.filter(x => x !== p);
+        if (next.length === 0) return;  // keep at least one selected
+      } else {
+        next = current.concat(p);
+      }
+      this.setValue(_sortPorts(next.join('')));
+    }
+  }
+
+  function _sortPorts(s) {
+    return [...new Set(s.split(''))].sort().join('');
+  }
+
+  function _normalizePortValue(v, mode) {
+    if (typeof v !== 'string') return null;
+    const upper = v.toUpperCase();
+    if (!/^[A-F]+$/.test(upper)) return null;
+    const set = [...new Set(upper.split(''))].sort().join('');
+    if (set.length === 0) return null;
+    if (mode === 'single' && set.length !== 1) return null;
+    if (mode === 'pair'   && set.length !== 2) return null;
+    if (set.length > 6) return null;
+    return set;
+  }
+
+  Blockly.fieldRegistry.register('field_port_grid', FieldPortGrid);
+  _portGridFieldRegistered = true;
+}
+
 // Registered once on first initBlockly() call.
 let _compactRendererRegistered = false;
 function _registerCompactRenderer(Blockly) {
@@ -2369,6 +2501,7 @@ function initBlockly(divId, themeName, initialXml) {
   if (typeof Blockly === 'undefined') return null;
 
   _registerSteeringField(Blockly);
+  _registerPortGridField(Blockly);
   Blockly.defineBlocksWithJsonArray(SPIKE_BLOCKS.map(_withEmblem));
   registerGenerators(Blockly);
   _registerCompactRenderer(Blockly);
