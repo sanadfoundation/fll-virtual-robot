@@ -458,6 +458,40 @@ test('decodeInput: flippermove_steer inline STEERING demotes back to a field', (
   assert.strictEqual(top.inputs && top.inputs.STEERING, undefined);
 });
 
+test('decodeInput: flippermove_steer STEERING with flippermove_rotation-wheel shadow demotes to field', () => {
+  // Spike's native editor stores STEERING as a separate
+  // `flippermove_rotation-wheel` shadow block, not as an inline math_number
+  // primitive. The wheel value lives in `field_flippermove_rotation-wheel`.
+  // Without this demotion the unknown block leaks into Blockly's input slot
+  // and load fails with "missing a(n) STEERING connection".
+  const ctx = env();
+  const sb3 = {
+    S: {
+      opcode: 'flippermove_steer',
+      next: null, parent: null,
+      inputs: {
+        STEERING: [1, 'W'],
+        VALUE:    [1, [4, '90']],
+      },
+      fields: { UNIT: ['degrees', null] },
+      shadow: false, topLevel: true,
+      x: 0, y: 0,
+    },
+    W: {
+      opcode: 'flippermove_rotation-wheel',
+      next: null, parent: 'S',
+      inputs: {},
+      fields: { 'field_flippermove_rotation-wheel': ['60', null] },
+      shadow: true, topLevel: false,
+    },
+  };
+  const state = ctx.LLSP3.blocks.sb3BlocksToBlocklyState(sb3);
+  const top = state.blocks.blocks[0];
+  assert.strictEqual(top.type, 'flippermove_steer');
+  assert.strictEqual(top.fields && top.fields.STEERING, '60');
+  assert.strictEqual(top.inputs && top.inputs.STEERING, undefined);
+});
+
 test('emitBlock: all field values are strings (Scratch 3 spec)', () => {
   const ctx = env();
   const state = {

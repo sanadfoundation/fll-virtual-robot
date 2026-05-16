@@ -75,13 +75,25 @@
         fieldName: 'field_flippermove_movement-port-selector',
         defaultValue: 'AB' },
     // STEERING is a custom field (FieldSteering) on the Blockly side, but
-    // Spike serializes it as an input with a math_number shadow. Promote
-    // field → input on export, demote inline [1, [4, "<n>"]] → field on
-    // import.
+    // Spike serializes it as an input with a math_number shadow OR — when
+    // saved from Spike's native editor — as a separate
+    // `flippermove_rotation-wheel` shadow block whose value lives in
+    // `field_flippermove_rotation-wheel`. Promote field → inline math_number
+    // on export; demote either inbound form → field on import.
     'flippermove_steer|STEERING':
-      { opcode: 'math_number', fieldName: 'NUM', defaultValue: '0' },
+      { opcode: 'math_number', fieldName: 'NUM', defaultValue: '0',
+        altShadows: [{
+          opcode: 'flippermove_rotation-wheel',
+          fieldName: 'field_flippermove_rotation-wheel',
+        }],
+      },
     'flippermove_startSteer|STEERING':
-      { opcode: 'math_number', fieldName: 'NUM', defaultValue: '0' },
+      { opcode: 'math_number', fieldName: 'NUM', defaultValue: '0',
+        altShadows: [{
+          opcode: 'flippermove_rotation-wheel',
+          fieldName: 'field_flippermove_rotation-wheel',
+        }],
+      },
 
     // ── flipperevents ─────────────────────────────────────────────────────
     'flipperevents_whenColor|PORT':
@@ -449,10 +461,22 @@
     }
     if (typeof slot !== 'string') return undefined;
     const shadow = sb3[slot];
-    if (!shadow || shadow.opcode !== contract.opcode) return undefined;
-    const fieldEntry = (shadow.fields || {})[contract.fieldName];
-    if (!fieldEntry) return undefined;
-    return fieldEntry[0];
+    if (!shadow) return undefined;
+    if (shadow.opcode === contract.opcode) {
+      const fieldEntry = (shadow.fields || {})[contract.fieldName];
+      if (!fieldEntry) return undefined;
+      return fieldEntry[0];
+    }
+    // Spike may emit an alternate selector shadow (e.g. STEERING stored as
+    // `flippermove_rotation-wheel` rather than `math_number`). Same numeric
+    // domain, different widget — accept declared alternates.
+    for (const alt of (contract.altShadows || [])) {
+      if (shadow.opcode !== alt.opcode) continue;
+      const fieldEntry = (shadow.fields || {})[alt.fieldName];
+      if (!fieldEntry) continue;
+      return fieldEntry[0];
+    }
+    return undefined;
   }
 
   function decodeInput(sb3, value) {
