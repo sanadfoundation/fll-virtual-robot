@@ -231,6 +231,14 @@
     // text primitive → field via tryDemoteInputToField.
     'flipperlight_lightDisplayText|TEXT':
       { opcode: 'text', fieldName: 'TEXT', defaultValue: 'Hello' },
+    // MATRIX is a custom field_matrix on the Blockly side; on the wire Spike
+    // stores it as a plain text shadow whose value is a 25-character digit
+    // string. Promote field → inline text on export, demote inline text →
+    // field on import.
+    'flipperlight_lightDisplayImageOnForTime|MATRIX':
+      { opcode: 'text', fieldName: 'TEXT', defaultValue: '0000000000000000000000000' },
+    'flipperlight_lightDisplayImageOn|MATRIX':
+      { opcode: 'text', fieldName: 'TEXT', defaultValue: '0000000000000000000000000' },
 
     // ── flippersound ──────────────────────────────────────────────────────
     'flippersound_playSoundUntilDone|SOUND':
@@ -310,10 +318,9 @@
   const NUMERIC_DEFAULT = { opcode: 'math_number', fieldName: 'NUM', defaultValue: '10' };
   const STRING_DEFAULT  = { opcode: 'text',        fieldName: 'TEXT', defaultValue: '' };
 
-  // Inputs whose default shadow should be `text` rather than `math_number`.
+  // Inputs whose default shadow should be `text` rather than `math_number`
+  // (when there is NO contract entry — entries above take precedence).
   const STRING_INPUT_KEYS = new Set([
-    'flipperlight_lightDisplayImageOnForTime|MATRIX',
-    'flipperlight_lightDisplayImageOn|MATRIX',
     'flipperlight_ultrasonicLightUp|VALUE',
   ]);
 

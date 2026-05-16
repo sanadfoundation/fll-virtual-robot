@@ -431,16 +431,16 @@ const SPIKE_BLOCKS = [
   { type: 'flipperlight_lightDisplayImageOnForTime',
     message0: 'turn on %1 for %2 seconds',
     args0: [
-      { type: 'input_value', name: 'MATRIX',  check: 'String' },
-      { type: 'input_value', name: 'VALUE',   check: ['Number','String'] },
+      { type: 'field_matrix', name: 'MATRIX', value: '9909999099000009000909990' },
+      { type: 'input_value',  name: 'VALUE',  check: ['Number','String'] },
     ],
     inputsInline: true, previousStatement: null, nextStatement: null,
-    colour: C_LIGHT, tooltip: 'Light pattern (5×5 brightness, e.g. "9909999099000009000909990") for N seconds.',
+    colour: C_LIGHT, tooltip: 'Light a 5×5 brightness pattern for N seconds.',
   },
 
   { type: 'flipperlight_lightDisplayImageOn',
     message0: 'turn on %1',
-    args0: [{ type: 'input_value', name: 'MATRIX', check: 'String' }],
+    args0: [{ type: 'field_matrix', name: 'MATRIX', value: '9909999099000009000909990' }],
     inputsInline: true, previousStatement: null, nextStatement: null,
     colour: C_LIGHT, tooltip: 'Light a 5×5 brightness pattern.',
   },
@@ -1327,13 +1327,13 @@ function registerGenerators(Blockly) {
   // ── Light ──────────────────────────────────────────────────────────────────
 
   js['flipperlight_lightDisplayImageOnForTime'] = (block) => {
-    const matrix = val(block, 'MATRIX', "'9909999099000009000909990'");
+    const matrix = JSON.stringify(block.getFieldValue('MATRIX') || '0'.repeat(25));
     const sec    = val(block, 'VALUE',  '2');
     return `{ const _m = String(${matrix}).padEnd(25, '0'); window.sim.robot.display = Array.from(_m).slice(0,25).map(c => Number(c)*11); await window.sim._sleep((${sec}) * 1000 / window.sim.speedMult); window.sim.robot.display = Array(25).fill(0); }\n`;
   };
 
   js['flipperlight_lightDisplayImageOn'] = (block) => {
-    const matrix = val(block, 'MATRIX', "'9909999099000009000909990'");
+    const matrix = JSON.stringify(block.getFieldValue('MATRIX') || '0'.repeat(25));
     return `{ const _m = String(${matrix}).padEnd(25, '0'); window.sim.robot.display = Array.from(_m).slice(0,25).map(c => Number(c)*11); }\n`;
   };
 
@@ -1969,11 +1969,11 @@ const TOOLBOX_XML = `
   <category name="LIGHT" colour="${C_LIGHT}">
     <label text="Light" web-class="flyout-header"/>
     <block type="flipperlight_lightDisplayImageOnForTime">
-      ${_shadowText('MATRIX', '9909999099000009000909990')}
+      <field name="MATRIX">9909999099000009000909990</field>
       ${_shadowNum('VALUE', 2)}
     </block>
     <block type="flipperlight_lightDisplayImageOn">
-      ${_shadowText('MATRIX', '9909999099000009000909990')}
+      <field name="MATRIX">9909999099000009000909990</field>
     </block>
     <block type="flipperlight_lightDisplayText">
       <field name="TEXT">Hello</field>
@@ -2470,6 +2470,153 @@ function _registerPortGridField(Blockly) {
   _portGridFieldRegistered = true;
 }
 
+// ── 5×5 LED matrix field ─────────────────────────────────────────────────────
+// Spike's matrix selector is a 5×5 grid of brightness pixels (digit 0–9 per
+// pixel, where 0=off and 9=full) with a vertical brightness ramp acting as
+// the paint brush. The wire value is a 25-character string of digits,
+// matching Spike's existing format.
+
+const _MATRIX_DEFAULT = '0'.repeat(25);
+const _MATRIX_REGEX = /^[0-9]{25}$/;
+
+let _matrixFieldRegistered = false;
+function _registerMatrixField(Blockly) {
+  if (_matrixFieldRegistered) return;
+  if (!(Blockly.FieldDropdown && Blockly.fieldRegistry && Blockly.DropDownDiv)) return;
+
+  class FieldMatrix extends Blockly.FieldDropdown {
+    static fromJson(options) {
+      return new FieldMatrix(options.value, options);
+    }
+    constructor(value, opts) {
+      const initial = _normalizeMatrix(value) || _MATRIX_DEFAULT;
+      // Placeholder menuGenerator: FieldDropdown insists on having options
+      // matching the current value; we never display this menu (showEditor_
+      // is overridden) but it satisfies its internal validation.
+      const menuGenerator = function () {
+        const v = this.getValue ? (this.getValue() || initial) : initial;
+        return [[v, v]];
+      };
+      super(menuGenerator, undefined, opts || {});
+      this.brush_ = 9;
+      this.SERIALIZABLE = true;
+      this.setValue(initial);
+    }
+
+    doClassValidation_(newValue) {
+      return _normalizeMatrix(newValue);
+    }
+
+    getDisplayText_() {
+      // Compact pictogram for the on-block chip: just an icon glyph that
+      // signals "matrix". The full editor is one click away.
+      return '▦';  // ▦
+    }
+
+    showEditor_() {
+      const root = document.createElement('div');
+      root.className = 'fll-matrix-popup';
+
+      const value = (this.getValue() || _MATRIX_DEFAULT).split('');
+
+      const grid = document.createElement('div');
+      grid.className = 'fll-matrix-grid';
+      const cells = [];
+      const paintCell = (idx) => {
+        const d = parseInt(value[idx] || '0', 10);
+        cells[idx].style.opacity = String(0.15 + (d / 9) * 0.85);
+      };
+      const applyValue = () => this.setValue(value.join(''));
+
+      for (let i = 0; i < 25; i++) {
+        const cell = document.createElement('button');
+        cell.type = 'button';
+        cell.className = 'fll-matrix-cell';
+        cell.dataset.idx = String(i);
+        cell.addEventListener('click', () => {
+          value[i] = String(this.brush_);
+          paintCell(i);
+          applyValue();
+        });
+        cells.push(cell);
+        grid.appendChild(cell);
+        paintCell(i);
+      }
+
+      const ramp = document.createElement('div');
+      ramp.className = 'fll-matrix-ramp';
+      const rampCells = [];
+      const highlightBrush = () => {
+        for (const rc of rampCells) {
+          rc.classList.toggle('selected', parseInt(rc.dataset.level, 10) === this.brush_);
+        }
+      };
+      for (let d = 9; d >= 0; d--) {
+        const rc = document.createElement('button');
+        rc.type = 'button';
+        rc.className = 'fll-matrix-ramp-cell';
+        rc.dataset.level = String(d);
+        rc.style.opacity = String(0.15 + (d / 9) * 0.85);
+        rc.addEventListener('click', () => {
+          this.brush_ = d;
+          highlightBrush();
+        });
+        rampCells.push(rc);
+        ramp.appendChild(rc);
+      }
+      highlightBrush();
+
+      const body = document.createElement('div');
+      body.className = 'fll-matrix-body';
+      body.appendChild(grid);
+      body.appendChild(ramp);
+
+      const actions = document.createElement('div');
+      actions.className = 'fll-matrix-actions';
+      const fill = document.createElement('button');
+      fill.type = 'button';
+      fill.className = 'fll-matrix-action';
+      fill.textContent = 'FILL';
+      fill.addEventListener('click', () => {
+        for (let i = 0; i < 25; i++) { value[i] = String(this.brush_); paintCell(i); }
+        applyValue();
+      });
+      const clear = document.createElement('button');
+      clear.type = 'button';
+      clear.className = 'fll-matrix-action';
+      clear.textContent = 'CLEAR';
+      clear.addEventListener('click', () => {
+        for (let i = 0; i < 25; i++) { value[i] = '0'; paintCell(i); }
+        applyValue();
+      });
+      actions.appendChild(fill);
+      actions.appendChild(clear);
+
+      root.appendChild(body);
+      root.appendChild(actions);
+
+      const div = Blockly.DropDownDiv.getContentDiv();
+      div.appendChild(root);
+      Blockly.DropDownDiv.setColour(
+        this.sourceBlock_.getColour(),
+        this.sourceBlock_.style.colourTertiary,
+      );
+      Blockly.DropDownDiv.showPositionedByField(this, () => {
+        if (root.parentNode) root.parentNode.removeChild(root);
+      });
+    }
+  }
+
+  function _normalizeMatrix(v) {
+    if (typeof v !== 'string') return null;
+    if (!_MATRIX_REGEX.test(v)) return null;
+    return v;
+  }
+
+  Blockly.fieldRegistry.register('field_matrix', FieldMatrix);
+  _matrixFieldRegistered = true;
+}
+
 // Registered once on first initBlockly() call.
 let _compactRendererRegistered = false;
 function _registerCompactRenderer(Blockly) {
@@ -2560,6 +2707,7 @@ function initBlockly(divId, themeName, initialXml) {
 
   _registerSteeringField(Blockly);
   _registerPortGridField(Blockly);
+  _registerMatrixField(Blockly);
   Blockly.defineBlocksWithJsonArray(SPIKE_BLOCKS.map(_withEmblem));
   registerGenerators(Blockly);
   _registerCompactRenderer(Blockly);

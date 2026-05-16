@@ -1334,3 +1334,99 @@ body.feedback-modal-open { overflow: hidden; }
 .fll-port-action:hover {
   background: rgba(0, 0, 0, 0.18);
 }
+
+/* ── 5×5 LED matrix field popup ─────────────────────────────────────────── */
+/* Matrix value is a 25-char digit string (0=off..9=full). The popup is a
+   5×5 grid of paint targets plus a vertical brightness ramp acting as the
+   brush. White pixels with variable opacity render the brightness on top
+   of the block-coloured DropDownDiv background. */
+
+.blocklyDropDownContent:has(.fll-matrix-popup) {
+  max-height: none !important;
+}
+
+.fll-matrix-popup {
+  padding: 10px;
+  width: 220px;
+  box-sizing: border-box;
+}
+
+.fll-matrix-body {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.fll-matrix-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  padding: 6px;
+  border: 1.5px solid rgba(255, 255, 255, 0.55);
+  border-radius: 8px;
+  flex: 1;
+}
+
+.fll-matrix-cell {
+  aspect-ratio: 1;
+  background: #fff;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  opacity: 0.15;          /* overridden inline per value */
+  transition: opacity 60ms ease;
+}
+
+.fll-matrix-cell:hover {
+  outline: 1.5px solid rgba(255, 255, 255, 0.7);
+  outline-offset: 0;
+}
+
+.fll-matrix-ramp {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 4px;
+  border: 1.5px solid rgba(255, 255, 255, 0.55);
+  border-radius: 8px;
+}
+
+.fll-matrix-ramp-cell {
+  width: 14px;
+  height: 12px;
+  background: #fff;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.fll-matrix-ramp-cell.selected {
+  border-color: #000;
+  outline: 1.5px solid rgba(255, 255, 255, 0.9);
+  outline-offset: 0;
+}
+
+.fll-matrix-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.fll-matrix-action {
+  appearance: none;
+  background: transparent;
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  border-radius: 8px;
+  color: #fff;
+  padding: 6px 0;
+  min-width: 70px;
+  font: 700 12px/1 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.fll-matrix-action:hover {
+  background: rgba(0, 0, 0, 0.18);
+}
