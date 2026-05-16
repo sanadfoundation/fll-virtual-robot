@@ -180,7 +180,7 @@
       // (same shape as flipperlight_menu_orientation).
       { opcode: 'flippermoremotor_menu_acceleration',
         fieldName: 'acceleration',
-        defaultValue: '1000 1000' },
+        defaultValue: '3000 3000' },
     'flippermoremotor_position|PORT':
       { opcode: 'flippermoremotor_single-motor-selector',
         fieldName: 'field_flippermoremotor_single-motor-selector',
@@ -195,7 +195,7 @@
       // EXCEPTION: field is plain `acceleration`, NOT field_<opcode>.
       { opcode: 'flippermoremove_menu_acceleration',
         fieldName: 'acceleration',
-        defaultValue: '1000 1000' },
+        defaultValue: '3000 3000' },
 
     // ── flippermoresensors ────────────────────────────────────────────────
     'flippermoresensors_rawColor|PORT':

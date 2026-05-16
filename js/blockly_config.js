@@ -159,13 +159,18 @@ function _accelSvg(level) {
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">${paths}</svg>`;
 }
-const _accelOpt = (alt, value) =>
-  [{ src: _dataUri(_accelSvg(value)), width: 24, height: 24, alt }, value];
+// Spike serializes acceleration as a deg/s²-deg/s² pair string. The Spike UI
+// only exposes three presets (slow/medium/fast); we mirror that here using
+// the wire-form pair as the dropdown value so import/export needs no
+// translation. The SVG (chevron count) is keyed on the display label, not
+// the value. Mapping confirmed against alexandrehardy/lego-spike-simulator.
+const _accelOpt = (label, value) =>
+  [{ src: _dataUri(_accelSvg(label)), width: 24, height: 24, alt: label }, value];
 
 const _ACCEL = [
-  _accelOpt('slow',   'slow'),
-  _accelOpt('medium', 'medium'),
-  _accelOpt('fast',   'fast'),
+  _accelOpt('slow',   '1000 1000'),
+  _accelOpt('medium', '3000 3000'),
+  _accelOpt('fast',   '10000 10000'),
 ];
 const _LIGHT_DIR  = [['clockwise','clockwise'],['counterclockwise','counterclockwise']];
 const _SOUND_FX   = [['pitch','PITCH'],['pan left/right','PAN']];
@@ -2520,7 +2525,7 @@ function generateBlocklyJS(workspace) {
     `var _distMoved     = 0;`,
     `var _timerMs       = performance.now();`,
     `var _stopMethod    = 'brake';`,
-    `var _moveAccel     = 'medium';`,
+    `var _moveAccel     = '3000 3000';`,
     `var _motorStop     = {};`,
     `var _motorAccel    = {};`,
     `var _motorRelOffset= {};`,
