@@ -1430,3 +1430,89 @@ body.feedback-modal-open { overflow: hidden; }
 .fll-matrix-action:hover {
   background: rgba(0, 0, 0, 0.18);
 }
+
+/* ── Rotation wheel field popup ──────────────────────────────────────────── */
+/* Big circular dial for steering values (-100..100). Click or drag inside
+   the circle to set the angle; − / + buttons adjust in 5-step increments. */
+
+.blocklyDropDownContent:has(.fll-wheel-popup) {
+  max-height: none !important;
+}
+
+.fll-wheel-popup {
+  padding: 12px;
+  width: 200px;
+  box-sizing: border-box;
+}
+
+.fll-wheel-svg {
+  width: 100%;
+  height: auto;
+  cursor: crosshair;
+  /* The SVG sits on the block-coloured DropDownDiv background. */
+}
+
+.fll-wheel-ring {
+  fill: rgba(255, 255, 255, 0.08);
+  stroke: rgba(255, 255, 255, 0.85);
+  stroke-width: 2;
+}
+
+.fll-wheel-tick {
+  stroke: rgba(255, 255, 255, 0.55);
+  stroke-width: 1.2;
+}
+.fll-wheel-tick.long {
+  stroke: rgba(255, 255, 255, 0.95);
+  stroke-width: 2;
+}
+
+.fll-wheel-indicator line {
+  stroke: #fff;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.fll-wheel-indicator circle {
+  fill: #fff;
+}
+
+.fll-wheel-center {
+  fill: rgba(255, 255, 255, 0.95);
+}
+
+.fll-wheel-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  gap: 8px;
+}
+
+.fll-wheel-btn {
+  appearance: none;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  color: #fff;
+  width: 32px;
+  height: 32px;
+  font: 700 18px/1 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fll-wheel-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.fll-wheel-label {
+  flex: 1;
+  text-align: center;
+  color: #fff;
+  font: 700 14px/1 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  letter-spacing: 0.02em;
+}

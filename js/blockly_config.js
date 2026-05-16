@@ -2220,31 +2220,182 @@ function _buildToolboxXml(extensionsVisible) {
 // ── Compact Zelos renderer ───────────────────────────────────────────────────
 // Subclass Zelos's ConstantProvider to tighten paddings around fields and
 // between rows so blocks read closer to LEGO's own SPIKE Prime IDE density.
-// Custom field that displays a steering value (-100..100) as
-// "left: NN" / "straight" / "right: NN", matching SPIKE Education's
-// inline steering widget. The underlying value is still a plain number,
-// so getFieldValue('STEERING') gives back the integer.
+// Steering field: stores a number -100..100 (positive = right turn).
+// Display on the block is "left: NN" / "straight" / "right: NN", matching
+// Spike's inline label. The editor opens a circular dial popup — drag the
+// indicator around the dial to set the angle, or use the −/+ buttons for
+// fine adjustment. The underlying value remains a plain integer so
+// generators / sb3 round-trip continue to see a number.
 let _steeringFieldRegistered = false;
 function _registerSteeringField(Blockly) {
   if (_steeringFieldRegistered) return;
-  if (!(Blockly.FieldNumber && Blockly.fieldRegistry)) return;
+  if (!(Blockly.FieldDropdown && Blockly.fieldRegistry && Blockly.DropDownDiv)) return;
 
-  class FieldSteering extends Blockly.FieldNumber {
-    constructor(value, min, max, precision, validator, config) {
-      super(value, min ?? -100, max ?? 100, precision ?? 1, validator, config);
-    }
+  // Field value is stored as a numeric STRING (e.g. "65", "-30", "0") so it
+  // satisfies FieldDropdown's option validator (option[1] must be a string)
+  // while still parsing cleanly via Number() in generators and sb3 export.
+  function _clampSteer(v) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return '0';
+    return String(Math.max(-100, Math.min(100, Math.round(n))));
+  }
+
+  function _steerLabel(s) {
+    const n = Number(s);
+    if (!Number.isFinite(n) || Math.abs(n) < 1) return 'straight';
+    return (n > 0 ? 'right' : 'left') + ': ' + Math.abs(n);
+  }
+
+  class FieldSteering extends Blockly.FieldDropdown {
     static fromJson(options) {
-      return new FieldSteering(
-        options.value, options.min, options.max, options.precision, undefined, options,
-      );
+      return new FieldSteering(options.value, undefined, undefined, undefined, undefined, options);
     }
-    // Override the on-block display: the underlying value stays numeric so
-    // generators / sb3 round-trip continue to see a plain number.
-    getText_() {
-      const n = Number(this.getValue());
-      if (!Number.isFinite(n) || Math.abs(n) < 1) return 'straight';
-      const dir = n > 0 ? 'right' : 'left';
-      return dir + ': ' + Math.abs(Math.round(n));
+    // Constructor signature preserved for backward-compat callers
+    // (some places used `new FieldSteering(value, min, max, precision, validator, config)`).
+    constructor(value, _min, _max, _precision, _validator, opts) {
+      const initial = _clampSteer(value ?? 0);
+      const menuGenerator = function () {
+        const v = this.getValue ? (this.getValue() ?? initial) : initial;
+        return [[v, v]];
+      };
+      super(menuGenerator, undefined, opts || {});
+      this.SERIALIZABLE = true;
+      this.setValue(initial);
+    }
+
+    doClassValidation_(v) {
+      return _clampSteer(v);
+    }
+
+    getDisplayText_() {
+      return _steerLabel(this.getValue());
+    }
+
+    showEditor_() {
+      const SVG_NS = 'http://www.w3.org/2000/svg';
+      const root = document.createElement('div');
+      root.className = 'fll-wheel-popup';
+
+      // Build the dial SVG.
+      const svg = document.createElementNS(SVG_NS, 'svg');
+      svg.setAttribute('class', 'fll-wheel-svg');
+      svg.setAttribute('viewBox', '0 0 100 100');
+
+      // Outer ring.
+      const ring = document.createElementNS(SVG_NS, 'circle');
+      ring.setAttribute('class', 'fll-wheel-ring');
+      ring.setAttribute('cx', '50'); ring.setAttribute('cy', '50');
+      ring.setAttribute('r', '42');
+      svg.appendChild(ring);
+
+      // Tick marks every 15° around the perimeter.
+      for (let deg = 0; deg < 360; deg += 15) {
+        const long = (deg % 90 === 0);
+        const tick = document.createElementNS(SVG_NS, 'line');
+        const rad = deg * Math.PI / 180;
+        const r1 = 42 - (long ? 6 : 3);
+        const r2 = 42;
+        tick.setAttribute('x1', String(50 + r1 * Math.sin(rad)));
+        tick.setAttribute('y1', String(50 - r1 * Math.cos(rad)));
+        tick.setAttribute('x2', String(50 + r2 * Math.sin(rad)));
+        tick.setAttribute('y2', String(50 - r2 * Math.cos(rad)));
+        tick.setAttribute('class', 'fll-wheel-tick' + (long ? ' long' : ''));
+        svg.appendChild(tick);
+      }
+
+      // Indicator group: a line + dot pointing up; rotated to current angle.
+      const indicator = document.createElementNS(SVG_NS, 'g');
+      indicator.setAttribute('class', 'fll-wheel-indicator');
+      const line = document.createElementNS(SVG_NS, 'line');
+      line.setAttribute('x1', '50'); line.setAttribute('y1', '50');
+      line.setAttribute('x2', '50'); line.setAttribute('y2', '14');
+      indicator.appendChild(line);
+      const knob = document.createElementNS(SVG_NS, 'circle');
+      knob.setAttribute('cx', '50'); knob.setAttribute('cy', '14');
+      knob.setAttribute('r', '6');
+      indicator.appendChild(knob);
+      svg.appendChild(indicator);
+
+      // Center dot.
+      const center = document.createElementNS(SVG_NS, 'circle');
+      center.setAttribute('class', 'fll-wheel-center');
+      center.setAttribute('cx', '50'); center.setAttribute('cy', '50');
+      center.setAttribute('r', '4');
+      svg.appendChild(center);
+
+      // Controls row.
+      const controls = document.createElementNS(null, 'div');
+      const cdiv = document.createElement('div');
+      cdiv.className = 'fll-wheel-controls';
+      const minus = document.createElement('button');
+      minus.type = 'button'; minus.className = 'fll-wheel-btn'; minus.textContent = '−';
+      const plus = document.createElement('button');
+      plus.type = 'button'; plus.className = 'fll-wheel-btn'; plus.textContent = '+';
+      const label = document.createElement('div');
+      label.className = 'fll-wheel-label';
+      cdiv.appendChild(minus);
+      cdiv.appendChild(label);
+      cdiv.appendChild(plus);
+
+      const repaint = () => {
+        const n = Number(this.getValue() ?? 0);
+        // -100..100 → -90°..+90° on the dial (top is 0, right is +100).
+        const angleDeg = n * 0.9;
+        indicator.setAttribute('transform', 'rotate(' + angleDeg + ' 50 50)');
+        label.textContent = _steerLabel(this.getValue());
+      };
+
+      const setFromPointer = (clientX, clientY) => {
+        const rect = svg.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const dx = clientX - cx;
+        const dy = clientY - cy;
+        // Angle from up (0° = top, +90° = right, -90° = left). Clamp to ±90°
+        // (the bottom half maps to ±100 boundaries by sign of dx).
+        let deg = Math.atan2(dx, -dy) * 180 / Math.PI;
+        if (deg > 90) deg = 90;
+        else if (deg < -90) deg = -90;
+        this.setValue(_clampSteer(deg / 0.9));
+        repaint();
+      };
+
+      let dragging = false;
+      const onDown = (e) => {
+        dragging = true;
+        setFromPointer(e.clientX, e.clientY);
+        e.preventDefault();
+      };
+      const onMove = (e) => { if (dragging) setFromPointer(e.clientX, e.clientY); };
+      const onUp = () => { dragging = false; };
+      svg.addEventListener('mousedown', onDown);
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+
+      minus.addEventListener('click', () => {
+        this.setValue(_clampSteer(Number(this.getValue() ?? 0) - 5));
+        repaint();
+      });
+      plus.addEventListener('click', () => {
+        this.setValue(_clampSteer(Number(this.getValue() ?? 0) + 5));
+        repaint();
+      });
+
+      root.appendChild(svg);
+      root.appendChild(cdiv);
+
+      const div = Blockly.DropDownDiv.getContentDiv();
+      div.appendChild(root);
+      Blockly.DropDownDiv.setColour(
+        this.sourceBlock_.getColour(),
+        this.sourceBlock_.style.colourTertiary,
+      );
+      Blockly.DropDownDiv.showPositionedByField(this, () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        if (root.parentNode) root.parentNode.removeChild(root);
+      });
+      repaint();
     }
   }
 
