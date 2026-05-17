@@ -13,50 +13,36 @@ Grouped by theme; within each group, top = highest impact.
 
 Reference: [LEGO Spike Python help](https://spike.legoeducation.com/prime/modal/help/lls-help-python) and the [Tufts Spike 3 mirror](https://tuftsceeo.github.io/SPIKEPythonDocs/SPIKE3.html).
 
-The individual motor API, `motor_pair.move_for_degrees` / `_for_time`, light matrix, beep, and the basic hub surface are in place.
+The individual motor API, `motor_pair.move_for_degrees` / `_for_time`, light-matrix `write` (real 5×5 glyph font for A–Z + 0–9), beep, and the basic hub surface are in place. Per-port motor encoders and wheel velocity now feed `absolute_position` / `relative_position` / `velocity` / `getMotorSpeed` / `getMotorPosition`. `motor.run_to_absolute_position` lands at the target, `reset_relative_position` works (anchor mechanism), `hub.button.pressed()` returns real ms-held, `color_sensor.reflection()` is wired through `_sensorState`, and `motor_pair.move(steering)` now applies steering to the wheels (though the continuous-motion cap remains — see *Motion command bugs* below).
 
 ### Wrong / non-standard signatures
 
-- **`hub.button.was_pressed` is non-standard.** LEGO only has `pressed(button) -> int` returning ms held. Drop our `was_pressed`, make `pressed` return a real duration.
-- **`hub.speaker` is a non-standard alias.** Canonical name is `hub.sound`; align and drop the alias.
-- **`hub.light_matrix.show(pixels)` / `show_image()` are silent no-ops.** Bridge sends `{type: 'hub_image', image: …}` but `_execCmd` has no `case 'hub_image'` — the command is dropped. Confirmed by UAT I1 (2026-05-13). `show(pixels)` additionally discards the 25-pixel list before sending (`image: 'CUSTOM'`).
-- **`hub.light_matrix.write(text)` doesn't render characters.** `_showText` (`js/simulator.js:1384`) lights every other dot proportional to text length — `write("Hello")` and `write("Hi")` produce different patterns but neither resembles glyphs. Same fake renderer backs Blockly `flipperlight_lightDisplayText`. Needs a 5×5 font table.
-- **`motor.run_to_absolute_position` / `motor.run_to_relative_position` use distance, not position.** Both route through `_animateSingleMotor` with `distMM = (|target| / 360) × WHEEL_CIRC_MM`, so `run_to_absolute_position(port.A, 90)` drives 90° of wheel rotation instead of rotating to absolute 90°. The `direction` arg (`CLOCKWISE` / `COUNTERCLOCKWISE` / `SHORTEST_PATH` / `LONGEST_PATH`) is plumbed through Python but the simulator picks the same path regardless. SHORTEST / LONGEST additionally need the angle counter (see *Motor state stubs* below).
-
-### Motor state stubs
-
-These cascade — fixing the counter unblocks the four reporters and the relative-position offset.
-
-- **Motor angle counter never increments.** `_animateTank` and `_animateSingleMotor` advance the robot pose but never tick `robot.motors[port]`. The Hub panel surfaces this — A and B both read `0°` no matter how far the robot drives. Fix: increment per-port degrees from wheel mm-per-step (drive ports in `_animateTank`, unpaired motors in `_animateSingleMotor`).
-- **`absolute_position` / `relative_position` reporters** return the same counter; `reset_relative_position` is a no-op. (`velocity(port)` now returns the last commanded value via `_motor_velocities`.)
-- **`getMotorSpeed(port)` always returns 0** — hardcoded stub backing the `motor X speed` / `motor X power` Blockly reporters.
+- **`hub.button.was_pressed` is non-standard.** LEGO only has `pressed(button) -> int` returning ms held (now real). Drop `was_pressed`.
+- **`hub.speaker` is a non-standard alias.** Canonical name is `hub.sound`; align and drop the alias (`py/spike_bridge.py:509-511`).
+- **`hub.light_matrix.show(pixels)` discards the 25-pixel list.** `py/spike_bridge.py:401-402` always sends `{'type': 'hub_image', 'image': 'CUSTOM'}` regardless of input; the simulator's `_imageToDisplay` only has bitmaps for HAPPY / SAD / HEART / ARROW_N, so the other 63 LEGO `IMAGE_*` constants (and any user pixel grid) render blank. Fix: pass the pixel grid in the payload and let `_imageToDisplay` render arbitrary 25-cell brightness arrays.
+- **`motor.run_to_absolute_position` `direction` kwarg is ignored by the simulator.** `py/spike_bridge.py:196` plumbs `direction` (CLOCKWISE / COUNTERCLOCKWISE / SHORTEST_PATH / LONGEST_PATH) onto the wire payload, but `_execCmd` in `js/simulator.js` picks the same path regardless. Now that the encoder counter is real and the move lands at the target, SHORTEST / LONGEST are tractable.
 
 ### Sensor stubs that need real values
 
-- **Motion sensor.** `tilt_angles()`, `acceleration()`, `angular_velocity()`, `quaternion()`, `up_face()`, `gesture()`, `tap_count()` all return frozen constants. Highest-value fix: drive `tilt_angles()` from the simulator heading so heading-locked driving works (this replaces the previously-listed `get_yaw_angle()` item, which doesn't exist in v3 — the canonical reader is `tilt_angles()`). Note that Blockly's `flippersensors_orientationAxis` yaw arm already returns real heading via `getHeading()` — Python and Blockly currently disagree on the same reading.
-- **Hub button.** `pressed(button)` always returns 0; needs real ms-held duration tied to keyboard or on-screen buttons.
-- **Color sensor `reflection()` and `rgbi()`.** Both Python accessors return bridge defaults (50 and `(128,128,128,0)`) because `_sensorState()` (`js/simulator.js:1279-1295`) never sends `reflection` or `rgb` keys. Blockly's `getColorSensorReflection()` does have a per-color `reflMap` — wire it through `_sensorState()` so the Python path agrees. `rgbi`'s intensity should be the mean of R/G/B.
+- **Motion sensor (other than yaw).** `acceleration()`, `angular_velocity()`, `quaternion()`, `up_face()`, `gesture()`, `tap_count()` all return frozen constants. `tilt_angles()` pitch and roll are always 0 and are documented as a 2D-sim limitation; yaw now drives from the real heading.
+- **Color sensor `rgbi()`.** Returns frozen `(128,128,128,0)` because `_sensorState()` never includes an `rgb` key. Wire the per-color map; intensity should be the mean of R/G/B. Currently `@unittest.expectedFailure`.
 
-### Motion command bugs (UAT 2026-05-13)
+### Motion command bugs
 
-These were surfaced by the lesson-based UAT pass and are not yet in any other section. Ordered by program-breaking impact.
+Ordered by program-breaking impact.
 
-- **Steering convention doesn't match SPIKE.** Sim uses linear `lv = spd × (1+steer)`, `rv = spd × (1-steer)`. SPIKE 3's semantics: `steering=50` → pivot (inner wheel stops), `steering=100` → spin (wheels counter-rotate around the centre). Our linear formula gives a partial-pivot at every value: `steering=50` produces ~60° instead of 90°, `steering=100` produces a pivot rather than a centre-spin (broke UAT T3, AT1, R1). CLAUDE.md and the Blockly generators both document the linear convention — if we keep it for steering inputs, we still need a separate code path for `motor_pair.move`-style steering that matches the hub.
-- **Negative `degrees` are treated as positive.** `motor_pair.move_for_degrees(pair, -1080, …)` drives forward by 1080° instead of backwards (broke UAT M2, D2). Suspect `Math.abs` in the Blockly unit conversion (`js/blockly_config.js:1247-1249, 1262, 1883`) is leaking into the Python path or the bridge's degrees→mm conversion. Trace pending.
-- **`motor_pair.move(steering)` is not continuous and ignores `steering`.** `_execCmd 'start'` sets `leftV = rightV = cmd.speed/1000` (drops `cmd.steering`) and hands `_animateTank` a hardcoded 200 mm reference (`js/simulator.js:1085-1095`). Real SPIKE keeps motors running until another command — every UAT that followed "start moving, wait for sensor, then stop" stalled at y ≈ 361 mm (M3, C1, D1). Two fixes coupled: send `'move'` for continuous motion (already applies steering), and replace the 200 mm cap with a true loop tied to the stop flag.
-
-### Color-token divergence
-
-- **`'cyan'` vs `'azure'`.** `js/simulator.js:60` `COLOR_MAP` uses `'cyan'`; `py/spike_bridge.py:68` `_COLOR_INT_MAP` uses LEGO's `'azure'` and lacks `'cyan'`. A field zone painted `'cyan'` reads `color.AZURE` (4) in Blockly and `-1` (UNKNOWN) in Python — same sim state, two answers. Fix: add `'cyan': 4` alias to `_COLOR_INT_MAP` (or rename the sim token to `'azure'`).
+- **`motor_pair.move` / `motor.run` continuous motion is capped.** `_execCmd 'start' / 'start_tank'` now applies steering (good), but still hands `_animateTank` a hardcoded 200 mm distance (`js/simulator.js:1158`); `motor_run` is capped at 180 mm (`js/simulator.js:1186`); the Blockly single-motor start blocks emit a 5000 mm fire-and-forget. Real SPIKE keeps motors running until another command — programs that follow "start moving, wait for sensor, then stop" still stall mid-mat. Replace the caps with a continuous-run mode (e.g., `Infinity` distance) tied to the existing `_motionAborted` flag.
+- **Steering convention doesn't match SPIKE.** Sim uses linear `lv = spd × (1+steer)`, `rv = spd × (1-steer)`. SPIKE 3's semantics: `steering=50` → pivot (inner wheel stops), `steering=100` → spin (wheels counter-rotate around the centre). The linear formula gives a partial-pivot at every value: `steering=50` produces ~60° instead of 90°, `steering=100` produces a pivot rather than a centre-spin (broke UAT T3, AT1, R1). CLAUDE.md and the Blockly generators both document the linear convention — if we keep it for Blockly steering inputs, we still need a separate code path for `motor_pair.move`-style steering that matches the hub.
+- **Negative `degrees` are treated as positive.** `motor_pair.move_for_degrees(pair, -1080, …)` drives forward by 1080° instead of backwards (broke UAT M2, D2). Suspect `Math.abs` in the Blockly unit conversion (`js/blockly_config.js:1248-1249, 1263, 1890`) is leaking into the Python path or the bridge's degrees→mm conversion. Trace pending.
 
 ### Ignored kwargs
 
 - **`stop = BRAKE / HOLD / COAST / CONTINUE / SMART_*`** — accepted everywhere, applied nowhere. `_animateTank` snaps velocity to 0 at the end regardless of mode; coast in particular needs momentum to carry forward, hold should resist external pushes.
-- **`acceleration` / `deceleration`** — accepted everywhere, applied nowhere. Python kwargs (deg/s², default 1000) are dropped before the bridge payload is built in `py/spike_bridge.py`; `_animateTank` runs constant velocity for the full duration. Fix: forward the kwargs into the bridge payload, then implement a trapezoidal profile in `_animateTank` / `_animateSingleMotor` — convert deg/s² → mm/s² via `WHEEL_CIRC_MM/360`, ramp up to cruise, ramp down. When `t_accel + t_decel` would exceed total duration, fall back to a triangular profile with peak `v = sqrt(2·a·d·dist/(a+d))`. Per-step `maxV` feeds the existing `wheelsToBodyVelocity` call; no other physics changes needed. Blockly's `_ACCEL` dropdown now stores Spike's wire form (`"1000 1000"` / `"3000 3000"` / `"10000 10000"`) per commit `c6f4b7a`, so the slow/medium/fast → deg/s² mapping is settled — but no move generator reads the values yet.
+- **`acceleration` / `deceleration`** — accepted everywhere, applied nowhere. Python kwargs (deg/s², default 1000) are dropped before the bridge payload is built in `py/spike_bridge.py`; `_animateTank` runs constant velocity for the full duration. Currently `@unittest.expectedFailure`. Fix: forward the kwargs into the bridge payload, then implement a trapezoidal profile in `_animateTank` / `_animateSingleMotor` — convert deg/s² → mm/s² via `WHEEL_CIRC_MM/360`, ramp up to cruise, ramp down. When `t_accel + t_decel` would exceed total duration, fall back to a triangular profile with peak `v = sqrt(2·a·d·dist/(a+d))`. Per-step `maxV` feeds the existing `wheelsToBodyVelocity` call; no other physics changes needed. Blockly's `_ACCEL` dropdown now stores Spike's wire form (`"1000 1000"` / `"3000 3000"` / `"10000 10000"`) per commit `c6f4b7a`, so the slow/medium/fast → deg/s² mapping is settled — but no move generator reads the values yet.
 
 ### Broken control flow
 
-- **`runloop.until(fn, timeout)` is a no-op.** Any program that polls a condition exits immediately. Needs a real polling loop with timeout.
+- **`runloop.until(fn, timeout)` is a no-op.** Any program that polls a condition exits immediately (`py/spike_bridge.py:560` returns `_NoopAwaitable()`). Currently `@unittest.expectedFailure`. Needs a real polling loop with timeout.
 
 ### Missing devices
 
@@ -67,6 +53,7 @@ These were surfaced by the lesson-based UAT pass and are not yet in any other se
 
 - `app.display` / `app.bargraph` / `app.linegraph` / `app.music` — Spike App UI surfaces with no analogue here; leave as no-ops.
 - `color_matrix` (3×3 LED attachment) — no plan to render.
+- Motion sensor pitch / roll / accel / gyro / gesture — top-down 2D sim has no third axis; documented as a sim limitation.
 
 ---
 
@@ -76,17 +63,12 @@ These were surfaced by the lesson-based UAT pass and are not yet in any other se
 
 Motor-block gaps (grouped together for easier scanning):
 
-- **Acceleration / stop-method setter blocks are no-ops.** `set movement acceleration to slow/medium/fast`, `set motor … acceleration`, `set movement motors … at stop` and `set motor … at stop` assign to `_moveAccel` / `_motorAccel` / `_stopMethod` / `_motorStop` globals (declared in `js/blockly_config.js` ~line 2268) but the move generators (`flippermoremove_startDualSpeed`, `flippermoremotor_motorGoToRelativePosition`, etc.) never read them. Once `_animateTank` honours accel/decel/stop (see *Ignored kwargs*), thread these globals through.
-- **Single-motor blue blocks: stop scope and continuous-run cap.** `flippermotor_motorStop` halts the whole program (`window.sim.stop()`) instead of stopping just one motor. `flippermotor_motorStartDirection`, `flippermoremotor_motorStartPower`, and `flippermove_startMove` / `flippermove_startSteer` emit a 5000 mm fire-and-forget — they should run until explicitly stopped. Same granularity bug applies to `flippermove_stopMove` (whole-sim stop). Needs per-port stop wired into the simulator's `_motionAborted` flag and a continuous-run mode (e.g. `Infinity` distance or a separate command type).
-- **`flippersensors_resetYaw` hardcodes `heading = -90`.** The generator predates the y-up coordinate flip (CLAUDE.md spawn is `heading 90°` north); calling it now spins the robot 180° south. `js/blockly_config.js:1811` → `window.sim.resetYaw()` needs to land on `+90`.
-
-Sensor-block gaps (block UI exists but the underlying API is stubbed):
-
-- **Functional hub-button blocks** — see *Hub button* above. The `when button pressed` event hat is wired but emits a stub-warn until the underlying `hub.button.pressed()` API returns real values.
+- **Acceleration / stop-method setter blocks are no-ops.** `set movement acceleration to slow/medium/fast`, `set motor … acceleration`, `set movement motors … at stop` and `set motor … at stop` assign to `_moveAccel` / `_motorAccel` / `_stopMethod` / `_motorStop` globals (declared in `js/blockly_config.js` ~line 3456) but the move generators (`flippermoremove_startDualSpeed`, `flippermoremotor_motorGoToRelativePosition`, etc.) never read them. Once `_animateTank` honours accel/decel/stop (see *Ignored kwargs*), thread these globals through.
+- **Single-motor blue blocks: continuous-run cap.** `flippermotor_motorStartDirection`, `flippermoremotor_motorStartPower`, and `flippermove_startMove` / `flippermove_startSteer` emit a 5000 mm fire-and-forget (`js/blockly_config.js:1312, 1328`) — they should run until explicitly stopped. The same whole-sim-stop granularity bug remains on `flippermove_stopMove`; the per-port version (`flippermotor_motorStop`) is fixed. Needs a continuous-run mode (e.g. `Infinity` distance or a separate command type) plus a per-pair stop wired into `_motionAborted`.
 
 Other:
 
-- **Blockly-to-app parity** — match the Spike Prime App's block set exactly. Recent Spike-style widget work (port-grid picker, 5×5 LED matrix, rotation-wheel popup, ultrasonic LED, angle dial, color strip, sound JSON values — commits `57514f6` through `e66bb85`) closes the UI side; block-set parity is the remaining surface (event hats, lists, music/weather categories, etc.).
+- **Blockly-to-app parity** — match the Spike Prime App's block set exactly. Recent Spike-style widget work (port-grid picker, 5×5 LED matrix, rotation-wheel popup, ultrasonic LED, angle dial, color strip, sound JSON values — commits `57514f6` through `e66bb85`) closes the UI side; block-set parity is the remaining surface (event hats, lists, music/weather categories, etc.). The fixture-driven behaviour runner now exists (`tests/js/blockly/program-fixtures.test.js`) — each remaining block category is one fixture row away from a behaviour test.
 
 ### Python editor
 
@@ -120,16 +102,11 @@ The Hub panel (X / Y / heading + per-port live readings for A–F) already updat
 
 ## Test Coverage
 
-The 2026-05-13 test-coverage audit (`docs/audits/2026-05-13-test-coverage-fidelity.md`) found ~21 documented bugs where the test suite has a test pointing at the same surface that **passes against the bug**. Three structural moves, in priority order:
+The 2026-05-13 test-coverage audit (`docs/audits/2026-05-13-test-coverage-fidelity.md`) found ~21 documented bugs where the test suite had a test pointing at the same surface that **passed against the bug**. The 2026-05-16 / 2026-05-17 uplifts (`docs/audits/2026-05-16-test-fidelity-by-layer.md`, `2026-05-17-test-suite-re-evaluation.md`) built the round-trip harness, fixture-driven Blockly runner, flipped all stub-pins to `@expectedFailure` (or fixed the bug), and added behaviour-grade coverage for 11 of 21 named surfaces (2 more paired with round-trip companions; 3 tracked-failing). Remaining structural work, in priority order:
 
-- **Mark stub-pinning tests `@unittest.expectedFailure` / `it.skip(.todo)`.** Four tests today enforce known bugs: `getMotorSpeed: returns 0`, `getMotorPosition: returns 0`, `test_absolute_position_returns_int`, `test_until_no_command`. Flipping them to expected-failure removes the contract that the bug must persist.
-- **Build a round-trip Python → bridge → simulator → sensor read-back harness.** Today `tests/py/mock_js.py` returns whatever the test seeded; `_animateTank` is stubbed in every JS dispatch test. A `tests/js/bridge/python-roundtrip.test.js` that hosts a real `RobotSimulator`, replays bridge payloads through `executeCommand`, and snapshots `_sensorState()` would let one test cover every "API X mutates simulator state Y" claim.
-- **Fixture-driven Blockly behavior tests per category.** `yaw-program-issue-9.test.js` and `event-hats-runtime.test.js` already show the pattern: build a program from real generators, run via `new AsyncFunction()` against the real sim. Generalize so adding "block X drives the robot 100 mm forward" is a one-line fixture, not a new test file.
-
-Two targeted regression tests would have caught the most recent UAT bugs:
-
-- **Continuous `'start'` with non-zero steering** — single assertion in `tests/js/commands/dispatch-extra.test.js` that `_animateTank` receives differential wheel velocities. Today no test passes `steering` to the `'start'` command.
-- **Negative degrees → backward motion** — `move_for_degrees(pair, -1080, …)` should end up south of spawn, not north.
+- **Fixture rows in `tests/js/blockly/program-fixtures.test.js`** for each block category that matters (movement, motor, control flow, sensors, hub display, hub sound). Each row covers ~10-15 generators of the ~85 still on generator-smoke alone.
+- **Sim-side companions for stranded payload-shape Python tests.** The high-impact subset (`motor.run_to_*` `direction` branches, `move_for_time`, `move_tank_for_degrees`, `color_sensor.color`, `distance_sensor.distance`, etc.) — maybe 15-20 tests cover the user-visible surface.
+- **Targeted regression test still missing**: **negative degrees → backward motion** — `move_for_degrees(pair, -1080, …)` should end up south of spawn, not north. (The continuous-`'start'`-with-steering companion landed; the continuous-motion cap is the remaining half of that gap, tracked under *Motion command bugs*.)
 
 ### Unify Python tests under Node (MicroPython-WASM-in-Node runner)
 
