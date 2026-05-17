@@ -1,10 +1,12 @@
-# Test fidelity uplift — change report (2026-05-16)
+# Test fidelity uplift — change report (2026-05-16, revised 2026-05-17)
 
 Companion to:
 - `2026-05-13-test-coverage-fidelity.md` — the audit that diagnosed the gap
 - `2026-05-16-test-fidelity-by-layer.md` — the per-layer walkthrough
 
 This report covers what shipped on branch `test-fidelity-uplift`. The work was scoped to the highest-leverage subset of the audit: build the missing test boundary the audit named (Python ↔ JS round-trip), fix three documented simulator bugs whose user-visible impact is highest, and flip the test posture on a few canonical surfaces so the suite stops enforcing the bugs it should be catching.
+
+**Revision note (2026-05-17):** the initial shape leaned too heavily on the round-trip harness — encoder and steering behaviours were verified via Python-driven integration tests when most of that coverage belongs at the simulator-unit tier. A subsequent commit rebalanced the pyramid: 13 new simulator-unit tests, 7 round-trip tests trimmed down to smoke + one contract-guard per fixed surface. Same behaviour coverage; faster suite; failures localise to one layer instead of four.
 
 ---
 
@@ -13,11 +15,12 @@ This report covers what shipped on branch `test-fidelity-uplift`. The work was s
 | | Before | After | Δ |
 |---|---:|---:|---:|
 | Python tests | 214 | 217 | +3 (`expectedFailure`) |
-| JS tests | 461 | 478 | +17 |
-| Integration (Py↔JS round-trip) | 0 | 9 | +9 (new boundary) |
+| JS tests | 461 | 484 | +23 |
+| Round-trip integration tests | 0 | 7 | +7 (new boundary) |
+| Simulator-unit behaviour tests | — | +13 | +13 (rebalanced down from integration) |
 | Stub-pin tests enforcing bugs | 4 | 2 | −2 (flipped to behaviour) |
 | Tracked-failing tests (`expectedFailure`) | 0 | 3 | +3 |
-| **Total** | **675** | **695** | **+20** |
+| **Total** | **675** | **701** | **+26** |
 | Suite verdict | green | green (3 expected-fail) | — |
 
 Both halves run fast: Python in 21 ms, JS in ~2.6 s, integration in ~0.4 s. Two consecutive runs identical. No real wall-clock dependencies — `sim._sleep` stubbed throughout.
@@ -37,6 +40,34 @@ That harness now exists at `tests/js/integration/`.
 **Cost:** ~85 lines of glue across two files (`micropython-loader.js`, `roundtrip-helper.js`). One npm dependency (the MicroPython WASM port — exactly what `polyscript` loads in production).
 
 **What it unlocks:** every audit row that says `STATE-DICT VENTRILOQUISM`, `PAYLOAD-SHAPE MASQUERADE`, or `PINS THE STUB` becomes a one-line addition to a fixture file instead of a new test file. The Python suite and the JS suite finally meet end-to-end.
+
+---
+
+## 2a. Pyramid distribution (after the 2026-05-17 rebalance)
+
+Same behaviour coverage, different tier distribution:
+
+```
+            ┌────────────────────────────────────────┐
+   E2E      │ 0                                      │ (no browser tests)
+            ├────────────────────────────────────────┤
+   Integ.   │ ▮▮▮▮▮▮▮ 7                              │  round-trip contract guards
+            │   • 2 micropython sanity                │  + 2 round-trip smoke
+            │   • 1 per fixed surface (×3)            │  (steering / encoder / hub_image)
+            ├────────────────────────────────────────┤
+   Unit     │ ▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮ 478 │  pure-fn + dispatch + new
+   (JS)     │                                         │  simulator-behaviour tests
+            ├────────────────────────────────────────┤
+   Unit     │ ▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮ 217      │  bridge-layer Python tests
+   (Py)     │                                         │  (incl. 3 expectedFailure)
+            └────────────────────────────────────────┘
+```
+
+**Initial shape (committed, then rebalanced):** 14 integration tests / 4 unit-tier behaviour tests for the fixed surfaces. Each encoder/steering behaviour verified by a slow round-trip test rather than a fast simulator-unit test.
+
+**Rebalanced shape (current):** 7 integration tests / 17 unit-tier behaviour tests for the fixed surfaces. Each behaviour now verified at the layer it actually lives in. Round-trip tests verify only what cannot be verified at the unit layer: the cross-runtime contract between Python's accessors and the JS sim's snapshot keys.
+
+The kinematic-physics integrator was extracted to `tests/js/kinematic-physics.js` so unit tests and the round-trip helper share it. The simulator-unit tests run `_execCmd → _animateTank → encoder-accumulator → robot.motors[port]` end-to-end through real code; the only stubbed piece is Box2D itself, which has its own dedicated suite at `tests/js/physics/`.
 
 ---
 

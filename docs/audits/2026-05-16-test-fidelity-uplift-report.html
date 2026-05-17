@@ -205,15 +205,17 @@
 <div class="wrap">
 
 <header class="hero">
-  <p class="eyebrow">Audit · Test fidelity uplift · companion to 2026-05-13</p>
-  <h1>What changed: the Python ↔ JS test boundary now exists</h1>
+  <p class="eyebrow">Audit · Test fidelity uplift · revised 2026-05-17</p>
+  <h1>What changed: the Python ↔ JS test boundary, then a pyramid rebalance</h1>
   <p class="deck">
     The 2026-05-13 audit named one structural gap — no test can drive Python
     user code through the simulator and observe the result. This branch
-    builds that harness, fixes three audit-named bugs end-to-end through it,
-    flips four canonical stub-pin tests to behaviour-grade, and tracks three
-    remaining bugs as <em>expectedFailure</em> markers documenting the gap
-    instead of enforcing it.
+    builds that harness, fixes three audit-named bugs end-to-end, flips two
+    canonical stub-pin tests to behaviour-grade, and tracks three remaining
+    bugs as <em>expectedFailure</em> markers documenting the gap instead of
+    enforcing it. A 2026-05-17 follow-up rebalanced the test pyramid: 13
+    new simulator-unit behaviour tests, integration trimmed from 14 to 7
+    contract guards.
   </p>
 </header>
 
@@ -221,11 +223,11 @@
   <h2><span class="num">1.</span>Suite at a glance</h2>
 
   <div class="stats">
-    <div class="stat"><div class="num">695</div><div class="lbl">Tests total <span class="delta">+20</span></div></div>
+    <div class="stat"><div class="num">701</div><div class="lbl">Tests total <span class="delta">+26</span></div></div>
     <div class="stat"><div class="num">217</div><div class="lbl">Python <span class="delta">+3</span></div></div>
-    <div class="stat"><div class="num">478</div><div class="lbl">JS <span class="delta">+17</span></div></div>
-    <div class="stat"><div class="num">9</div><div class="lbl">Round-trip <span class="delta">new</span></div></div>
-    <div class="stat"><div class="num">2</div><div class="lbl">Stub-pins remaining <span class="delta-neg">−2</span></div></div>
+    <div class="stat"><div class="num">484</div><div class="lbl">JS <span class="delta">+23</span></div></div>
+    <div class="stat"><div class="num">7</div><div class="lbl">Round-trip <span class="delta">contract</span></div></div>
+    <div class="stat"><div class="num">+13</div><div class="lbl">Sim-unit <span class="delta">new tier</span></div></div>
     <div class="stat"><div class="num">3</div><div class="lbl">Tracked-failing <span class="delta">new</span></div></div>
   </div>
 
@@ -300,6 +302,88 @@
 
   <div class="callout callout-blue">
     <strong>Concrete construction.</strong> <code>@micropython/micropython-webassembly-pyscript@1.28.0-6</code> (same build the browser loads) into Node's main thread. Custom <code>js</code> module exposes <code>bridgeSend</code> wired straight to <code>sim.executeCommand</code>. <code>js.eval</code> overridden to a no-op so <code>spike_bridge.py</code>'s worker shim never installs. Single Node event loop — no threads, no race conditions possible. ~85 lines of glue across two files.
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">2a.</span>Pyramid rebalance (2026-05-17)</h2>
+
+  <p>Initial shape leaned heavily on integration. Every encoder and steering behaviour was verified by a Python-driven round-trip test (~80 ms each for MicroPython startup) when the same coverage belongs at the simulator-unit tier (~3 ms each). Follow-up commit pushed behaviour down and trimmed the round-trip suite to contract guards.</p>
+
+  <div class="diagram">
+  <svg viewBox="0 0 900 360" width="100%" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Test pyramid before and after rebalance">
+    <defs>
+      <style>
+        .tier-label { font-size: 12px; fill: #6b6b6b; }
+        .tier-num { font-size: 14px; font-weight: 700; fill: #1a1a1a; }
+        .tier-cap { font-size: 11px; fill: #6b6b6b; font-style: italic; }
+        .title { font-size: 14px; font-weight: 600; fill: #1a1a1a; }
+      </style>
+    </defs>
+
+    <!-- before pyramid (left) -->
+    <text x="220" y="30" text-anchor="middle" class="title">Before rebalance</text>
+    <g>
+      <!-- E2E (top) -->
+      <polygon points="200,55 240,55 250,85 190,85" fill="#e6e3dc" stroke="#1a1a1a" stroke-width="1"/>
+      <text x="280" y="74" class="tier-label">E2E</text>
+      <text x="350" y="74" class="tier-num">0</text>
+
+      <!-- Integration (middle) -->
+      <polygon points="180,90 260,90 280,150 160,150" fill="#fff8e6" stroke="#f08c00" stroke-width="1.5"/>
+      <text x="280" y="115" class="tier-label">Integration</text>
+      <text x="350" y="115" class="tier-num">14</text>
+      <text x="280" y="135" class="tier-cap">(too heavy — slow, broad blast radius)</text>
+
+      <!-- Unit (bottom) -->
+      <polygon points="140,155 300,155 350,260 90,260" fill="#e7f6ec" stroke="#2f9e44" stroke-width="1.5"/>
+      <text x="280" y="195" class="tier-label">Unit (sim-behaviour for fixes)</text>
+      <text x="350" y="195" class="tier-num">4</text>
+      <text x="280" y="220" class="tier-label">Unit (rest of suite)</text>
+      <text x="350" y="220" class="tier-num">691</text>
+    </g>
+
+    <!-- arrow -->
+    <line x1="430" y1="180" x2="490" y2="180" stroke="#1a1a1a" stroke-width="2" marker-end="url(#arr2)"/>
+    <defs>
+      <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#1a1a1a"/>
+      </marker>
+    </defs>
+
+    <!-- after pyramid (right) -->
+    <text x="680" y="30" text-anchor="middle" class="title">After rebalance</text>
+    <g>
+      <!-- E2E (top) -->
+      <polygon points="660,55 700,55 710,85 650,85" fill="#e6e3dc" stroke="#1a1a1a" stroke-width="1"/>
+      <text x="740" y="74" class="tier-label">E2E</text>
+      <text x="810" y="74" class="tier-num">0</text>
+
+      <!-- Integration (middle — shorter now) -->
+      <polygon points="645,90 715,90 730,130 630,130" fill="#fff8e6" stroke="#f08c00" stroke-width="1.5"/>
+      <text x="740" y="113" class="tier-label">Integration</text>
+      <text x="810" y="113" class="tier-num">7</text>
+
+      <!-- Unit (bottom — wider now) -->
+      <polygon points="595,135 765,135 815,260 545,260" fill="#e7f6ec" stroke="#2f9e44" stroke-width="1.5"/>
+      <text x="740" y="170" class="tier-label">Unit (sim-behaviour for fixes)</text>
+      <text x="810" y="170" class="tier-num">17</text>
+      <text x="740" y="200" class="tier-label">Unit (rest of suite)</text>
+      <text x="810" y="200" class="tier-num">677</text>
+    </g>
+
+    <text x="450" y="310" text-anchor="middle" font-size="12" fill="#2f9e44" font-weight="600">
+      Same behaviour coverage; +6 tests overall; ~7× fewer slow integration tests for the same surfaces.
+    </text>
+    <text x="450" y="332" text-anchor="middle" font-size="11" fill="#6b6b6b">
+      Failure localisation: 1 layer (sim-unit) instead of 4 (Python ↔ bridge ↔ sim ↔ kinematic integrator).
+    </text>
+  </svg>
+  <div class="cap">Round-trip tests now do only what they're uniquely qualified for: prove the cross-runtime contract between Python's accessors and the JS sim's snapshot keys.</div>
+  </div>
+
+  <div class="callout callout-green">
+    <strong>Mechanism:</strong> the kinematic-physics integrator that lets tests run motion without Box2D was extracted to <code>tests/js/kinematic-physics.js</code>. Simulator-unit tests use it directly; the round-trip harness imports it too. Same integrator both tiers — different framing.
   </div>
 </section>
 
@@ -444,6 +528,8 @@ runloop.run(main())
     <div class="commit"><span class="sha">b705052</span><span class="msg">feat(sim): track motor encoders and velocity through _animateTank</span></div>
     <div class="commit"><span class="sha">7a6520c</span><span class="msg">feat(sim): render hub.light_matrix.show_image instead of dropping it silently</span></div>
     <div class="commit"><span class="sha">be11c52</span><span class="msg">test(gaps): expectedFailure markers for audit-tracked un-fixed bugs</span></div>
+    <div class="commit"><span class="sha">62a7f7d</span><span class="msg">docs(audits): test fidelity uplift change report (md + html)</span></div>
+    <div class="commit"><span class="sha">—</span><span class="msg">refactor(tests): rebalance the pyramid — push encoder/steering behaviour to unit tier</span></div>
   </div>
 </section>
 
@@ -455,7 +541,7 @@ runloop.run(main())
 </section>
 
 <footer>
-  Branch <code>test-fidelity-uplift</code> · 5 commits, suite green (Python: <code>OK (expected failures=3)</code>; JS: <code>478 pass / 0 fail</code>) · companion to <code>2026-05-13-test-coverage-fidelity.md</code> and <code>2026-05-16-test-fidelity-by-layer.md</code>.
+  Branch <code>test-fidelity-uplift</code> · 7 commits · suite green (Python: <code>OK (expected failures=3)</code>; JS: <code>484 pass / 0 fail</code>) · companion to <code>2026-05-13-test-coverage-fidelity.md</code> and <code>2026-05-16-test-fidelity-by-layer.md</code>. Revised 2026-05-17 with pyramid rebalance.
 </footer>
 
 </div>
