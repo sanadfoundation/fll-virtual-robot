@@ -183,14 +183,23 @@ class motor:
     def run_to_absolute_position(port, position, velocity=360, *, direction=2, stop=1, acceleration=1000, deceleration=1000):
         letter = _require(port, 'motor', 'motor.run_to_absolute_position')
         _motor_velocities[letter] = int(velocity)
-        # Compute the delta from the last-known absolute encoder reading so
-        # the simulator's degree-based motion lands at the requested absolute
-        # position, not rotates BY that many degrees.
-        current = int((_state.get('motors') or {}).get(letter, 0))
-        delta = int(position) - current
-        # Forward `direction` so the simulator (or a future test) can branch on
-        # CLOCKWISE / COUNTERCLOCKWISE / SHORTEST_PATH / LONGEST_PATH. Today
-        # _execCmd ignores it; the value is still recorded on the wire.
+        # The simulator's accumulator is unbounded (mm of total wheel rotation),
+        # but `absolute_position` is defined on [-180, 179]. Wrap both current
+        # and target into that range before computing the rotational delta —
+        # then resolve `direction` to a signed delta in [-360, 360] that the
+        # simulator can execute as a plain `motor_degrees` rotation.
+        raw     = int((_state.get('motors') or {}).get(letter, 0))
+        current = ((raw + 180) % 360) - 180
+        target  = ((int(position) + 180) % 360) - 180
+        cw      = (target - current) % 360       # always in [0, 360)
+        if direction == 0:                       # CLOCKWISE
+            delta = cw
+        elif direction == 1:                     # COUNTERCLOCKWISE
+            delta = -180 if cw == 180 else (cw - 360 if cw else 0)
+        elif direction == 3:                     # LONGEST_PATH
+            delta = 0 if cw == 0 else (cw if cw > 180 else cw - 360)
+        else:                                    # SHORTEST_PATH (default)
+            delta = cw if cw <= 180 else cw - 360
         return _bridge_call({'type': 'motor_degrees', 'port': letter,
                              'degrees': delta, 'velocity': velocity,
                              'direction': int(direction)})
