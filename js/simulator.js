@@ -123,6 +123,9 @@ function makeRobotState() {
     y: 163,          // mm from bottom edge (math y-up)
     heading: 90,     // degrees: 0=east, 90=north, 180=west, 270=south
     motors: { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 },
+    // Per-port commanded wheel velocity (deg/sec, signed). Written by
+    // _animateTank / _animateSingleMotor at motion start, cleared at end.
+    motors_velocity: { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 },
     sensors: {
       colorValue: 'none',
       // 9999 = OOR sentinel, doubles as "no reading yet" pre-physics. The
@@ -1208,6 +1211,15 @@ class RobotSimulator {
     const totalSteps = Math.max(1, Math.round(durationMs / wallStepMs));
     const physDt_s   = (wallStepMs / 1000) * this.speedMult;
 
+    // Encoder accumulators — populate motors_velocity for the duration of
+    // the motion so getMotorSpeed reflects the active wheels. Cleared at
+    // motion-end.
+    const desc      = this._activeMotion || {};
+    const leftPort  = desc.leftPort  || null;
+    const rightPort = desc.rightPort || null;
+    if (leftPort)  this.robot.motors_velocity[leftPort]  = leftV  * 1000;
+    if (rightPort) this.robot.motors_velocity[rightPort] = rightV * 1000;
+
     for (let i = 0; i < totalSteps; i++) {
       if (!this.isRunning) break;
       if (this._motionAborted) break;
@@ -1239,12 +1251,25 @@ class RobotSimulator {
       this.robot.sensors.colorValue = this._colorAtPosition(sp.x, sp.y);
       this._updateDistanceSensor();
 
+      // Encoder accumulation: wheel travel this step, converted to degrees.
+      // Sign preserved so reverse motion decrements the count, matching real
+      // motor encoders.
+      const leftStepMM  = leftV  * SPEED_MM_S * physDt_s;
+      const rightStepMM = rightV * SPEED_MM_S * physDt_s;
+      const leftDeg  = (leftStepMM  / WHEEL_CIRC_MM) * 360;
+      const rightDeg = (rightStepMM / WHEEL_CIRC_MM) * 360;
+      if (leftPort)  this.robot.motors[leftPort]  = (this.robot.motors[leftPort]  || 0) + leftDeg;
+      if (rightPort) this.robot.motors[rightPort] = (this.robot.motors[rightPort] || 0) + rightDeg;
+
       this._dirty = true;
       await this._sleep(wallStepMs);
     }
 
     // Halt motion when the command finishes so obstacles stop being shoved.
     this.physics.setKinematicVelocity(this.robotBody, 0, 0, 0);
+    // Clear active-motion wheel velocities so getMotorSpeed reads 0 at rest.
+    if (leftPort)  this.robot.motors_velocity[leftPort]  = 0;
+    if (rightPort) this.robot.motors_velocity[rightPort] = 0;
   }
 
   async _animateSingleMotor(port, velocity, distMM) {
@@ -1253,10 +1278,32 @@ class RobotSimulator {
     // drive a wrong-port motor command past the Python validator.
     this._assertPortKind(port, 'motor');
 
-    await this._runMotion({ pair: null, ports: [port] }, async () => {
+    // Pre-compute the wheel→port mapping so _animateTank can update the
+    // correct encoder. Three cases mirror the dispatch below.
+    let descriptor;
+    const pair = this._findPairForPort(port);
+    if (pair) {
+      const isLeft = pair.left === port;
+      descriptor = {
+        pair: null,
+        ports: [port],
+        leftPort:  isLeft ? port : null,
+        rightPort: isLeft ? null : port,
+      };
+    } else {
+      const role = this._portConfig[port] && this._portConfig[port].role;
+      descriptor = {
+        pair: null,
+        ports: [port],
+        leftPort:  role === 'drive-left'  ? port : null,
+        rightPort: role === 'drive-right' ? port : null,
+        auxPort:   (role !== 'drive-left' && role !== 'drive-right') ? port : null,
+      };
+    }
+
+    await this._runMotion(descriptor, async () => {
       // motor_pair.pair(...) is the runtime override; it wins over the canonical
       // PORT_CONFIG roles so user-declared swaps (e.g. PAIR_1 = B,A) take effect.
-      const pair = this._findPairForPort(port);
       if (pair) {
         const isLeft = pair.left === port;
         const leftV  = isLeft ? velocity : 0;
@@ -1281,8 +1328,14 @@ class RobotSimulator {
       }
 
       // Auxiliary motor (arm / attachment with no wheel): pass time only.
+      // Encoder ticks: the user asked for distMM-worth of wheel-circumference
+      // rotation, so we credit that many degrees regardless of wall-clock.
       const ms = (distMM / MM_PER_MS_100) / Math.max(0.1, Math.abs(velocity));
+      const degrees = (distMM / WHEEL_CIRC_MM) * 360 * Math.sign(velocity || 1);
+      this.robot.motors_velocity[port] = velocity * 1000;  // velocity arg is the fraction × 1000 deg/sec
+      this.robot.motors[port] = (this.robot.motors[port] || 0) + degrees;
       await this._sleep(ms / this.speedMult);
+      this.robot.motors_velocity[port] = 0;
     });
   }
 
@@ -1293,7 +1346,12 @@ class RobotSimulator {
   _descriptorForPair(pairId) {
     const p = this.pairMap[pairId];
     const ports = p ? [p.left, p.right] : [];
-    return { pair: pairId, ports };
+    return {
+      pair:      pairId,
+      ports,
+      leftPort:  p ? p.left  : null,
+      rightPort: p ? p.right : null,
+    };
   }
 
   // Sets the active-motion descriptor and clears the abort flag for the
@@ -1537,7 +1595,7 @@ class RobotSimulator {
   getForceSensorRaw() {
     return window.forceSensorLogic.forceToReadings(this.robot.sensors.forceN).raw;
   }
-  getMotorSpeed(port)         { return 0; }
+  getMotorSpeed(port)         { return (this.robot.motors_velocity && this.robot.motors_velocity[port]) || 0; }
   getMotorPosition(port)      { return this.robot.motors[port] || 0; }
 
   // ── Audio ───────────────────────────────────────────────────────────────────

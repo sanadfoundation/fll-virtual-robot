@@ -105,13 +105,26 @@ test('getForceSensorRaw: 0.5 N → ~205', () => {
   assert.ok(raw >= 200 && raw <= 210, `raw=${raw}`);
 });
 
-test('getMotorSpeed: returns 0 for any port', () => {
+// Audit 2026-05-13 §4.2 / §8: these accessors used to be stub-pinned to 0.
+// The fix wires _animateTank / _animateSingleMotor to accumulate degrees into
+// robot.motors[port] and current velocity into robot.motors_velocity[port].
+
+test('getMotorSpeed: 0 at rest', () => {
   const sim = createSim();
   assert.strictEqual(sim.getMotorSpeed('A'), 0);
   assert.strictEqual(sim.getMotorSpeed('F'), 0);
 });
 
-test('getMotorPosition: returns 0 for unpaired port', () => {
+test('getMotorSpeed: reflects active motion velocity', () => {
+  const sim = createSim();
+  // Motion code writes deg/sec into motors_velocity. Simulate that and assert
+  // the accessor reads it back. (End-to-end version is the round-trip test.)
+  sim.robot.motors_velocity = { A: 500, B: -500 };
+  assert.strictEqual(sim.getMotorSpeed('A'), 500);
+  assert.strictEqual(sim.getMotorSpeed('B'), -500);
+});
+
+test('getMotorPosition: 0 before any motion', () => {
   assert.strictEqual(createSim().getMotorPosition('A'), 0);
 });
 
