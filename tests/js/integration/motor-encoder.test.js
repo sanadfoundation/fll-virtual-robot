@@ -30,8 +30,12 @@ runloop.run(main())
 `);
 
   const finalPos = mp.globals.get('_final_pos');
-  assert.ok(Math.abs(finalPos - 180) < 40,
-    `Python motor.absolute_position should read back ~180 after a 180° run; got ${finalPos}. `
+  // absolute_position wraps to [-180, 179] per LEGO docs; 180° sits on the
+  // wrap seam, so the reading can land at either +179 or -180. Compare via
+  // shortest angular delta so the contract test tolerates either side.
+  const delta = ((finalPos - 180 + 540) % 360) - 180;
+  assert.ok(Math.abs(delta) < 40,
+    `Python motor.absolute_position should read back ~180 (mod 360) after a 180° run; got ${finalPos}. `
     + 'If unit tests pass but this fails, the _sensorState snapshot key or the '
     + 'Python accessor wiring is out of sync with the simulator-side write.');
 });

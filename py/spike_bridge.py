@@ -236,7 +236,13 @@ class motor:
     @staticmethod
     def absolute_position(port):
         letter = _require(port, 'motor', 'motor.absolute_position')
-        return int((_state.get('motors') or {}).get(letter, 0))
+        # LEGO docs: absolute_position reports the shaft angle in [-180, 179].
+        # The sim's encoder accumulator is unbounded (signed degrees since
+        # boot), so wrap into the documented range at the boundary. The raw
+        # accumulator stays unwrapped — relative_position needs it, and
+        # run_to_absolute_position wraps locally for its own direction math.
+        raw = int((_state.get('motors') or {}).get(letter, 0))
+        return ((raw + 180) % 360) - 180
 
     @staticmethod
     def relative_position(port):

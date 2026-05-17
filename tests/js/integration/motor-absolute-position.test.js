@@ -15,6 +15,11 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { makeRoundtrip } = require('./roundtrip-helper');
 
+// Shortest signed angular delta in degrees, in [-180, 180). Lets assertions
+// about a target shaft orientation tolerate the wrap seam — e.g. ~180° can
+// surface as either +179 or -180 from absolute_position's [-180, 179] range.
+const angDelta = (a, b) => ((a - b + 540) % 360) - 180;
+
 test('round-trip: run_to_absolute_position(90) lands at absolute 90', async () => {
   const { mp, runUserCode } = await makeRoundtrip();
   await runUserCode(`
@@ -46,8 +51,10 @@ runloop.run(main())
   // If treated as "rotate TO position" (fix):
   //   90 then add only 90 more = 180 total ✓.
   const pos = mp.globals.get('_pos');
-  assert.ok(Math.abs(pos - 180) < 30,
-    `expected absolute_position ~180, got ${pos} (if ~270, old "by-not-to" bug regressed)`);
+  // absolute_position is wrapped to [-180, 179]; the 180° orientation can
+  // surface as either +179 or -180, so compare via shortest angular delta.
+  assert.ok(Math.abs(angDelta(pos, 180)) < 30,
+    `expected absolute_position ~180 (mod 360), got ${pos} (if ~270 or its wrap, old "by-not-to" bug regressed)`);
 });
 
 test('round-trip: reset_relative_position(0) zeroes the relative counter', async () => {
@@ -70,8 +77,34 @@ runloop.run(main())
     `relative_position should equal ~180 after a 180° run; got ${relAfterRun}`);
   assert.strictEqual(relAfterReset, 0,
     `relative_position should be 0 after reset_relative_position(A, 0); got ${relAfterReset}`);
-  assert.ok(Math.abs(absAfterReset - 180) < 30,
+  // Absolute is wrapped to [-180, 179]; 180° straddles the wrap seam.
+  assert.ok(Math.abs(angDelta(absAfterReset, 180)) < 30,
     `absolute_position must NOT be affected by reset_relative_position; got ${absAfterReset}`);
+});
+
+test('round-trip: absolute_position wraps to [-180, 179] after multiple full turns', async () => {
+  // Per LEGO Spike Prime docs, motor.absolute_position(port) reports the shaft
+  // angle in degrees on [-180, 179] — i.e., "where is the shaft pointing now?",
+  // not "how far has it travelled since boot." Three full forward revolutions
+  // (1080°) land the shaft in the same physical orientation it started in, so
+  // the reading must wrap back into [-180, 179] (near 0).
+  const { mp, runUserCode } = await makeRoundtrip();
+  await runUserCode(`
+async def main():
+    global _pos
+    await motor_pair.pair(0, port.A, port.B)
+    await motor.run_for_degrees('A', 1080, velocity=500)
+    _pos = motor.absolute_position('A')
+runloop.run(main())
+`);
+  const pos = mp.globals.get('_pos');
+  assert.ok(pos >= -180 && pos <= 179,
+    `absolute_position must be wrapped into [-180, 179]; got ${pos} `
+    + '(if ~1080, the bridge is still returning the raw signed accumulator '
+    + 'instead of the shaft angle).');
+  // 1080° → expected near 0 (modulo small overshoot/undershoot).
+  assert.ok(Math.abs(pos) < 40,
+    `expected absolute_position ~0 after 3 full turns; got ${pos}`);
 });
 
 test('round-trip: run_to_relative_position uses the reset anchor', async () => {
@@ -93,7 +126,8 @@ runloop.run(main())
   const abs = mp.globals.get('_abs');
   assert.ok(Math.abs(rel - 90) < 30,
     `relative_position should be ~90 after run_to_relative_position(A, 90); got ${rel}`);
-  // Absolute: 360 (from first run) + 90 (from run-to-relative 90 since anchor) = ~450.
-  assert.ok(Math.abs(abs - 450) < 40,
-    `absolute_position should reflect the anchor + 90 = ~450; got ${abs}`);
+  // Physical shaft rotation since boot: 360 + 90 = 450°. absolute_position
+  // wraps to [-180, 179], so the shaft's orientation reads as ~90° (450 mod 360).
+  assert.ok(Math.abs(angDelta(abs, 90)) < 40,
+    `absolute_position should reflect shaft orientation = 450° mod 360 = ~90°; got ${abs}`);
 });
