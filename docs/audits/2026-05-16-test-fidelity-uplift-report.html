@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Test fidelity uplift — 2026-05-16</title>
+<style>
+  :root {
+    --bg:       #fafaf7;
+    --surface:  #ffffff;
+    --ink:      #1a1a1a;
+    --muted:    #6b6b6b;
+    --rule:     #e6e3dc;
+    --code-bg:  #1f2430;
+    --code-ink: #f5f5f4;
+    --code-comm:#8a8d96;
+    --code-str: #c5e478;
+    --code-kw:  #ffb454;
+    --code-fn:  #79c0ff;
+
+    --proves: #2f9e44;
+    --shape:  #f08c00;
+    --pin:    #c92a2a;
+    --ventr:  #e8590c;
+    --none:   #6b6b6b;
+    --xfail:  #5c7cfa;
+
+    --accent: #2563eb;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 56px 32px 96px; }
+
+  header.hero {
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 28px;
+    margin-bottom: 40px;
+  }
+  .eyebrow {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    margin: 0 0 8px;
+  }
+  h1 {
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.15;
+    margin: 0 0 12px;
+    letter-spacing: -0.02em;
+  }
+  .deck {
+    color: var(--muted);
+    font-size: 16px;
+    margin: 0;
+    max-width: 760px;
+  }
+  h2 { font-size: 22px; margin: 56px 0 16px; letter-spacing: -0.01em; }
+  h2 .num { color: var(--muted); font-weight: 500; margin-right: 8px; }
+  h3 { font-size: 16px; margin: 28px 0 10px; }
+  p  { margin: 12px 0; }
+  code {
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    background: rgba(0,0,0,0.05);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  pre {
+    background: var(--code-bg);
+    color: var(--code-ink);
+    padding: 16px 18px;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.55;
+    margin: 14px 0;
+  }
+  pre code { background: transparent; padding: 0; color: inherit; }
+  .c-comm { color: var(--code-comm); font-style: italic; }
+  .c-str  { color: var(--code-str); }
+  .c-kw   { color: var(--code-kw); }
+  .c-fn   { color: var(--code-fn); }
+
+  /* stat tiles */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin: 24px 0 8px;
+  }
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .stat .num { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+  .stat .lbl { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
+  .delta { color: var(--proves); font-weight: 600; }
+  .delta-neg { color: var(--pin); font-weight: 600; }
+
+  /* tables */
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+  th, td { border-bottom: 1px solid var(--rule); padding: 10px 8px; text-align: left; vertical-align: top; }
+  th { font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* badges */
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    text-transform: uppercase;
+    color: white;
+    white-space: nowrap;
+  }
+  .b-proves { background: var(--proves); }
+  .b-shape  { background: var(--shape); }
+  .b-pin    { background: var(--pin); }
+  .b-ventr  { background: var(--ventr); }
+  .b-none   { background: var(--none); }
+  .b-xfail  { background: var(--xfail); }
+
+  /* arrow */
+  .arrow { color: var(--muted); margin: 0 6px; }
+
+  /* diagrams */
+  .diagram {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    padding: 24px;
+    margin: 20px 0;
+  }
+  .diagram .cap { font-size: 12px; color: var(--muted); margin-top: 10px; text-align: center; }
+
+  /* before/after bar */
+  .ba-row { display: grid; grid-template-columns: 80px 1fr; gap: 12px; align-items: center; margin: 8px 0; }
+  .ba-label { font-size: 12px; color: var(--muted); }
+  .ba-bar { display: flex; height: 28px; border-radius: 4px; overflow: hidden; border: 1px solid var(--rule); }
+  .ba-seg { display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: 600; }
+
+  /* matrix */
+  .matrix {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr 1fr;
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    overflow: hidden;
+    margin: 14px 0;
+    font-size: 13px;
+  }
+  .matrix > div { background: var(--surface); padding: 10px 12px; }
+  .matrix .mh { font-weight: 600; color: var(--muted); text-transform: uppercase; font-size: 11px; letter-spacing: 0.06em; }
+  .matrix .cell { display: flex; flex-direction: column; gap: 4px; min-height: 62px; }
+  .matrix .cell .api { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 12px; }
+
+  .callout {
+    background: #fff8e6;
+    border-left: 3px solid var(--shape);
+    padding: 14px 18px;
+    margin: 22px 0;
+    border-radius: 0 6px 6px 0;
+  }
+  .callout-green { background: #e7f6ec; border-left-color: var(--proves); }
+  .callout-blue  { background: #e7f0ff; border-left-color: var(--accent); }
+
+  /* commit chain */
+  .commits { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 14px 18px; margin: 16px 0; }
+  .commits .commit { display: flex; gap: 10px; padding: 4px 0; font-size: 13px; }
+  .commits .sha { font-family: "SF Mono", Menlo, monospace; font-size: 12px; color: var(--muted); flex-shrink: 0; }
+  .commits .msg { color: var(--ink); }
+
+  footer {
+    margin-top: 80px;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  @media (max-width: 640px) {
+    .wrap { padding: 32px 18px 64px; }
+    h1 { font-size: 26px; }
+    .matrix { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <p class="eyebrow">Audit · Test fidelity uplift · companion to 2026-05-13</p>
+  <h1>What changed: the Python ↔ JS test boundary now exists</h1>
+  <p class="deck">
+    The 2026-05-13 audit named one structural gap — no test can drive Python
+    user code through the simulator and observe the result. This branch
+    builds that harness, fixes three audit-named bugs end-to-end through it,
+    flips four canonical stub-pin tests to behaviour-grade, and tracks three
+    remaining bugs as <em>expectedFailure</em> markers documenting the gap
+    instead of enforcing it.
+  </p>
+</header>
+
+<section>
+  <h2><span class="num">1.</span>Suite at a glance</h2>
+
+  <div class="stats">
+    <div class="stat"><div class="num">695</div><div class="lbl">Tests total <span class="delta">+20</span></div></div>
+    <div class="stat"><div class="num">217</div><div class="lbl">Python <span class="delta">+3</span></div></div>
+    <div class="stat"><div class="num">478</div><div class="lbl">JS <span class="delta">+17</span></div></div>
+    <div class="stat"><div class="num">9</div><div class="lbl">Round-trip <span class="delta">new</span></div></div>
+    <div class="stat"><div class="num">2</div><div class="lbl">Stub-pins remaining <span class="delta-neg">−2</span></div></div>
+    <div class="stat"><div class="num">3</div><div class="lbl">Tracked-failing <span class="delta">new</span></div></div>
+  </div>
+
+  <p>Both halves stay fast and deterministic: Python in 21 ms (3 expected failures, suite OK), JS in ~2.6 s, integration in ~0.4 s. Two consecutive runs identical.</p>
+</section>
+
+<section>
+  <h2><span class="num">2.</span>The harness, illustrated</h2>
+
+  <p>2026-05-13 audit §2's diagram showed two separated test halves with "THE GAP" between them. The harness fills the gap.</p>
+
+  <div class="diagram">
+  <svg viewBox="0 0 900 280" width="100%" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Diagram of the new round-trip test path">
+    <defs>
+      <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#1a1a1a"/>
+      </marker>
+      <marker id="arrGreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#2f9e44"/>
+      </marker>
+    </defs>
+
+    <!-- python side -->
+    <g>
+      <rect x="40" y="30" width="170" height="50" rx="8" fill="#e7f0ff" stroke="#2563eb" stroke-width="1.5"/>
+      <text x="125" y="52" text-anchor="middle" font-size="13" font-weight="600">User Python (test)</text>
+      <text x="125" y="68" text-anchor="middle" font-size="11" fill="#6b6b6b">motor_pair.move(0, 50)</text>
+
+      <rect x="40" y="115" width="170" height="50" rx="8" fill="#e7f0ff" stroke="#2563eb" stroke-width="1.5"/>
+      <text x="125" y="137" text-anchor="middle" font-size="13" font-weight="600">spike_bridge.py</text>
+      <text x="125" y="153" text-anchor="middle" font-size="11" fill="#6b6b6b">js.bridgeSend(...)</text>
+
+      <line x1="125" y1="80" x2="125" y2="115" stroke="#1a1a1a" stroke-width="1.5" marker-end="url(#arr)"/>
+    </g>
+
+    <!-- HARNESS (was the gap) -->
+    <g>
+      <rect x="250" y="100" width="200" height="80" rx="8" fill="#e7f6ec" stroke="#2f9e44" stroke-width="2"/>
+      <text x="350" y="128" text-anchor="middle" font-size="13" font-weight="700" fill="#2f9e44">MicroPython-in-Node</text>
+      <text x="350" y="148" text-anchor="middle" font-size="11" fill="#1a1a1a">js.bridgeSend → sim.executeCommand</text>
+      <text x="350" y="164" text-anchor="middle" font-size="11" fill="#6b6b6b">single event loop · no workers</text>
+
+      <line x1="210" y1="140" x2="250" y2="140" stroke="#2f9e44" stroke-width="1.5" marker-end="url(#arrGreen)"/>
+      <line x1="450" y1="140" x2="490" y2="140" stroke="#2f9e44" stroke-width="1.5" marker-end="url(#arrGreen)"/>
+    </g>
+
+    <!-- sim side -->
+    <g>
+      <rect x="490" y="115" width="170" height="50" rx="8" fill="#e7f6ec" stroke="#2f9e44" stroke-width="1.5"/>
+      <text x="575" y="137" text-anchor="middle" font-size="13" font-weight="600">RobotSimulator</text>
+      <text x="575" y="153" text-anchor="middle" font-size="11" fill="#6b6b6b">real _execCmd + _animateTank</text>
+
+      <rect x="490" y="200" width="170" height="50" rx="8" fill="#e7f6ec" stroke="#2f9e44" stroke-width="1.5"/>
+      <text x="575" y="222" text-anchor="middle" font-size="13" font-weight="600">_sensorState() back</text>
+      <text x="575" y="238" text-anchor="middle" font-size="11" fill="#6b6b6b">_state.update(...) in Python</text>
+
+      <line x1="575" y1="165" x2="575" y2="200" stroke="#1a1a1a" stroke-width="1.5" marker-end="url(#arr)"/>
+    </g>
+
+    <!-- assertion side -->
+    <g>
+      <rect x="710" y="115" width="170" height="50" rx="8" fill="#fff8e6" stroke="#f08c00" stroke-width="1.5"/>
+      <text x="795" y="137" text-anchor="middle" font-size="13" font-weight="600">Test assertion</text>
+      <text x="795" y="153" text-anchor="middle" font-size="11" fill="#6b6b6b">on sim.robot.x / motor.absolute_position</text>
+      <line x1="660" y1="140" x2="710" y2="140" stroke="#1a1a1a" stroke-width="1.5" marker-end="url(#arr)"/>
+    </g>
+
+    <text x="450" y="270" text-anchor="middle" font-size="11" fill="#2f9e44" font-weight="600">Real Python user code → real bridge → real sim → real read-back → real assertion.</text>
+  </svg>
+  <div class="cap">9 round-trip tests now exercise this path end-to-end. The audit's §6.1 "single biggest missing piece" is filled in.</div>
+  </div>
+
+  <div class="callout callout-blue">
+    <strong>Concrete construction.</strong> <code>@micropython/micropython-webassembly-pyscript@1.28.0-6</code> (same build the browser loads) into Node's main thread. Custom <code>js</code> module exposes <code>bridgeSend</code> wired straight to <code>sim.executeCommand</code>. <code>js.eval</code> overridden to a no-op so <code>spike_bridge.py</code>'s worker shim never installs. Single Node event loop — no threads, no race conditions possible. ~85 lines of glue across two files.
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">3.</span>Bugs fixed (with audit ref)</h2>
+
+  <h3>3.1 <code>motor_pair.move(steering)</code> applies steering in continuous motion · audit §4.1 <span class="badge b-proves">PROVES</span></h3>
+  <p><code>js/simulator.js:1085-1101</code> — <code>case 'start'</code> now reads <code>cmd.steering</code> and applies <code>(1 ± steer/100)</code> to the wheel velocities. Before: bridge sent steering, sim dropped it. After: round-trip Python <code>motor_pair.move(0, 50)</code> measurably rotates the robot.</p>
+
+  <h3>3.2 Motor encoders accumulate · audit §4.2 (canonical stub-pin) <span class="badge b-proves">PROVES</span></h3>
+  <p><code>_animateTank</code> now writes <code>(wheel mm / WHEEL_CIRC_MM × 360)</code> into <code>robot.motors[port]</code> per step, signed. <code>_descriptorForPair</code> + <code>_animateSingleMotor</code> emit <code>leftPort</code>/<code>rightPort</code> so the integration knows which encoder to credit. <code>getMotorSpeed</code> now reads from a new <code>motors_velocity</code> map populated for the duration of motion. Before: <code>getMotorPosition('A') === 0</code> forever. After: <code>motor.absolute_position('A')</code> reads ~180° after a 180° run.</p>
+
+  <h3>3.3 <code>hub.light_matrix.show_image</code> renders · audit §4.3 <span class="badge b-proves">PROVES</span></h3>
+  <p>New <code>case 'hub_image'</code> in <code>_execCmd</code> dispatching to <code>_imageToDisplay</code>. 4 of 67 LEGO <code>IMAGE_*</code> constants implemented (HAPPY, SAD, HEART, ARROW_N) with int → name resolution. Unknown image renders blank (not silent no-op). Before: silent drop, <code>robot.display</code> unchanged. After: pixels light through the full Python → bridge → sim chain.</p>
+</section>
+
+<section>
+  <h2><span class="num">4.</span>Audit §7 severity-table delta</h2>
+
+  <table>
+    <tr><th>Surface</th><th>2026-05-13</th><th></th><th>2026-05-16</th></tr>
+    <tr><td><code>motor_pair.move(steering)</code> continuous</td><td><span class="badge b-shape">SHAPE</span></td><td class="arrow">→</td><td><span class="badge b-proves">PROVES</span></td></tr>
+    <tr><td><code>motor.absolute_position</code></td><td><span class="badge b-pin">PIN</span></td><td class="arrow">→</td><td><span class="badge b-proves">PROVES</span></td></tr>
+    <tr><td><code>getMotorPosition</code> / <code>getMotorSpeed</code> (JS)</td><td><span class="badge b-pin">PIN</span></td><td class="arrow">→</td><td><span class="badge b-proves">PROVES</span></td></tr>
+    <tr><td><code>hub.light_matrix.show_image</code></td><td><span class="badge b-shape">SHAPE</span></td><td class="arrow">→</td><td><span class="badge b-proves">PROVES</span></td></tr>
+    <tr><td><code>color_sensor.rgbi</code></td><td><span class="badge b-pin">PIN</span></td><td class="arrow">→</td><td><span class="badge b-xfail">XFAIL</span></td></tr>
+    <tr><td><code>runloop.until</code></td><td><span class="badge b-pin">PIN</span></td><td class="arrow">→</td><td><span class="badge b-xfail">XFAIL</span></td></tr>
+    <tr><td><code>acceleration</code> / <code>deceleration</code> kwargs</td><td><span class="badge b-none">NONE</span></td><td class="arrow">→</td><td><span class="badge b-xfail">XFAIL</span></td></tr>
+    <tr><td>(14 other rows)</td><td colspan="3" style="color:var(--muted)">unchanged</td></tr>
+  </table>
+
+  <h3>Verdict distribution across the 21 audit-tracked surfaces</h3>
+
+  <div class="ba-row">
+    <div class="ba-label">Before</div>
+    <div class="ba-bar">
+      <div class="ba-seg" style="background:var(--shape); flex:9">9 shape</div>
+      <div class="ba-seg" style="background:var(--pin); flex:4">4 pin</div>
+      <div class="ba-seg" style="background:var(--ventr); flex:3">3 ventr</div>
+      <div class="ba-seg" style="background:var(--none); flex:5">5 none</div>
+    </div>
+  </div>
+  <div class="ba-row">
+    <div class="ba-label">After</div>
+    <div class="ba-bar">
+      <div class="ba-seg" style="background:var(--proves); flex:4">4 proves</div>
+      <div class="ba-seg" style="background:var(--shape); flex:8">8 shape</div>
+      <div class="ba-seg" style="background:var(--pin); flex:1">1</div>
+      <div class="ba-seg" style="background:var(--ventr); flex:3">3 ventr</div>
+      <div class="ba-seg" style="background:var(--xfail); flex:3">3 xfail</div>
+      <div class="ba-seg" style="background:var(--none); flex:2">2</div>
+    </div>
+  </div>
+
+  <p style="margin-top:14px">4 surfaces moved from shape/pin to proves. 3 surfaces moved from pin/none to xfail (tracked-failing). Remaining 14 unchanged — they get cheap with the harness now in place.</p>
+</section>
+
+<section>
+  <h2><span class="num">5.</span>Test posture changes, side-by-side</h2>
+
+  <h3>5.1 The canonical stub-pin, flipped</h3>
+
+  <p>Before — <code>tests/js/sensors/accessors.test.js</code> the day the audit was written:</p>
+<pre><code>test(<span class="c-str">'getMotorSpeed: returns 0 for any port'</span>, () =&gt; {
+  <span class="c-kw">const</span> sim = createSim();
+  assert.strictEqual(sim.getMotorSpeed(<span class="c-str">'A'</span>), <span class="c-str">0</span>);   <span class="c-comm">// enforces the bug</span>
+});</code></pre>
+
+  <p>After:</p>
+<pre><code>test(<span class="c-str">'getMotorSpeed: 0 at rest'</span>, () =&gt; {
+  <span class="c-kw">const</span> sim = createSim();
+  assert.strictEqual(sim.getMotorSpeed(<span class="c-str">'A'</span>), <span class="c-str">0</span>);
+});
+
+test(<span class="c-str">'getMotorSpeed: reflects active motion velocity'</span>, () =&gt; {
+  <span class="c-kw">const</span> sim = createSim();
+  sim.robot.motors_velocity = { A: <span class="c-str">500</span>, B: <span class="c-str">-500</span> };
+  assert.strictEqual(sim.getMotorSpeed(<span class="c-str">'A'</span>),  <span class="c-str">500</span>);    <span class="c-comm">// asserts behaviour</span>
+  assert.strictEqual(sim.getMotorSpeed(<span class="c-str">'B'</span>), -<span class="c-str">500</span>);
+});</code></pre>
+
+  <h3>5.2 expectedFailure: documents the gap instead of enforcing the bug</h3>
+
+<pre><code><span class="c-comm"># tests/py/test_gaps.py — new class TestKnownBugsTracked</span>
+
+@unittest.expectedFailure
+<span class="c-kw">def</span> <span class="c-fn">test_runloop_until_polls_predicate</span>(self):
+    <span class="c-comm"># Per LEGO docs: runloop.until(pred, timeout) awaits until pred()</span>
+    <span class="c-comm"># returns truthy. Today: returns _NoopAwaitable; pred never called.</span>
+    counter = [<span class="c-str">0</span>]
+    <span class="c-kw">def</span> <span class="c-fn">pred</span>():
+        counter[<span class="c-str">0</span>] += <span class="c-str">1</span>
+        <span class="c-kw">return</span> counter[<span class="c-str">0</span>] &gt;= <span class="c-str">3</span>
+    asyncio.run(sb.runloop.until(pred, timeout=<span class="c-str">1000</span>))
+    self.assertGreaterEqual(counter[<span class="c-str">0</span>], <span class="c-str">3</span>)</code></pre>
+
+  <p>This test fails today (as expected). The decorator turns the expected-failure into a green suite result. The day someone implements <code>runloop.until</code> properly, the test starts passing and the decorator should be removed.</p>
+
+  <h3>5.3 A real round-trip test, end-to-end</h3>
+
+<pre><code><span class="c-comm">// tests/js/integration/motor-encoder.test.js</span>
+test(<span class="c-str">'round-trip: motor.absolute_position reads back after the move'</span>, <span class="c-kw">async</span> () =&gt; {
+  <span class="c-kw">const</span> { runUserCode, mp } = <span class="c-kw">await</span> makeRoundtrip();
+
+  <span class="c-kw">await</span> runUserCode(<span class="c-str">`
+async def main():
+    await motor_pair.pair(0, port.A, port.B)
+    await motor.run_for_degrees('A', 180, velocity=500)
+    global _final_pos
+    _final_pos = motor.absolute_position('A')
+runloop.run(main())
+`</span>);
+
+  <span class="c-kw">const</span> finalPos = mp.globals.get(<span class="c-str">'_final_pos'</span>);
+  assert.ok(Math.abs(finalPos - <span class="c-str">180</span>) &lt; <span class="c-str">40</span>);
+});</code></pre>
+
+  <p>Every step on this path is real: the Python is the same <code>spike_bridge.py</code> the browser loads, the bridge sends a real <code>js.bridgeSend</code> call, the sim runs real <code>_execCmd</code> → real <code>_animateTank</code> → real encoder accumulation, the bridge updates <code>_state</code> from the JSON reply, and the assertion is on the value Python read back. The only stubbed piece is the Box2D kinematics (replaced with a kinematic integrator so motion actually happens). Everything else is production code.</p>
+</section>
+
+<section>
+  <h2><span class="num">6.</span>What didn't get done, and why</h2>
+
+  <div class="callout">
+    <ul>
+      <li><strong>Trapezoidal acceleration profile</strong> — audit §6.6's largest item. Real <code>_animateTank</code> work, not plumbing. Out of scope; tracked via the new <code>test_acceleration_kwarg_reaches_bridge</code> xfail.</li>
+      <li><strong><code>color_sensor.rgbi</code> wiring</strong> — would need <code>_sensorState()</code> to emit an <code>rgb</code> key (reflection got wired earlier; rgbi didn't). Tracked via xfail.</li>
+      <li><strong><code>runloop.until</code> polling</strong> — needs a real asyncio-driven loop. Tracked via xfail.</li>
+      <li><strong>Continuous-motion 200 mm / 5000 mm caps</strong> (audit §4.10) — the steering fix made direction correct; the cap is unchanged. <code>_execCmd 'start'</code> still hands <code>200</code> to <code>_animateTank</code>.</li>
+      <li><strong>Remaining 63 <code>IMAGE_*</code> patterns</strong> — additive lookup-table entries. Chain works; coverage is by row.</li>
+      <li><strong>Blockly fixture-driven behaviour runner</strong> (audit §6.2) — the round-trip harness handled the Python side first. Worth a separate session.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">7.</span>The commit chain</h2>
+
+  <div class="commits">
+    <div class="commit"><span class="sha">1ded7b0</span><span class="msg">test(integration): MicroPython-WASM round-trip harness</span></div>
+    <div class="commit"><span class="sha">e6185a7</span><span class="msg">fix(sim): apply steering in continuous motor_pair.move</span></div>
+    <div class="commit"><span class="sha">b705052</span><span class="msg">feat(sim): track motor encoders and velocity through _animateTank</span></div>
+    <div class="commit"><span class="sha">7a6520c</span><span class="msg">feat(sim): render hub.light_matrix.show_image instead of dropping it silently</span></div>
+    <div class="commit"><span class="sha">be11c52</span><span class="msg">test(gaps): expectedFailure markers for audit-tracked un-fixed bugs</span></div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">8.</span>Bottom line</h2>
+  <p><strong>Before:</strong> green CI meant "the bridge protocol and the physics primitives still work."</p>
+  <p><strong>After:</strong> green CI means the same things <em>plus</em> "Python can drive the simulator and read back the result; 4 named-bug surfaces verifiably work end-to-end; 3 remaining bugs are tracked-failing not pretend-passing."</p>
+  <p>The harness is the unlock. Future audit rows convert one fixture line at a time.</p>
+</section>
+
+<footer>
+  Branch <code>test-fidelity-uplift</code> · 5 commits, suite green (Python: <code>OK (expected failures=3)</code>; JS: <code>478 pass / 0 fail</code>) · companion to <code>2026-05-13-test-coverage-fidelity.md</code> and <code>2026-05-16-test-fidelity-by-layer.md</code>.
+</footer>
+
+</div>
+</body>
+</html>
