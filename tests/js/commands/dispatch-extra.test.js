@@ -115,25 +115,30 @@ test('motor_time: defaults time_ms to 1000 when omitted', async () => {
 
 // ── hub_display (set bitmap) ────────────────────────────────────────────────
 
-test('hub_display: populates display array based on text length', async () => {
+test('hub_display: renders the first character as a glyph', async () => {
+  // Tests for the old every-other-pixel fake renderer were here; per
+  // audit 2026-05-13 §4.9 the renderer now uses a real 5x5 glyph font.
+  // Detailed glyph-shape tests live in tests/js/commands/hub-display-glyphs.test.js.
   const sim = createSim();
   await sim._execCmd({ type: 'hub_display', text: 'Hi' });
   assert.strictEqual(sim.robot.display.length, 25);
-  // _showText fills even-indexed cells with a brightness > 0; odd cells stay 0.
-  const lit = sim.robot.display.filter(v => v > 0).length;
-  assert.ok(lit > 0, 'expected some pixels lit');
-  assert.ok(sim.robot.display.every((v, i) => i % 2 === 0 ? v > 0 : v === 0),
-    'even cells lit, odd cells dark');
+  const lit = sim.robot.display.filter((v) => v > 0).length;
+  assert.ok(lit > 0, 'expected some pixels lit for a glyph');
+  // Each lit pixel is full brightness (100), not the proportional fade the
+  // fake renderer used.
+  assert.ok(sim.robot.display.every((v) => v === 0 || v === 100),
+    'glyph pixels should be full-on (100) or full-off (0)');
 });
 
-test('hub_display: longer text yields brighter pixels (capped at 100)', async () => {
+test('hub_display: brightness independent of text length (glyph render, not proportional)', async () => {
   const sim = createSim();
-  await sim._execCmd({ type: 'hub_display', text: 'Hi' });
-  const briShort = sim.robot.display[0];
-  await sim._execCmd({ type: 'hub_display', text: 'A much longer string here' });
-  const briLong = sim.robot.display[0];
-  assert.ok(briLong >= briShort, `bri grew or capped: short=${briShort} long=${briLong}`);
-  assert.ok(briLong <= 100, `bri capped at 100, got ${briLong}`);
+  await sim._execCmd({ type: 'hub_display', text: 'H' });
+  const shortLitCount = sim.robot.display.filter((v) => v > 0).length;
+  await sim._execCmd({ type: 'hub_display', text: 'H is a much longer string' });
+  const longLitCount = sim.robot.display.filter((v) => v > 0).length;
+  // Glyph render: 'H' first character drawn either way, same pixels lit.
+  assert.strictEqual(shortLitCount, longLitCount,
+    'glyph render shows only the first character; length should not change lit count');
 });
 
 // ── beep ────────────────────────────────────────────────────────────────────
