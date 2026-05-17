@@ -40,7 +40,7 @@ const DOC_COLOR_INDEX_TO_SIM_TOKEN = {
   '0':  'black',
   '1':  'magenta',     // LEGO calls it Violet; sim token is 'magenta'
   '3':  'blue',
-  '4':  'cyan',        // LEGO calls it Light Blue; sim token is 'cyan'
+  '4':  'azure',       // LEGO calls it Light Blue; sim token aligned to 'azure' (audit 2026-05-13 §4.8)
   '6':  'green',
   '7':  'yellow',
   '9':  'red',
@@ -92,7 +92,7 @@ test('flippersensors_color reporter: inverse mapping matches doc enum', () => {
     ['black',   0],
     ['magenta', 1],
     ['blue',    3],
-    ['cyan',    4],
+    ['azure',   4],
     ['green',   6],
     ['yellow',  7],
     ['red',     9],

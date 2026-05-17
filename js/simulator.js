@@ -64,7 +64,10 @@ const COLOR_MAP = {
   yellow:  '#f1c40f',
   blue:    '#3498db',
   white:   '#f0f0f0',
-  cyan:    '#00bcd4',
+  // Aligned with the Python bridge's _COLOR_INT_MAP and color.AZURE constant.
+  // Older code used 'cyan' here, which made a Light-Blue tile read as
+  // color.UNKNOWN from Python. Audit 2026-05-13 §4.8.
+  azure:   '#00bcd4',
   magenta: '#e91e63',
   orange:  '#ff9800',
   none:    null,
@@ -1627,7 +1630,7 @@ class RobotSimulator {
 
   getColorSensorReflection() {
     const reflMap = {
-      white: 90, yellow: 75, cyan: 70, orange: 65, green: 60,
+      white: 90, yellow: 75, azure: 70, orange: 65, green: 60,
       magenta: 55, red: 50, blue: 45, black: 5, none: 50,
     };
     return reflMap[this.robot.sensors.colorValue] ?? 50;
