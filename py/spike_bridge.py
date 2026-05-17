@@ -38,6 +38,7 @@ def _default_state():
         'yaw_dDeg': 0,
         'motors': {'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0},
         'force_dn': 0, 'force_pressed': False, 'force_raw': 0,
+        'buttons': {'LEFT': 0, 'RIGHT': 0},
         'stopped': False,
     }
 
@@ -477,8 +478,21 @@ class _Button:
     LEFT  = 1
     RIGHT = 2
 
-    def pressed(self, button):     return 0
-    def was_pressed(self, button): return False
+    # _BUTTON_NAMES maps int constants to the keys used in _state['buttons'].
+    # The sim writes 'LEFT' / 'RIGHT' (matching the LEGO constant names).
+    _BUTTON_NAMES = {1: 'LEFT', 2: 'RIGHT'}
+
+    def pressed(self, button):
+        # Per LEGO docs: returns ms-held duration (0 if not currently held).
+        # Sim populates _state['buttons'][name] from the UI (or test seeding).
+        name = self._BUTTON_NAMES.get(int(button))
+        if name is None:
+            return 0
+        buttons = _state.get('buttons') or {}
+        return int(buttons.get(name, 0))
+
+    def was_pressed(self, button):
+        return self.pressed(button) > 0
 
 
 class _Light:

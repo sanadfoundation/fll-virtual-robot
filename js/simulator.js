@@ -174,6 +174,10 @@ function makeRobotState() {
     // Per-port commanded wheel velocity (deg/sec, signed). Written by
     // _animateTank / _animateSingleMotor at motion start, cleared at end.
     motors_velocity: { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 },
+    // Hub-button held duration in ms. 0 = not held. Per LEGO docs,
+    // hub.button.pressed(button) returns this value. The UI populates these
+    // on pointerdown/up; tests can seed them directly.
+    buttons: { LEFT: 0, RIGHT: 0 },
     sensors: {
       colorValue: 'none',
       // 9999 = OOR sentinel, doubles as "no reading yet" pre-physics. The
@@ -1506,6 +1510,7 @@ class RobotSimulator {
       force_dn:      f.dn,
       force_pressed: f.pressed,
       force_raw:     f.raw,
+      buttons:       { ...(r.buttons || { LEFT: 0, RIGHT: 0 }) },
       stopped:       false,
     };
   }
