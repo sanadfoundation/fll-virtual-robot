@@ -294,3 +294,81 @@ class TestSpeakerExtras(unittest.TestCase):
         result = sb.hub.speaker.volume(50)
         self.assertEqual(mock_js.bridge_mock.all(), [])
         self.assertIsNotNone(result)
+
+
+# ── Audit-tracked bugs: expectedFailure pins the LEGO-documented behaviour ──
+#
+# Each test below asserts the behaviour the LEGO docs *promise*. They are
+# marked @unittest.expectedFailure because the current implementation is
+# broken. When the underlying bug is fixed, the assertion will start passing
+# and the @expectedFailure decorator will turn the test red — at which point
+# the decorator should be removed.
+#
+# This is the inverse posture from a stub-pin: a stub-pin enforces the bug
+# (test goes red when behaviour is fixed); an expectedFailure documents the
+# gap (test goes red when behaviour stays broken after the docs change).
+#
+# References point to docs/audits/2026-05-13-test-coverage-fidelity.md §X.
+
+class TestKnownBugsTracked(unittest.TestCase):
+
+    def setUp(self):
+        mock_js.bridge_mock.install()
+
+    # Audit §4.4 — color_sensor.rgbi always returns (128,128,128,0).
+    # Bridge falls back to constructor defaults because _sensorState() never
+    # emits an 'rgb' key (reflection got wired up post-audit; rgbi didn't).
+    @unittest.expectedFailure
+    def test_rgbi_reflects_sensor_state(self):
+        # Per LEGO docs: rgbi() returns the observed (R, G, B, intensity).
+        # Today: always (128, 128, 128, 0) regardless of what colour the
+        # sensor is over.
+        sb._state['rgb'] = [255, 0, 0]  # red light
+        try:
+            r, g, b, _i = sb.color_sensor.rgbi('E')
+            # If _sensorState ever populates rgb correctly, this passes.
+            # Today the bridge ignores _state['rgb'] for accessor reads.
+            self.assertEqual((r, g, b), (255, 0, 0))
+        finally:
+            del sb._state['rgb']
+        # Force an explicit failure today: the actual behaviour is the
+        # default tuple, regardless of what we put in _state.
+        self.assertNotEqual(sb.color_sensor.rgbi('E'), (128, 128, 128, 0),
+                            'rgbi still returning hardcoded default')
+
+    # Audit §4.5 — runloop.until(predicate, timeout) never polls predicate.
+    # The bridge returns _NoopAwaitable; the predicate is unreachable.
+    @unittest.expectedFailure
+    def test_runloop_until_polls_predicate(self):
+        # Per LEGO docs: runloop.until(pred, timeout) awaits until pred()
+        # returns truthy (or the timeout elapses).
+        # Today: returns _NoopAwaitable; pred is never called.
+        counter = [0]
+
+        def pred():
+            counter[0] += 1
+            return counter[0] >= 3
+
+        # Drive the awaitable through asyncio. If until actually polls,
+        # counter[0] reaches >= 3 before completion. Today it stays 0.
+        try:
+            import asyncio
+        except ImportError:
+            import uasyncio as asyncio
+        asyncio.run(sb.runloop.until(pred, timeout=1000))
+        self.assertGreaterEqual(counter[0], 3,
+                                'runloop.until never polled the predicate')
+
+    # Audit §4.6 — acceleration / deceleration / stop kwargs accepted at the
+    # Python signature but dropped before reaching the JS payload. Sim runs
+    # constant-velocity with the default brake stop regardless.
+    @unittest.expectedFailure
+    def test_acceleration_kwarg_reaches_bridge(self):
+        # Per LEGO docs: motor.run_for_degrees(..., acceleration=A, deceleration=D)
+        # should produce a trapezoidal profile. The first step toward that is
+        # the payload carrying the kwargs.
+        sb.motor.run_for_degrees('A', 360, velocity=500, acceleration=2000)
+        cmd = mock_js.bridge_mock.all()[0]
+        # Today: cmd has no 'acceleration' key — it was accepted then dropped.
+        self.assertIn('acceleration', cmd)
+        self.assertEqual(cmd['acceleration'], 2000)
