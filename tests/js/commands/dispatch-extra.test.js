@@ -38,6 +38,30 @@ test('start: zero speed routes 0,0 — kinematic but stationary', async () => {
   assert.strictEqual(calls[0].rightV, 0);
 });
 
+// Catches the bug enumerated in docs/audits/2026-05-13-test-coverage-fidelity.md
+// §4.1: motor_pair.move(steering, velocity) is supposed to apply steering for
+// the whole continuous run, but _execCmd 'start' read only cmd.speed and
+// dropped cmd.steering, so the robot moved straight no matter what steering
+// value Python sent.
+test('start: positive steering produces unequal wheel velocities (right turn)', async () => {
+  const sim = createSim();
+  const calls = withTankStub(sim);
+  await sim._execCmd({ type: 'start', pair_id: 0, speed: 1000, steering: 50 });
+  assert.strictEqual(calls.length, 1);
+  // CLAUDE.md: steering > 0 is a right turn = left wheel faster.
+  // lv = spd × (1 + steer/100); rv = spd × (1 - steer/100).
+  assert.ok(close(calls[0].leftV,  1.5), `expected leftV=1.5, got ${calls[0].leftV}`);
+  assert.ok(close(calls[0].rightV, 0.5), `expected rightV=0.5, got ${calls[0].rightV}`);
+});
+
+test('start: negative steering produces unequal wheel velocities (left turn)', async () => {
+  const sim = createSim();
+  const calls = withTankStub(sim);
+  await sim._execCmd({ type: 'start', pair_id: 0, speed: 1000, steering: -50 });
+  assert.ok(close(calls[0].leftV,  0.5), `expected leftV=0.5, got ${calls[0].leftV}`);
+  assert.ok(close(calls[0].rightV, 1.5), `expected rightV=1.5, got ${calls[0].rightV}`);
+});
+
 // ── start_tank (continuous tank) ────────────────────────────────────────────
 
 test('start_tank: equal speeds normalised through dispatch', async () => {

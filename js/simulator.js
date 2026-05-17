@@ -1084,10 +1084,20 @@ class RobotSimulator {
 
       case 'start':
       case 'start_tank':
-        // Continuous - run for 2 seconds as approximation
+        // Continuous — run for the 200-mm cap as approximation. The cap
+        // itself remains a known fidelity gap (see audit 2026-05-13 §4.10),
+        // but at least the wheels now reflect the steering arg.
         {
-          const leftV  = cmd.type === 'start' ? (cmd.speed/1000) : (cmd.left_speed/1000);
-          const rightV = cmd.type === 'start' ? (cmd.speed/1000) : (cmd.right_speed/1000);
+          let leftV, rightV;
+          if (cmd.type === 'start') {
+            const spd   = cmd.speed / 1000;
+            const steer = (cmd.steering || 0) / 100;
+            leftV  = spd * (1 + steer);
+            rightV = spd * (1 - steer);
+          } else {
+            leftV  = cmd.left_speed  / 1000;
+            rightV = cmd.right_speed / 1000;
+          }
           await this._runMotion(
             this._descriptorForPair(cmd.pair_id),
             () => this._animateTank(leftV, rightV, 200),
