@@ -1269,7 +1269,13 @@ function registerGenerators(Blockly) {
     return `window.sim._animateSingleMotor('${port}', _motorSpeed/100*${dir}, 5000);\n`;
   };
 
-  js['flippermotor_motorStop'] = (_block) => `window.sim.stop();\nawait window.sim._sleep(50);\n`;
+  // Per BACKLOG / audit 2026-05-13 follow-up: must scope to the chosen
+  // PORT, not call sim.stop() (which sets isRunning=false and kills the
+  // whole program — including any concurrent motor that wasn't named).
+  js['flippermotor_motorStop'] = (block) => {
+    const port = block.getFieldValue('PORT');
+    return `await window.sim._execCmd({type:'motor_stop', port:'${port}'});\n`;
+  };
 
   js['flippermotor_motorSetSpeed'] = (block) => {
     const speed = val(block, 'SPEED', '75');
