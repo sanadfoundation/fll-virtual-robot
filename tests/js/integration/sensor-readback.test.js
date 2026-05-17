@@ -61,6 +61,33 @@ runloop.run(main())
 
 // ── Motion sensor (yaw — pitch/roll are tracked separately) ────────────────
 
+test('round-trip: tilt_angles pitch/roll are always 0 (2D sim limitation)', async () => {
+  // This is not a bug — it's a property of the 2D top-down simulator.
+  // The robot never physically tilts, so pitch and roll are 0 by definition.
+  // Real Spike's pitch/roll would respond to the hub being tilted; this sim
+  // has no notion of tilting. Document the limitation with a positive test.
+  const { mp, runUserCode } = await makeRoundtrip();
+  await runUserCode(`
+async def main():
+    global _pitch_before, _roll_before, _pitch_after, _roll_after
+    await runloop.sleep_ms(0)
+    yaw, pitch, roll = hub.motion_sensor.tilt_angles()
+    _pitch_before, _roll_before = pitch, roll
+    # Drive — yaw will change but pitch/roll should not.
+    await motor_pair.pair(0, port.A, port.B)
+    await motor_pair.move(0, 50, velocity=500)
+    yaw, pitch, roll = hub.motion_sensor.tilt_angles()
+    _pitch_after, _roll_after = pitch, roll
+runloop.run(main())
+`);
+  assert.strictEqual(mp.globals.get('_pitch_before'), 0);
+  assert.strictEqual(mp.globals.get('_roll_before'),  0);
+  assert.strictEqual(mp.globals.get('_pitch_after'),  0,
+    '2D sim: pitch should remain 0 after planar motion');
+  assert.strictEqual(mp.globals.get('_roll_after'),   0,
+    '2D sim: roll should remain 0 after planar motion');
+});
+
 test('round-trip: tilt_angles yaw reflects sim heading rotation', async () => {
   const { sim, mp, runUserCode } = await makeRoundtrip();
   // Spawn heading is 90° (north). Rotate the robot CW by driving steering.
