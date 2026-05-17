@@ -1154,6 +1154,11 @@ class RobotSimulator {
         this._dirty = true;
         break;
 
+      case 'hub_image':
+        this.robot.display = this._imageToDisplay(cmd.image);
+        this._dirty = true;
+        break;
+
       case 'hub_display_off':
         this.robot.display = Array(25).fill(0);
         this._dirty = true;
@@ -1549,6 +1554,66 @@ class RobotSimulator {
     // Just light up all dots proportional to text length
     const bri = Math.min(100, 30 + text.length * 5);
     this.robot.display = Array(25).fill(0).map((_, i) => (i % 2 === 0 ? bri : 0));
+  }
+
+  // hub.light_matrix.show_image / IMAGE_* — maps an image name (or stringified
+  // IMAGE_* int) to the 25-cell brightness pattern that gets drawn on the 5×5
+  // matrix. Per audit 2026-05-13 §4.3, this case used to be missing entirely
+  // and show_image was a silent no-op.
+  //
+  // We do NOT enumerate all 67 LEGO IMAGE_* constants here; doing that would
+  // dwarf the rest of this file. The contract enforced is:
+  //   - HAPPY / SAD / HEART / ARROW_N render distinguishable bitmaps
+  //   - unknown image names render a blank pattern (NOT a silent no-op, so
+  //     typos don't masquerade as "the previous image is still showing")
+  // Adding additional patterns is one entry per image.
+  _imageToDisplay(image) {
+    const _IMAGE_PATTERNS = {
+      // 1 = lit (rendered at brightness 100), 0 = off. Rows top-to-bottom,
+      // columns left-to-right, math y-down for the display grid.
+      HAPPY: [
+        0,1,0,1,0,
+        0,1,0,1,0,
+        0,0,0,0,0,
+        1,0,0,0,1,
+        0,1,1,1,0,
+      ],
+      SAD: [
+        0,1,0,1,0,
+        0,1,0,1,0,
+        0,0,0,0,0,
+        0,1,1,1,0,
+        1,0,0,0,1,
+      ],
+      HEART: [
+        0,1,0,1,0,
+        1,1,1,1,1,
+        1,1,1,1,1,
+        0,1,1,1,0,
+        0,0,1,0,0,
+      ],
+      ARROW_N: [
+        0,0,1,0,0,
+        0,1,1,1,0,
+        1,0,1,0,1,
+        0,0,1,0,0,
+        0,0,1,0,0,
+      ],
+    };
+    // The bridge sends str(image), so a user `show_image(hub.light_matrix.IMAGE_HAPPY)`
+    // arrives as "3" (the int constant). Map ints back to names for the
+    // images we actually render. Image names from py/spike_bridge.py:353.
+    const _INT_TO_NAME = {
+      '3':  'HAPPY',
+      '5':  'SAD',
+      '1':  'HEART',
+      '27': 'ARROW_N',
+    };
+    let key = String(image || '').toUpperCase();
+    if (_INT_TO_NAME[key]) key = _INT_TO_NAME[key];
+    const bits = _IMAGE_PATTERNS[key];
+    if (!bits) return Array(25).fill(0);
+    return bits.map((b) => (b ? 100 : 0));
   }
 
   // ── Sensor accessors (called from Python via JS bridge) ─────────────────────
