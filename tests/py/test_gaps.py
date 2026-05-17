@@ -372,3 +372,55 @@ class TestKnownBugsTracked(unittest.TestCase):
         # Today: cmd has no 'acceleration' key — it was accepted then dropped.
         self.assertIn('acceleration', cmd)
         self.assertEqual(cmd['acceleration'], 2000)
+
+    # Audit 2026-05-17 follow-up §3.4 — hub.light_matrix.show(pixels) sends
+    # 'CUSTOM' regardless of the pixel array. The pixels are discarded before
+    # ever reaching the bridge payload.
+    @unittest.expectedFailure
+    def test_show_pixels_reaches_bridge(self):
+        # Per LEGO docs: show(pixels) renders the 25-pixel brightness array.
+        # The first step toward that is the payload carrying the pixels.
+        sb.hub.light_matrix.show([100] * 25)
+        cmd = mock_js.bridge_mock.all()[0]
+        # Today: cmd['image'] == 'CUSTOM' and the actual pixels never appear.
+        self.assertIn('pixels', cmd)
+        self.assertEqual(cmd['pixels'], [100] * 25)
+
+    # Audit 2026-05-17 follow-up §3.4 — get_pixel always returns 0. Per LEGO
+    # docs it should return the current brightness at (x, y).
+    @unittest.expectedFailure
+    def test_get_pixel_reads_current_brightness(self):
+        # Light pixel (2, 2) at 50%, then read it back.
+        sb.hub.light_matrix.set_pixel(2, 2, intensity=50)
+        # Today the accessor doesn't read sim state — it hardcodes 0.
+        self.assertEqual(sb.hub.light_matrix.get_pixel(2, 2), 50)
+
+    # Audit 2026-05-17 follow-up §3.4 — get_orientation / set_orientation are
+    # stubs. set_orientation accepts any int but never affects display rotation;
+    # get_orientation always returns 0.
+    @unittest.expectedFailure
+    def test_orientation_round_trips(self):
+        # Per LEGO docs: set_orientation(2) rotates the display; get_orientation
+        # returns the current rotation.
+        sb.hub.light_matrix.set_orientation(2)
+        self.assertEqual(sb.hub.light_matrix.get_orientation(), 2)
+
+    # Audit 2026-05-17 follow-up §3.4 — hub.speaker.volume() emits no command.
+    # In real Spike this should set the speaker volume and the sim should
+    # honor it for subsequent beep() / play_sound() calls.
+    @unittest.expectedFailure
+    def test_speaker_volume_emits_command(self):
+        sb.hub.speaker.volume(75)
+        cmds = mock_js.bridge_mock.all()
+        # Today: no command emitted. Future: a 'set_volume' (or similar) payload.
+        self.assertGreater(len(cmds), 0,
+                           'hub.speaker.volume(75) should emit a bridge command')
+
+    # Audit 2026-05-17 follow-up §3.5 — hub.speaker.stop() emits no command.
+    # Should stop in-flight playback.
+    @unittest.expectedFailure
+    def test_speaker_stop_emits_command(self):
+        sb.hub.speaker.stop()
+        cmds = mock_js.bridge_mock.all()
+        self.assertGreater(len(cmds), 0,
+                           'hub.speaker.stop() should emit a bridge command')
