@@ -1,39 +1,24 @@
 'use strict';
 
-// End-to-end regression for audit 2026-05-13 §4.2:
-//   motor.absolute_position(port)   and  motor.relative_position(port)
-//   getMotorPosition(port)          and  getMotorSpeed(port)
+// Cross-runtime contract guard for audit 2026-05-13 §4.2 / §8.
 //
-// Before the fix: robot.motors[port] was never written by _animateTank, so all
-// four read 0 forever. The Python suite had `isinstance(int)` tests (stub-pin)
-// and the JS suite had `assert.strictEqual(getMotorPosition('A'), 0)` tests
-// (stub-pin). Neither could fail when the bug was present, by construction.
+// Behavioural coverage of the encoder accumulator (forward, reverse, paired
+// symmetry, steering asymmetry, motors_velocity, aux motor) lives at the
+// simulator-unit tier in tests/js/commands/encoder-accumulation.test.js.
+// Those tests prove _animateTank writes the right number into robot.motors.
 //
-// After the fix: a 360° run produces ~360° accumulated on the wheel's port.
+// This test proves the *contract* between the Python accessor and the JS
+// sim state: when the sim writes a value into robot.motors[port], Python's
+// motor.absolute_position(port) reads back the same number. That contract
+// lives at the cross-runtime seam and nothing on either side can verify it
+// alone — so it warrants one integration test.
 
 const test   = require('node:test');
 const assert = require('node:assert');
 const { makeRoundtrip } = require('./roundtrip-helper');
 
-test('round-trip: motor.absolute_position accumulates after run_for_degrees', async () => {
-  const { sim, mp, runUserCode } = await makeRoundtrip();
-
-  await runUserCode(`
-async def main():
-    await motor_pair.pair(0, port.A, port.B)
-    await motor.run_for_degrees('A', 360, velocity=500)
-runloop.run(main())
-`);
-
-  // Read via the JS accessor — it reflects the same robot.motors[port] the
-  // bridge's _state.motors picks up.
-  const pos = sim.getMotorPosition('A');
-  assert.ok(Math.abs(pos - 360) < 40,
-    `expected ~360° on port A after 360° run, got ${pos}`);
-});
-
-test('round-trip: motor.absolute_position reads back from Python after the move', async () => {
-  const { runUserCode, mp } = await makeRoundtrip();
+test('round-trip: motor.absolute_position reads back the encoder through Python', async () => {
+  const { mp, runUserCode } = await makeRoundtrip();
 
   await runUserCode(`
 async def main():
@@ -46,22 +31,7 @@ runloop.run(main())
 
   const finalPos = mp.globals.get('_final_pos');
   assert.ok(Math.abs(finalPos - 180) < 40,
-    `expected ~180° read back through Python, got ${finalPos}`);
-});
-
-test('round-trip: paired motors accumulate symmetrically on a forward move', async () => {
-  const { sim, runUserCode } = await makeRoundtrip();
-
-  await runUserCode(`
-async def main():
-    await motor_pair.pair(0, port.A, port.B)
-    await motor_pair.move_for_degrees(0, 720, 0, velocity=500)
-runloop.run(main())
-`);
-
-  const a = sim.getMotorPosition('A');
-  const b = sim.getMotorPosition('B');
-  assert.ok(Math.abs(a - 720) < 50, `A: expected ~720°, got ${a}`);
-  assert.ok(Math.abs(b - 720) < 50, `B: expected ~720°, got ${b}`);
-  assert.ok(Math.abs(a - b) < 10, `A and B should track symmetrically; diff=${a - b}`);
+    `Python motor.absolute_position should read back ~180 after a 180° run; got ${finalPos}. `
+    + 'If unit tests pass but this fails, the _sensorState snapshot key or the '
+    + 'Python accessor wiring is out of sync with the simulator-side write.');
 });

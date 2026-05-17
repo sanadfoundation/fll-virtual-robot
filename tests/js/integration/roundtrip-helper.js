@@ -25,42 +25,11 @@
 const fs   = require('node:fs');
 const path = require('node:path');
 const { createSim } = require('../sim-helper');
+const { installKinematicPhysics } = require('../kinematic-physics');
 const { loadPythonRuntime } = require('./micropython-loader');
 
 const BRIDGE_PATH = path.resolve(__dirname, '..', '..', '..', 'py', 'spike_bridge.py');
 const BRIDGE_SRC  = fs.readFileSync(BRIDGE_PATH, 'utf8');
-
-// Kinematic-integrating physics stub for round-trip tests. Real Box2D isn't
-// loaded in the vm context that sim-helper builds, so `_animateTank`'s
-// `if (!this.physics) return` short-circuits all motion. We provide a stub
-// that integrates the velocities `_animateTank` writes via setKinematicVelocity,
-// returning an updated pose from readPose each step. The motion is real, just
-// not driven by Box2D — adequate for testing dispatch + sensor read-back
-// correctness, which is what the audit flagged.
-function installKinematicPhysics(sim) {
-  let pose = {
-    x:     sim.robot.x,
-    y:     sim.robot.y,
-    angle: sim.robot.heading * Math.PI / 180,
-  };
-  let lastV = { vx: 0, vy: 0, angVel: 0 };
-
-  sim.physics = {
-    setKinematicVelocity: (_body, vx, vy, angVel) => {
-      lastV = { vx, vy, angVel };
-    },
-    step: (dt_s) => {
-      pose.x     += lastV.vx     * dt_s;
-      pose.y     += lastV.vy     * dt_s;
-      pose.angle += lastV.angVel * dt_s;
-      return { force_impulses: {} };
-    },
-    readPose: () => ({ x: pose.x, y: pose.y, angle: pose.angle }),
-    castRay:  () => ({ hit: false }),
-  };
-  sim.robotBody     = { GetAngle: () => pose.angle };
-  sim._physicsReady = Promise.resolve();
-}
 
 async function makeRoundtrip() {
   const sim = createSim();
