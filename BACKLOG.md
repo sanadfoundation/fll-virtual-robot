@@ -131,6 +131,26 @@ Two targeted regression tests would have caught the most recent UAT bugs:
 - **Continuous `'start'` with non-zero steering** — single assertion in `tests/js/commands/dispatch-extra.test.js` that `_animateTank` receives differential wheel velocities. Today no test passes `steering` to the `'start'` command.
 - **Negative degrees → backward motion** — `move_for_degrees(pair, -1080, …)` should end up south of spawn, not north.
 
+### Unify Python tests under Node (MicroPython-WASM-in-Node runner)
+
+Today's split: `tests/py/*.py` run under CPython via `python3 tests/py/run.py`; everything else runs under Node. Two interpreters means CPython-only API usage in `spike_bridge.py` (e.g., `traceback`, exception classes, stdlib gaps) passes CI and breaks the browser — exactly the divergence the CLAUDE.md "MicroPython has no `traceback` module" note exists for.
+
+**Design.** A JS test file discovers `tests/py/test_*.py` at boot, loads each into MicroPython-WASM (the same `@micropython/micropython-webassembly-pyscript` build the browser ships), runs each `test_*` method as its own `node:test`. Python files unchanged: same `unittest.TestCase` classes, same `setUp` calling `mock_js.bridge_mock.install()`. Verified facts that make this viable: MicroPython-WASM ships `unittest` and `inspect`; `mock_js.py` is pure-Python with zero CPython-only features and runs unchanged.
+
+**Mechanism.**
+- Per file: load MicroPython, `FS.writeFile` `mock_js.py` + `spike_bridge.py` + the test file, set `sys.modules['js'] = mock_js`, discover `test_*` methods via `inspect`, emit one `test()` per method.
+- One wrinkle: `node:test` requires synchronous test declaration but discovery is async. Solve with a build-time regex pre-scan of `tests/py/test_*.py` (`/^class (\w+)\([\w.]*TestCase\)[\s\S]*?def (test_\w+)/`) declared at module load, then validate the static match against `inspect` at runtime.
+- The MicroPython-WASM loader and the custom-`js`-module registration pattern needed for this also serve the round-trip harness (see the structural-moves bullet above). One implementation, two consumers.
+
+**Tradeoffs.**
+- *Gains:* single `npm test` command and single reporter; CPython/MicroPython divergence caught at test time; `expectedFailure` semantics survive intact; Node test-concurrency becomes available.
+- *Losses:* speed — Python side goes from ~18 ms to ~3–4 s (~50 ms × N files of MicroPython init + ~2 ms × ~217 tests); Python tracebacks come through as Python error strings inside JS assertion messages rather than native unittest output; one more layer of test infrastructure to maintain.
+- *Neutral:* Python test files unchanged; `tests/py/run.py` can stay as a CPython fallback entry point or be removed.
+
+**Trigger conditions for doing it.** A real CPython/MicroPython divergence ships through CI undetected; CI consolidates onto a single command; or "remember to run `python3 tests/py/run.py` too" becomes material friction. None is biting today — this is a documented option, not an active backlog item.
+
+**Estimated work.** ~150 LoC across `tests/js/python/loader.js` and `tests/js/python/run-py-tests.test.js`, plus the static-pre-discovery regex. The MicroPython-WASM loader + `js`-module-registration pattern need to land first (or in parallel) as part of the round-trip harness work.
+
 ---
 
 ## Program Management
