@@ -291,18 +291,23 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
 .btn-file:hover { background: var(--surface3); }
 .btn-file:active { transform: translateY(1px); }
 
-/* ── Feedback button (matches .btn-reset / .btn-theme sibling style) ── */
-.btn-feedback {
+/* ── GitHub link button (matches .btn-reset sibling style) ── */
+.btn-github {
   background: transparent;
   color: var(--text-mid);
   border: 1px solid var(--border2);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
 }
-.btn-feedback:hover {
-  color: var(--amber);
-  border-color: var(--amber);
+.btn-github:hover {
+  color: var(--text);
+  border-color: var(--text-mid);
   transform: translateY(-1px);
 }
-.btn-feedback:active { transform: translateY(0); }
+.btn-github:active { transform: translateY(0); }
+.btn-github-mark { display: block; }
 
 .btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
 
@@ -1146,67 +1151,6 @@ li.CodeMirror-hint-active {
   z-index: 10;
 }
 #canvas-hover[hidden] { display: none; }
-
-/* ── Feedback modal ────────────────────────────────── */
-.feedback-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-.feedback-modal-backdrop[hidden] { display: none; }
-
-.feedback-modal {
-  width: min(640px, calc(100vw - 32px));
-  height: min(80vh, calc(100vh - 64px));
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.feedback-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border);
-}
-.feedback-modal-header h2 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text);
-}
-
-.feedback-modal-close {
-  background: transparent;
-  color: var(--text-dim);
-  border: 0;
-  font-size: 18px;
-  line-height: 1;
-  padding: 4px 8px;
-  cursor: pointer;
-  border-radius: 4px;
-}
-.feedback-modal-close:hover { background: var(--surface3); color: var(--text); }
-
-.feedback-modal-iframe {
-  flex: 1;
-  width: 100%;
-  border: 0;
-  background: var(--surface);
-}
-
-body.feedback-modal-open { overflow: hidden; }
 
 /* ── Settings section layout (for Task 7 controls) ────── */
 .settings-section .speed-control,
