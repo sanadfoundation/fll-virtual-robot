@@ -149,7 +149,7 @@ class TestForceSensor(unittest.TestCase):
             sb.force_sensor.raw('A')
 
 
-# ── hub.button: pressed, was_pressed ────────────────────────────────────────
+# ── hub.button: pressed ─────────────────────────────────────────────────────
 
 class TestHubButton(unittest.TestCase):
 
@@ -161,10 +161,6 @@ class TestHubButton(unittest.TestCase):
 
     def test_pressed_returns_int_type(self):
         self.assertIsInstance(sb.hub.button.pressed(sb.hub.button.LEFT), int)
-
-    def test_was_pressed_returns_false(self):
-        self.assertFalse(sb.hub.button.was_pressed(sb.hub.button.LEFT))
-        self.assertFalse(sb.hub.button.was_pressed(sb.hub.button.RIGHT))
 
 
 # ── hub.motion_sensor expansion ─────────────────────────────────────────────

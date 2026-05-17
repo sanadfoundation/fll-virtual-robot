@@ -506,9 +506,6 @@ class _Button:
         buttons = _state.get('buttons') or {}
         return int(buttons.get(name, 0))
 
-    def was_pressed(self, button):
-        return self.pressed(button) > 0
-
 
 class _Light:
     POWER   = 0

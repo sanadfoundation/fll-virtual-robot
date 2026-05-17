@@ -9,27 +9,27 @@ window.registerSpikeCompletions = function(monaco) {
       doc: 'Control individual motors on specified ports.',
       members: {
         run_for_degrees: {
-          sig: 'motor.run_for_degrees(port, degrees, velocity, *, stop=BRAKE, acceleration=1000, deceleration=1000)',
+          sig: 'motor.run_for_degrees(port, degrees, velocity=360, *, stop=BRAKE, acceleration=1000, deceleration=1000)',
           doc: 'Run motor for the given number of degrees.\n\n**port** — `port.A`–`port.F`\n**degrees** — rotation in degrees (negative = reverse)\n**velocity** — speed in deg/sec\n**stop** — `motor.BRAKE`, `motor.COAST`, `motor.HOLD`',
           params: ['port', 'degrees', 'velocity', 'stop', 'acceleration', 'deceleration'],
         },
         run_for_time: {
-          sig: 'motor.run_for_time(port, duration, velocity, *, stop=BRAKE, acceleration=1000, deceleration=1000)',
+          sig: 'motor.run_for_time(port, duration, velocity=360, *, stop=BRAKE, acceleration=1000, deceleration=1000)',
           doc: 'Run motor for the given duration.\n\n**port** — `port.A`–`port.F`\n**duration** — time in ms\n**velocity** — speed in deg/sec (negative = reverse)',
           params: ['port', 'duration', 'velocity', 'stop', 'acceleration', 'deceleration'],
         },
         run_to_absolute_position: {
-          sig: 'motor.run_to_absolute_position(port, position, velocity, *, direction=SHORTEST_PATH, stop=BRAKE, acceleration=1000, deceleration=1000)',
+          sig: 'motor.run_to_absolute_position(port, position, velocity=360, *, direction=SHORTEST_PATH, stop=BRAKE, acceleration=1000, deceleration=1000)',
           doc: 'Run motor to an absolute position (0–359 degrees).\n\n**position** — target angle 0–359\n**direction** — `motor.CLOCKWISE`, `COUNTERCLOCKWISE`, or `SHORTEST_PATH`',
           params: ['port', 'position', 'velocity', 'direction', 'stop', 'acceleration', 'deceleration'],
         },
         run_to_relative_position: {
-          sig: 'motor.run_to_relative_position(port, position, velocity, *, stop=BRAKE, acceleration=1000, deceleration=1000)',
+          sig: 'motor.run_to_relative_position(port, position, velocity=360, *, stop=BRAKE, acceleration=1000, deceleration=1000)',
           doc: 'Run motor to a position relative to the current position.\n\n**position** — degrees relative to current\n**velocity** — speed in deg/sec',
           params: ['port', 'position', 'velocity', 'stop', 'acceleration', 'deceleration'],
         },
         run: {
-          sig: 'motor.run(port, velocity, *, acceleration=1000)',
+          sig: 'motor.run(port, velocity=360, *, acceleration=1000)',
           doc: 'Run motor continuously.\n\n**velocity** — speed in deg/sec (negative = reverse)',
           params: ['port', 'velocity', 'acceleration'],
         },
@@ -54,7 +54,7 @@ window.registerSpikeCompletions = function(monaco) {
           params: ['port'],
         },
         reset_relative_position: {
-          sig: 'motor.reset_relative_position(port, position) -> None',
+          sig: 'motor.reset_relative_position(port, position=0) -> None',
           doc: 'Reset the relative position counter.',
           params: ['port', 'position'],
         },
@@ -98,12 +98,12 @@ window.registerSpikeCompletions = function(monaco) {
           params: ['pair', 'steering', 'velocity', 'acceleration'],
         },
         move_for_degrees: {
-          sig: 'motor_pair.move_for_degrees(pair, degrees, steering, *, velocity=360, stop=motor.BRAKE, acceleration=1000, deceleration=1000)',
+          sig: 'motor_pair.move_for_degrees(pair, degrees, steering=0, *, velocity=360, stop=motor.BRAKE, acceleration=1000, deceleration=1000)',
           doc: 'Move until motors rotate by the given degrees.\n\n**degrees** — wheel rotation\n**steering** — –100 to 100\n**velocity** — deg/sec',
           params: ['pair', 'degrees', 'steering', 'velocity', 'stop', 'acceleration', 'deceleration'],
         },
         move_for_time: {
-          sig: 'motor_pair.move_for_time(pair, duration, steering, *, velocity=360, stop=motor.BRAKE, acceleration=1000, deceleration=1000)',
+          sig: 'motor_pair.move_for_time(pair, duration, steering=0, *, velocity=360, stop=motor.BRAKE, acceleration=1000, deceleration=1000)',
           doc: 'Move for the given duration.\n\n**duration** — time in ms\n**steering** — –100 to 100\n**velocity** — deg/sec',
           params: ['pair', 'duration', 'steering', 'velocity', 'stop', 'acceleration', 'deceleration'],
         },
@@ -401,11 +401,6 @@ window.registerSpikeCompletions = function(monaco) {
           doc: 'Return ms the button has been held, or 0 if not pressed.\n\n**button** — `hub.button.LEFT` or `hub.button.RIGHT`',
           params: ['button'],
         },
-        was_pressed: {
-          sig: 'hub.button.was_pressed(button) -> bool',
-          doc: 'Return True if button was pressed since last call.',
-          params: ['button'],
-        },
       },
       constants: { LEFT: '1', RIGHT: '2' },
     },
@@ -619,12 +614,20 @@ window.registerSpikeCompletions = function(monaco) {
         const path    = dotMatch[1];
         const partial = dotMatch[2];
         const node    = resolveApi(path);
-        if (!node) return { suggestions: [] };
+        // Sub-namespaces like `hub.button` live as their own SPIKE_API keys
+        // rather than as `members` of `hub`, so surface them as suggestions too.
+        const subPrefix = path + '.';
+        const subKeys   = Object.keys(SPIKE_API).filter(k => {
+          if (!k.startsWith(subPrefix)) return false;
+          const rest = k.slice(subPrefix.length);
+          return rest.length > 0 && !rest.includes('.');
+        });
+        if (!node && subKeys.length === 0) return { suggestions: [] };
 
         const range       = makeRange(model, position, partial.length);
         const suggestions = [];
 
-        for (const [name, info] of Object.entries(node.members || {})) {
+        for (const [name, info] of Object.entries(node?.members || {})) {
           if (!name.startsWith(partial)) continue;
           suggestions.push({
             label:             name,
@@ -637,13 +640,27 @@ window.registerSpikeCompletions = function(monaco) {
           });
         }
 
-        for (const [name, value] of Object.entries(node.constants || {})) {
+        for (const [name, value] of Object.entries(node?.constants || {})) {
           if (!name.startsWith(partial)) continue;
           suggestions.push({
             label:         name,
             kind:          monaco.languages.CompletionItemKind.Constant,
             detail:        `= ${value}`,
             documentation: { value: `**${path}.${name}** = \`${value}\`` },
+            insertText:    name,
+            range,
+          });
+        }
+
+        for (const key of subKeys) {
+          const name = key.slice(subPrefix.length);
+          if (!name.startsWith(partial)) continue;
+          const subNode = SPIKE_API[key];
+          suggestions.push({
+            label:         name,
+            kind:          monaco.languages.CompletionItemKind.Module,
+            detail:        subNode.doc || '',
+            documentation: { value: `**${key}** — ${subNode.doc || ''}` },
             insertText:    name,
             range,
           });

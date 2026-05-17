@@ -17,7 +17,6 @@ The individual motor API, `motor_pair.move_for_degrees` / `_for_time`, light-mat
 
 ### Wrong / non-standard signatures
 
-- **`hub.button.was_pressed` is non-standard.** LEGO only has `pressed(button) -> int` returning ms held (now real). Drop `was_pressed`.
 - **`hub.speaker` is a non-standard alias.** Canonical name is `hub.sound`; align and drop the alias (`py/spike_bridge.py:509-511`).
 - **`hub.light_matrix.show(pixels)` discards the 25-pixel list.** `py/spike_bridge.py:401-402` always sends `{'type': 'hub_image', 'image': 'CUSTOM'}` regardless of input; the simulator's `_imageToDisplay` only has bitmaps for HAPPY / SAD / HEART / ARROW_N, so the other 63 LEGO `IMAGE_*` constants (and any user pixel grid) render blank. Fix: pass the pixel grid in the payload and let `_imageToDisplay` render arbitrary 25-cell brightness arrays.
 - ~~**`motor.absolute_position` accumulator was unbounded.**~~ Fixed: the bridge reader (`py/spike_bridge.py:absolute_position`) now wraps the raw `_animateTank`/`_animateSingleMotor` accumulator into the documented `[-180, 179]` range at the boundary. `relative_position` still reads the raw accumulator (LEGO docs leave it unbounded), so the anchor math is unchanged. Regression covered by `tests/js/integration/motor-absolute-position.test.js` ("absolute_position wraps to [-180, 179] after multiple full turns"); pre-existing assertions that pinned the unwrapped reading now compare via shortest angular delta.
