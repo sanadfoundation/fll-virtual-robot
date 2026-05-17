@@ -1202,14 +1202,15 @@ const _WHEEL_CIRC_MM = Math.PI * 56;
 const _MM_PER_MS_AT_100 = 0.9;
 
 // Map LEGO word-block colour index → simulator colour token. The simulator
-// emits 'magenta' / 'cyan' / 'red' etc. from `_colorAtPosition`, so the LEGO
-// "Violet" (1) maps to sim 'magenta' and "Light Blue" (4) maps to sim 'cyan'.
+// emits 'magenta' / 'azure' / 'red' etc. from `_colorAtPosition`. LEGO
+// "Violet" (1) maps to sim 'magenta'; "Light Blue" (4) maps to sim 'azure'
+// (aligned with Python's color.AZURE — audit 2026-05-13 §4.8).
 const _COLOR_INDEX_TO_NAME = {
   '-1': 'none',
   '0':  'black',
   '1':  'magenta',
   '3':  'blue',
-  '4':  'cyan',
+  '4':  'azure',
   '6':  'green',
   '7':  'yellow',
   '9':  'red',
@@ -1268,7 +1269,13 @@ function registerGenerators(Blockly) {
     return `window.sim._animateSingleMotor('${port}', _motorSpeed/100*${dir}, 5000);\n`;
   };
 
-  js['flippermotor_motorStop'] = (_block) => `window.sim.stop();\nawait window.sim._sleep(50);\n`;
+  // Per BACKLOG / audit 2026-05-13 follow-up: must scope to the chosen
+  // PORT, not call sim.stop() (which sets isRunning=false and kills the
+  // whole program — including any concurrent motor that wasn't named).
+  js['flippermotor_motorStop'] = (block) => {
+    const port = block.getFieldValue('PORT');
+    return `await window.sim._execCmd({type:'motor_stop', port:'${port}'});\n`;
+  };
 
   js['flippermotor_motorSetSpeed'] = (block) => {
     const speed = val(block, 'SPEED', '75');
@@ -1718,7 +1725,7 @@ function registerGenerators(Blockly) {
       return [emitWrongPortValue('colour-sensor', port, canonical, '-1'), ORDER_ATOMIC];
     }
     // Inverse of _COLOR_INDEX_TO_NAME: simulator token → LEGO word-block index.
-    return [`(({black:0,magenta:1,blue:3,cyan:4,green:6,yellow:7,red:9,white:10,none:-1})[window.sim.getColorSensorColor()] ?? -1)`, ORDER_ATOMIC];
+    return [`(({black:0,magenta:1,blue:3,azure:4,green:6,yellow:7,red:9,white:10,none:-1})[window.sim.getColorSensorColor()] ?? -1)`, ORDER_ATOMIC];
   };
 
   js['flippersensors_isReflectivity'] = (block) => {

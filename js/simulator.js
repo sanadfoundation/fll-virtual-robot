@@ -64,7 +64,10 @@ const COLOR_MAP = {
   yellow:  '#f1c40f',
   blue:    '#3498db',
   white:   '#f0f0f0',
-  cyan:    '#00bcd4',
+  // Aligned with the Python bridge's _COLOR_INT_MAP and color.AZURE constant.
+  // Older code used 'cyan' here, which made a Light-Blue tile read as
+  // color.UNKNOWN from Python. Audit 2026-05-13 §4.8.
+  azure:   '#00bcd4',
   magenta: '#e91e63',
   orange:  '#ff9800',
   none:    null,
@@ -73,6 +76,51 @@ const COLOR_MAP = {
 const COLOR_INT_MAP = {
   none: -1, black: 0, magenta: 1, purple: 2, blue: 3,
   azure: 4, turquoise: 5, green: 6, yellow: 7, orange: 8, red: 9, white: 10,
+};
+
+// 5×5 pixel font for hub.light_matrix.write. Each entry is 25 bits, rows
+// top-to-bottom (matches the display index layout: row r, col c → idx r*5+c).
+// Audit 2026-05-13 §4.9: before this table, _showText filled every-other
+// pixel proportional to text length, so 'A' and 'B' looked identical and
+// resembled no glyph at all.
+const _GLYPH_FONT = {
+  ' ': [0,0,0,0,0, 0,0,0,0,0, 0,0,0,0,0, 0,0,0,0,0, 0,0,0,0,0],
+  'A': [0,1,1,1,0, 1,0,0,0,1, 1,1,1,1,1, 1,0,0,0,1, 1,0,0,0,1],
+  'B': [1,1,1,1,0, 1,0,0,0,1, 1,1,1,1,0, 1,0,0,0,1, 1,1,1,1,0],
+  'C': [0,1,1,1,1, 1,0,0,0,0, 1,0,0,0,0, 1,0,0,0,0, 0,1,1,1,1],
+  'D': [1,1,1,1,0, 1,0,0,0,1, 1,0,0,0,1, 1,0,0,0,1, 1,1,1,1,0],
+  'E': [1,1,1,1,1, 1,0,0,0,0, 1,1,1,1,0, 1,0,0,0,0, 1,1,1,1,1],
+  'F': [1,1,1,1,1, 1,0,0,0,0, 1,1,1,1,0, 1,0,0,0,0, 1,0,0,0,0],
+  'G': [0,1,1,1,1, 1,0,0,0,0, 1,0,0,1,1, 1,0,0,0,1, 0,1,1,1,1],
+  'H': [1,0,0,0,1, 1,0,0,0,1, 1,1,1,1,1, 1,0,0,0,1, 1,0,0,0,1],
+  'I': [1,1,1,1,1, 0,0,1,0,0, 0,0,1,0,0, 0,0,1,0,0, 1,1,1,1,1],
+  'J': [0,0,0,0,1, 0,0,0,0,1, 0,0,0,0,1, 1,0,0,0,1, 0,1,1,1,0],
+  'K': [1,0,0,0,1, 1,0,0,1,0, 1,1,1,0,0, 1,0,0,1,0, 1,0,0,0,1],
+  'L': [1,0,0,0,0, 1,0,0,0,0, 1,0,0,0,0, 1,0,0,0,0, 1,1,1,1,1],
+  'M': [1,0,0,0,1, 1,1,0,1,1, 1,0,1,0,1, 1,0,0,0,1, 1,0,0,0,1],
+  'N': [1,0,0,0,1, 1,1,0,0,1, 1,0,1,0,1, 1,0,0,1,1, 1,0,0,0,1],
+  'O': [0,1,1,1,0, 1,0,0,0,1, 1,0,0,0,1, 1,0,0,0,1, 0,1,1,1,0],
+  'P': [1,1,1,1,0, 1,0,0,0,1, 1,1,1,1,0, 1,0,0,0,0, 1,0,0,0,0],
+  'Q': [0,1,1,1,0, 1,0,0,0,1, 1,0,1,0,1, 1,0,0,1,0, 0,1,1,0,1],
+  'R': [1,1,1,1,0, 1,0,0,0,1, 1,1,1,1,0, 1,0,0,1,0, 1,0,0,0,1],
+  'S': [0,1,1,1,1, 1,0,0,0,0, 0,1,1,1,0, 0,0,0,0,1, 1,1,1,1,0],
+  'T': [1,1,1,1,1, 0,0,1,0,0, 0,0,1,0,0, 0,0,1,0,0, 0,0,1,0,0],
+  'U': [1,0,0,0,1, 1,0,0,0,1, 1,0,0,0,1, 1,0,0,0,1, 0,1,1,1,0],
+  'V': [1,0,0,0,1, 1,0,0,0,1, 1,0,0,0,1, 0,1,0,1,0, 0,0,1,0,0],
+  'W': [1,0,0,0,1, 1,0,0,0,1, 1,0,1,0,1, 1,1,0,1,1, 1,0,0,0,1],
+  'X': [1,0,0,0,1, 0,1,0,1,0, 0,0,1,0,0, 0,1,0,1,0, 1,0,0,0,1],
+  'Y': [1,0,0,0,1, 0,1,0,1,0, 0,0,1,0,0, 0,0,1,0,0, 0,0,1,0,0],
+  'Z': [1,1,1,1,1, 0,0,0,1,0, 0,0,1,0,0, 0,1,0,0,0, 1,1,1,1,1],
+  '0': [0,1,1,1,0, 1,0,0,0,1, 1,0,1,0,1, 1,0,0,0,1, 0,1,1,1,0],
+  '1': [0,0,1,0,0, 0,1,1,0,0, 0,0,1,0,0, 0,0,1,0,0, 0,1,1,1,0],
+  '2': [0,1,1,1,0, 1,0,0,0,1, 0,0,0,1,0, 0,0,1,0,0, 1,1,1,1,1],
+  '3': [1,1,1,1,0, 0,0,0,0,1, 0,1,1,1,0, 0,0,0,0,1, 1,1,1,1,0],
+  '4': [0,0,0,1,0, 0,0,1,1,0, 0,1,0,1,0, 1,1,1,1,1, 0,0,0,1,0],
+  '5': [1,1,1,1,1, 1,0,0,0,0, 1,1,1,1,0, 0,0,0,0,1, 1,1,1,1,0],
+  '6': [0,1,1,1,0, 1,0,0,0,0, 1,1,1,1,0, 1,0,0,0,1, 0,1,1,1,0],
+  '7': [1,1,1,1,1, 0,0,0,0,1, 0,0,0,1,0, 0,0,1,0,0, 0,0,1,0,0],
+  '8': [0,1,1,1,0, 1,0,0,0,1, 0,1,1,1,0, 1,0,0,0,1, 0,1,1,1,0],
+  '9': [0,1,1,1,0, 1,0,0,0,1, 0,1,1,1,1, 0,0,0,0,1, 0,1,1,1,0],
 };
 
 // ── FLL Mat field elements ───────────────────────────────────────────────────
@@ -123,6 +171,13 @@ function makeRobotState() {
     y: 163,          // mm from bottom edge (math y-up)
     heading: 90,     // degrees: 0=east, 90=north, 180=west, 270=south
     motors: { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 },
+    // Per-port commanded wheel velocity (deg/sec, signed). Written by
+    // _animateTank / _animateSingleMotor at motion start, cleared at end.
+    motors_velocity: { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 },
+    // Hub-button held duration in ms. 0 = not held. Per LEGO docs,
+    // hub.button.pressed(button) returns this value. The UI populates these
+    // on pointerdown/up; tests can seed them directly.
+    buttons: { LEFT: 0, RIGHT: 0 },
     sensors: {
       colorValue: 'none',
       // 9999 = OOR sentinel, doubles as "no reading yet" pre-physics. The
@@ -1084,10 +1139,20 @@ class RobotSimulator {
 
       case 'start':
       case 'start_tank':
-        // Continuous - run for 2 seconds as approximation
+        // Continuous — run for the 200-mm cap as approximation. The cap
+        // itself remains a known fidelity gap (see audit 2026-05-13 §4.10),
+        // but at least the wheels now reflect the steering arg.
         {
-          const leftV  = cmd.type === 'start' ? (cmd.speed/1000) : (cmd.left_speed/1000);
-          const rightV = cmd.type === 'start' ? (cmd.speed/1000) : (cmd.right_speed/1000);
+          let leftV, rightV;
+          if (cmd.type === 'start') {
+            const spd   = cmd.speed / 1000;
+            const steer = (cmd.steering || 0) / 100;
+            leftV  = spd * (1 + steer);
+            rightV = spd * (1 - steer);
+          } else {
+            leftV  = cmd.left_speed  / 1000;
+            rightV = cmd.right_speed / 1000;
+          }
           await this._runMotion(
             this._descriptorForPair(cmd.pair_id),
             () => this._animateTank(leftV, rightV, 200),
@@ -1138,6 +1203,11 @@ class RobotSimulator {
 
       case 'hub_display':
         this._showText(cmd.text);
+        this._dirty = true;
+        break;
+
+      case 'hub_image':
+        this.robot.display = this._imageToDisplay(cmd.image);
         this._dirty = true;
         break;
 
@@ -1198,6 +1268,15 @@ class RobotSimulator {
     const totalSteps = Math.max(1, Math.round(durationMs / wallStepMs));
     const physDt_s   = (wallStepMs / 1000) * this.speedMult;
 
+    // Encoder accumulators — populate motors_velocity for the duration of
+    // the motion so getMotorSpeed reflects the active wheels. Cleared at
+    // motion-end.
+    const desc      = this._activeMotion || {};
+    const leftPort  = desc.leftPort  || null;
+    const rightPort = desc.rightPort || null;
+    if (leftPort)  this.robot.motors_velocity[leftPort]  = leftV  * 1000;
+    if (rightPort) this.robot.motors_velocity[rightPort] = rightV * 1000;
+
     for (let i = 0; i < totalSteps; i++) {
       if (!this.isRunning) break;
       if (this._motionAborted) break;
@@ -1229,12 +1308,25 @@ class RobotSimulator {
       this.robot.sensors.colorValue = this._colorAtPosition(sp.x, sp.y);
       this._updateDistanceSensor();
 
+      // Encoder accumulation: wheel travel this step, converted to degrees.
+      // Sign preserved so reverse motion decrements the count, matching real
+      // motor encoders.
+      const leftStepMM  = leftV  * SPEED_MM_S * physDt_s;
+      const rightStepMM = rightV * SPEED_MM_S * physDt_s;
+      const leftDeg  = (leftStepMM  / WHEEL_CIRC_MM) * 360;
+      const rightDeg = (rightStepMM / WHEEL_CIRC_MM) * 360;
+      if (leftPort)  this.robot.motors[leftPort]  = (this.robot.motors[leftPort]  || 0) + leftDeg;
+      if (rightPort) this.robot.motors[rightPort] = (this.robot.motors[rightPort] || 0) + rightDeg;
+
       this._dirty = true;
       await this._sleep(wallStepMs);
     }
 
     // Halt motion when the command finishes so obstacles stop being shoved.
     this.physics.setKinematicVelocity(this.robotBody, 0, 0, 0);
+    // Clear active-motion wheel velocities so getMotorSpeed reads 0 at rest.
+    if (leftPort)  this.robot.motors_velocity[leftPort]  = 0;
+    if (rightPort) this.robot.motors_velocity[rightPort] = 0;
   }
 
   async _animateSingleMotor(port, velocity, distMM) {
@@ -1243,10 +1335,32 @@ class RobotSimulator {
     // drive a wrong-port motor command past the Python validator.
     this._assertPortKind(port, 'motor');
 
-    await this._runMotion({ pair: null, ports: [port] }, async () => {
+    // Pre-compute the wheel→port mapping so _animateTank can update the
+    // correct encoder. Three cases mirror the dispatch below.
+    let descriptor;
+    const pair = this._findPairForPort(port);
+    if (pair) {
+      const isLeft = pair.left === port;
+      descriptor = {
+        pair: null,
+        ports: [port],
+        leftPort:  isLeft ? port : null,
+        rightPort: isLeft ? null : port,
+      };
+    } else {
+      const role = this._portConfig[port] && this._portConfig[port].role;
+      descriptor = {
+        pair: null,
+        ports: [port],
+        leftPort:  role === 'drive-left'  ? port : null,
+        rightPort: role === 'drive-right' ? port : null,
+        auxPort:   (role !== 'drive-left' && role !== 'drive-right') ? port : null,
+      };
+    }
+
+    await this._runMotion(descriptor, async () => {
       // motor_pair.pair(...) is the runtime override; it wins over the canonical
       // PORT_CONFIG roles so user-declared swaps (e.g. PAIR_1 = B,A) take effect.
-      const pair = this._findPairForPort(port);
       if (pair) {
         const isLeft = pair.left === port;
         const leftV  = isLeft ? velocity : 0;
@@ -1271,8 +1385,14 @@ class RobotSimulator {
       }
 
       // Auxiliary motor (arm / attachment with no wheel): pass time only.
+      // Encoder ticks: the user asked for distMM-worth of wheel-circumference
+      // rotation, so we credit that many degrees regardless of wall-clock.
       const ms = (distMM / MM_PER_MS_100) / Math.max(0.1, Math.abs(velocity));
+      const degrees = (distMM / WHEEL_CIRC_MM) * 360 * Math.sign(velocity || 1);
+      this.robot.motors_velocity[port] = velocity * 1000;  // velocity arg is the fraction × 1000 deg/sec
+      this.robot.motors[port] = (this.robot.motors[port] || 0) + degrees;
       await this._sleep(ms / this.speedMult);
+      this.robot.motors_velocity[port] = 0;
     });
   }
 
@@ -1283,7 +1403,12 @@ class RobotSimulator {
   _descriptorForPair(pairId) {
     const p = this.pairMap[pairId];
     const ports = p ? [p.left, p.right] : [];
-    return { pair: pairId, ports };
+    return {
+      pair:      pairId,
+      ports,
+      leftPort:  p ? p.left  : null,
+      rightPort: p ? p.right : null,
+    };
   }
 
   // Sets the active-motion descriptor and clears the abort flag for the
@@ -1385,6 +1510,7 @@ class RobotSimulator {
       force_dn:      f.dn,
       force_pressed: f.pressed,
       force_raw:     f.raw,
+      buttons:       { ...(r.buttons || { LEFT: 0, RIGHT: 0 }) },
       stopped:       false,
     };
   }
@@ -1471,16 +1597,82 @@ class RobotSimulator {
   // ── LED display helpers ─────────────────────────────────────────────────────
 
   _showText(text) {
-    const s = String(text);
-    // Show first char as a simple pattern
-    const charPatterns = {
-      '0': [1,1,1,1,0,1,1,0,1,1,0,1,1,1,1],
-      '1': [0,1,0,1,1,0,0,1,0,0,1,0,1,1,1],
-      // ... simplified
+    const s = String(text || '');
+    if (s.length === 0) {
+      this.robot.display = Array(25).fill(0);
+      return;
+    }
+    // Render the first character from the 5×5 font. Multi-character scrolling
+    // is real Spike's behaviour; this sim shows only the head of the string.
+    // Unknown characters render blank rather than the previous every-other-
+    // pixel fake (so typos don't masquerade as text).
+    const ch = s.charAt(0).toUpperCase();
+    const glyph = _GLYPH_FONT[ch];
+    if (!glyph) {
+      this.robot.display = Array(25).fill(0);
+      return;
+    }
+    this.robot.display = glyph.map((b) => (b ? 100 : 0));
+  }
+
+  // hub.light_matrix.show_image / IMAGE_* — maps an image name (or stringified
+  // IMAGE_* int) to the 25-cell brightness pattern that gets drawn on the 5×5
+  // matrix. Per audit 2026-05-13 §4.3, this case used to be missing entirely
+  // and show_image was a silent no-op.
+  //
+  // We do NOT enumerate all 67 LEGO IMAGE_* constants here; doing that would
+  // dwarf the rest of this file. The contract enforced is:
+  //   - HAPPY / SAD / HEART / ARROW_N render distinguishable bitmaps
+  //   - unknown image names render a blank pattern (NOT a silent no-op, so
+  //     typos don't masquerade as "the previous image is still showing")
+  // Adding additional patterns is one entry per image.
+  _imageToDisplay(image) {
+    const _IMAGE_PATTERNS = {
+      // 1 = lit (rendered at brightness 100), 0 = off. Rows top-to-bottom,
+      // columns left-to-right, math y-down for the display grid.
+      HAPPY: [
+        0,1,0,1,0,
+        0,1,0,1,0,
+        0,0,0,0,0,
+        1,0,0,0,1,
+        0,1,1,1,0,
+      ],
+      SAD: [
+        0,1,0,1,0,
+        0,1,0,1,0,
+        0,0,0,0,0,
+        0,1,1,1,0,
+        1,0,0,0,1,
+      ],
+      HEART: [
+        0,1,0,1,0,
+        1,1,1,1,1,
+        1,1,1,1,1,
+        0,1,1,1,0,
+        0,0,1,0,0,
+      ],
+      ARROW_N: [
+        0,0,1,0,0,
+        0,1,1,1,0,
+        1,0,1,0,1,
+        0,0,1,0,0,
+        0,0,1,0,0,
+      ],
     };
-    // Just light up all dots proportional to text length
-    const bri = Math.min(100, 30 + text.length * 5);
-    this.robot.display = Array(25).fill(0).map((_, i) => (i % 2 === 0 ? bri : 0));
+    // The bridge sends str(image), so a user `show_image(hub.light_matrix.IMAGE_HAPPY)`
+    // arrives as "3" (the int constant). Map ints back to names for the
+    // images we actually render. Image names from py/spike_bridge.py:353.
+    const _INT_TO_NAME = {
+      '3':  'HAPPY',
+      '5':  'SAD',
+      '1':  'HEART',
+      '27': 'ARROW_N',
+    };
+    let key = String(image || '').toUpperCase();
+    if (_INT_TO_NAME[key]) key = _INT_TO_NAME[key];
+    const bits = _IMAGE_PATTERNS[key];
+    if (!bits) return Array(25).fill(0);
+    return bits.map((b) => (b ? 100 : 0));
   }
 
   // ── Sensor accessors (called from Python via JS bridge) ─────────────────────
@@ -1494,7 +1686,7 @@ class RobotSimulator {
 
   getColorSensorReflection() {
     const reflMap = {
-      white: 90, yellow: 75, cyan: 70, orange: 65, green: 60,
+      white: 90, yellow: 75, azure: 70, orange: 65, green: 60,
       magenta: 55, red: 50, blue: 45, black: 5, none: 50,
     };
     return reflMap[this.robot.sensors.colorValue] ?? 50;
@@ -1527,7 +1719,7 @@ class RobotSimulator {
   getForceSensorRaw() {
     return window.forceSensorLogic.forceToReadings(this.robot.sensors.forceN).raw;
   }
-  getMotorSpeed(port)         { return 0; }
+  getMotorSpeed(port)         { return (this.robot.motors_velocity && this.robot.motors_velocity[port]) || 0; }
   getMotorPosition(port)      { return this.robot.motors[port] || 0; }
 
   // ── Audio ───────────────────────────────────────────────────────────────────

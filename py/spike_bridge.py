@@ -38,6 +38,7 @@ def _default_state():
         'yaw_dDeg': 0,
         'motors': {'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0},
         'force_dn': 0, 'force_pressed': False, 'force_raw': 0,
+        'buttons': {'LEFT': 0, 'RIGHT': 0},
         'stopped': False,
     }
 
@@ -114,6 +115,12 @@ _PORT_LETTERS = ('A', 'B', 'C', 'D', 'E', 'F')
 # whatever was last commanded; motor.stop resets to 0.
 _motor_velocities = {p: 0 for p in _PORT_LETTERS}
 
+# Per-port anchor for relative_position. relative_position(port) returns
+# `absolute_position(port) - _motor_anchors[port]`. reset_relative_position
+# updates the anchor so the reading lands at the requested value. Absolute
+# encoder values (in _state['motors']) are NOT affected.
+_motor_anchors = {p: 0 for p in _PORT_LETTERS}
+
 def _port_id(p):
     """Normalize a user-supplied port (int 0–5 or string 'A'–'F') to its wire letter."""
     if isinstance(p, int) and 0 <= p < len(_PORT_LETTERS):
@@ -176,18 +183,29 @@ class motor:
     def run_to_absolute_position(port, position, velocity=360, *, direction=2, stop=1, acceleration=1000, deceleration=1000):
         letter = _require(port, 'motor', 'motor.run_to_absolute_position')
         _motor_velocities[letter] = int(velocity)
+        # Compute the delta from the last-known absolute encoder reading so
+        # the simulator's degree-based motion lands at the requested absolute
+        # position, not rotates BY that many degrees.
+        current = int((_state.get('motors') or {}).get(letter, 0))
+        delta = int(position) - current
         # Forward `direction` so the simulator (or a future test) can branch on
         # CLOCKWISE / COUNTERCLOCKWISE / SHORTEST_PATH / LONGEST_PATH. Today
         # _execCmd ignores it; the value is still recorded on the wire.
         return _bridge_call({'type': 'motor_degrees', 'port': letter,
-                             'degrees': int(position), 'velocity': velocity,
+                             'degrees': delta, 'velocity': velocity,
                              'direction': int(direction)})
 
     @staticmethod
     def run_to_relative_position(port, position, velocity=360, *, stop=1, acceleration=1000, deceleration=1000):
         letter = _require(port, 'motor', 'motor.run_to_relative_position')
         _motor_velocities[letter] = int(velocity)
-        return _bridge_call({'type': 'motor_degrees', 'port': letter, 'degrees': int(position), 'velocity': velocity})
+        # relative_position = absolute - anchor. To land at requested relative
+        # position, rotate by (target - current_relative) degrees.
+        current_abs = int((_state.get('motors') or {}).get(letter, 0))
+        current_rel = current_abs - _motor_anchors.get(letter, 0)
+        delta = int(position) - current_rel
+        return _bridge_call({'type': 'motor_degrees', 'port': letter,
+                             'degrees': delta, 'velocity': velocity})
 
     @staticmethod
     def run(port, velocity=360, *, acceleration=1000):
@@ -214,11 +232,16 @@ class motor:
     @staticmethod
     def relative_position(port):
         letter = _require(port, 'motor', 'motor.relative_position')
-        return int((_state.get('motors') or {}).get(letter, 0))
+        absolute = int((_state.get('motors') or {}).get(letter, 0))
+        return absolute - _motor_anchors.get(letter, 0)
 
     @staticmethod
     def reset_relative_position(port, position=0):
-        _require(port, 'motor', 'motor.reset_relative_position')
+        letter = _require(port, 'motor', 'motor.reset_relative_position')
+        # Anchor such that relative_position(port) == position immediately.
+        # relative = absolute - anchor ⇒ anchor = absolute - target_relative.
+        absolute = int((_state.get('motors') or {}).get(letter, 0))
+        _motor_anchors[letter] = absolute - int(position)
         return _NoopAwaitable()
 
     @staticmethod
@@ -455,8 +478,21 @@ class _Button:
     LEFT  = 1
     RIGHT = 2
 
-    def pressed(self, button):     return 0
-    def was_pressed(self, button): return False
+    # _BUTTON_NAMES maps int constants to the keys used in _state['buttons'].
+    # The sim writes 'LEFT' / 'RIGHT' (matching the LEGO constant names).
+    _BUTTON_NAMES = {1: 'LEFT', 2: 'RIGHT'}
+
+    def pressed(self, button):
+        # Per LEGO docs: returns ms-held duration (0 if not currently held).
+        # Sim populates _state['buttons'][name] from the UI (or test seeding).
+        name = self._BUTTON_NAMES.get(int(button))
+        if name is None:
+            return 0
+        buttons = _state.get('buttons') or {}
+        return int(buttons.get(name, 0))
+
+    def was_pressed(self, button):
+        return self.pressed(button) > 0
 
 
 class _Light:
@@ -700,6 +736,12 @@ async def _handle_run(code):
     # sensor reads don't return the previous run's final values.
     _state.clear()
     _state.update(_default_state())
+    # Reset per-port relative-position anchors so the new run sees
+    # relative_position == absolute_position until reset_relative_position
+    # is called.
+    for p in _PORT_LETTERS:
+        _motor_anchors[p] = 0
+        _motor_velocities[p] = 0
     # Sync once before user code so sensor reads issued before any motion
     # command reflect the simulator's live state (placed pose, current zone)
     # rather than the spawn defaults.
