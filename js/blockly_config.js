@@ -3224,6 +3224,7 @@ const SPIKE_BLOCKLY_PALETTES = {
   },
 };
 
+// Mirror of DEFAULT_PYTHON_CODE; steer ±100 + 1 rotation = ~90° pivot.
 const DEFAULT_BLOCKLY_XML = `
     <xml xmlns="https://developers.google.com/blockly/xml">
       <block type="flipperevents_whenProgramStarts" x="30" y="30">
@@ -3231,20 +3232,48 @@ const DEFAULT_BLOCKLY_XML = `
           <block type="flippermove_move">
             <field name="DIRECTION">forward</field>
             <field name="UNIT">cm</field>
-            <value name="VALUE"><shadow type="math_number"><field name="NUM">20</field></shadow></value>
+            <value name="VALUE"><shadow type="math_number"><field name="NUM">78</field></shadow></value>
             <next>
               <block type="flippermove_steer">
                 <field name="UNIT">rotations</field>
-                <field name="STEERING">50</field>
+                <field name="STEERING">100</field>
                 <value name="VALUE"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
                 <next>
                   <block type="flippermove_move">
                     <field name="DIRECTION">forward</field>
                     <field name="UNIT">cm</field>
-                    <value name="VALUE"><shadow type="math_number"><field name="NUM">20</field></shadow></value>
+                    <value name="VALUE"><shadow type="math_number"><field name="NUM">130</field></shadow></value>
                     <next>
-                      <block type="flipperlight_lightDisplayText">
-                        <field name="TEXT">Done!</field>
+                      <block type="flippermove_steer">
+                        <field name="UNIT">rotations</field>
+                        <field name="STEERING">100</field>
+                        <value name="VALUE"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+                        <next>
+                          <block type="flippermove_move">
+                            <field name="DIRECTION">forward</field>
+                            <field name="UNIT">cm</field>
+                            <value name="VALUE"><shadow type="math_number"><field name="NUM">60</field></shadow></value>
+                            <next>
+                              <block type="flippermove_steer">
+                                <field name="UNIT">rotations</field>
+                                <field name="STEERING">-100</field>
+                                <value name="VALUE"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+                                <next>
+                                  <block type="flippermove_move">
+                                    <field name="DIRECTION">forward</field>
+                                    <field name="UNIT">cm</field>
+                                    <value name="VALUE"><shadow type="math_number"><field name="NUM">25</field></shadow></value>
+                                    <next>
+                                      <block type="flipperlight_lightDisplayText">
+                                        <field name="TEXT">Done!</field>
+                                      </block>
+                                    </next>
+                                  </block>
+                                </next>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
                       </block>
                     </next>
                   </block>
