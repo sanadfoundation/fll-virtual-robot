@@ -333,6 +333,7 @@ async function runPython() {
   }
   setButtons(true);
   sim._stopRequested = false;
+  sim._setStatus('running');
   appendOutput('[Run] Executing Python code…', 'info');
   window._pyWorker.postMessage({ type: 'run', code: editor.getValue() });
 }
@@ -377,6 +378,7 @@ function handleStop() {
   sim._stopRequested = true;
   sim.isRunning = false;
   setButtons(false);
+  sim._setStatus('ready');
   appendOutput('[Stopped]', 'warn');
 }
 
@@ -525,14 +527,17 @@ function _pollForWorker() {
         // calls) and tell Python to stop, otherwise its awaited Promise hangs.
         appendOutput('[Error] ' + (e && e.message ? e.message : e), 'error');
         setButtons(false);
+        sim._setStatus('error');
         worker.postMessage({ type: 'cmd_result', id: data.id, result: { stopped: true } });
       }
     } else if (data.type === 'done') {
       appendOutput('[Done] Simulation complete.', 'info');
       setButtons(false);
+      sim._setStatus('ready');
     } else if (data.type === 'error') {
       appendOutput('[Error] ' + data.message, 'error');
       setButtons(false);
+      sim._setStatus('error');
     }
   });
 }
