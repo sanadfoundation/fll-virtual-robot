@@ -121,8 +121,80 @@
   <!-- Resize handle -->
   <div class="resize-handle" id="resize-handle"></div>
 
-  <!-- Right panel: canvas + console -->
+  <!-- Right panel: hub strip + canvas + console -->
   <div class="panel-right">
+
+    <!-- Hub strip: pose + per-port live state. Always visible — slim
+         horizontal band above the canvas, scoped to the right column so
+         it doesn't overrun the editor. -->
+    <section id="sensor-panel" aria-label="Hub panel">
+      <div class="hub-group hub-pose" aria-label="Robot pose">
+        <h3 class="hub-group-title">Position</h3>
+        <div class="hub-group-row">
+          <div class="hub-stat" title="Horizontal position from the left edge of the field">
+            <span class="sensor-label">X</span>
+            <span class="sensor-value" id="sp-x">—</span>
+          </div>
+          <div class="hub-stat" title="Vertical position from the bottom edge of the field">
+            <span class="sensor-label">Y</span>
+            <span class="sensor-value" id="sp-y">—</span>
+          </div>
+          <div class="hub-stat" title="Direction the robot is facing (0° = east, 90° = north)">
+            <span class="sensor-label">Heading</span>
+            <span class="sensor-value" id="sp-heading">—</span>
+          </div>
+          <div class="hub-stat" title="Net rotation since the last reset_yaw_angle() call">
+            <span class="sensor-label">Yaw Change</span>
+            <span class="sensor-value" id="sp-yaw">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hub-divider" aria-hidden="true"></div>
+
+      <div class="hub-group hub-ports" aria-label="Ports">
+        <h3 class="hub-group-title">Ports</h3>
+        <div class="hub-group-row">
+          <div class="port-row" id="port-row-A" title="Light motor — left drive wheel; value is current rotation">
+            <span class="port-letter">A</span>
+            <span class="port-device">Motor L</span>
+            <span class="port-value" id="port-value-A">0°</span>
+          </div>
+          <div class="port-row" id="port-row-B" title="Light motor — right drive wheel; value is current rotation">
+            <span class="port-letter">B</span>
+            <span class="port-device">Motor R</span>
+            <span class="port-value" id="port-value-B">0°</span>
+          </div>
+          <div class="port-row" id="port-row-C" title="Color sensor — reads the colour under the robot">
+            <span class="port-letter">C</span>
+            <span class="port-device">Color</span>
+            <span class="port-value" id="port-value-C">none</span>
+            <span class="sensor-color-swatch" id="color-swatch"></span>
+          </div>
+          <div class="port-row" id="port-row-D" title="Distance sensor — reads how far the nearest object is">
+            <span class="port-letter">D</span>
+            <span class="port-device">Distance</span>
+            <span class="port-value" id="port-value-D">—</span>
+          </div>
+          <div class="port-row port-row-with-action" id="port-row-E" title="Force sensor — press &amp; hold the button to apply force">
+            <span class="port-letter">E</span>
+            <span class="port-device">Force</span>
+            <span class="port-value" id="port-value-E">0.0 N</span>
+            <button class="port-force-button" id="port-force-E" type="button"
+                    aria-label="Apply force on the sensor at port E">
+              <span class="port-force-fill" id="port-force-fill-E"></span>
+              <span class="port-force-label">Press</span>
+            </button>
+          </div>
+          <div class="port-row empty" id="port-row-F" title="Empty port — no device attached">
+            <span class="port-letter">F</span>
+            <span class="port-device">Empty</span>
+            <span class="port-value" id="port-value-F"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <div class="canvas-wrap">
       <canvas id="robot-canvas"></canvas>
       <div id="canvas-hover" hidden></div>
@@ -138,80 +210,6 @@
       <div id="console-output"></div>
     </div>
   </div>
-
-  <!-- Hub sidebar: pose + per-port live state (collapsible) -->
-  <aside id="sensor-panel">
-    <div class="hub-rail">
-      <button class="hub-toggle" id="hub-toggle" aria-label="Collapse hub panel" aria-expanded="true">
-        <span class="hub-toggle-chevron">›</span>
-      </button>
-      <button class="hub-rail-label" id="hub-rail-label" type="button" aria-label="Expand hub panel">Hub Panel</button>
-    </div>
-    <div class="hub-content">
-      <h2 class="hub-title">Hub Panel</h2>
-      <div class="hub-section">
-        <h3>Position</h3>
-
-        <div class="sensor-row">
-          <span class="sensor-label">X</span>
-          <span class="sensor-value" id="sp-x">—</span>
-        </div>
-        <div class="sensor-row">
-          <span class="sensor-label">Y</span>
-          <span class="sensor-value" id="sp-y">—</span>
-        </div>
-        <div class="sensor-row">
-          <span class="sensor-label">Heading</span>
-          <span class="sensor-value" id="sp-heading">—</span>
-        </div>
-        <div class="sensor-row">
-          <span class="sensor-label">Yaw Change</span>
-          <span class="sensor-value" id="sp-yaw">—</span>
-        </div>
-      </div>
-
-      <div class="ports-section">
-        <h4 class="port-header">Ports</h4>
-        <div class="port-row" id="port-row-A">
-          <span class="port-letter">A</span>
-          <span class="port-device">light motor (L)</span>
-          <span class="port-value" id="port-value-A">0°</span>
-        </div>
-        <div class="port-row" id="port-row-B">
-          <span class="port-letter">B</span>
-          <span class="port-device">light motor (R)</span>
-          <span class="port-value" id="port-value-B">0°</span>
-        </div>
-        <div class="port-row" id="port-row-C">
-          <span class="port-letter">C</span>
-          <span class="port-device">color</span>
-          <span class="port-value" id="port-value-C">none</span>
-          <span class="sensor-color-swatch" id="color-swatch"></span>
-        </div>
-        <div class="port-row" id="port-row-D">
-          <span class="port-letter">D</span>
-          <span class="port-device">distance</span>
-          <span class="port-value" id="port-value-D">—</span>
-        </div>
-        <div class="port-row port-row-with-action" id="port-row-E">
-          <span class="port-letter">E</span>
-          <span class="port-device">force</span>
-          <span class="port-value" id="port-value-E">0.0 N</span>
-          <button class="port-force-button" id="port-force-E" type="button"
-                  aria-label="Apply force on the sensor at port E">
-            <span class="port-force-fill" id="port-force-fill-E"></span>
-            <span class="port-force-label">Press &amp; hold to apply</span>
-          </button>
-        </div>
-        <div class="port-row empty" id="port-row-F">
-          <span class="port-letter">F</span>
-          <span class="port-device">—</span>
-          <span class="port-value" id="port-value-F"></span>
-        </div>
-      </div>
-
-    </div>
-  </aside>
 
 </div>
 

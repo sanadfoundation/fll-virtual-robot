@@ -252,6 +252,16 @@ class RobotSimulator {
     this._resize();
     window.addEventListener('resize', () => this._resize());
 
+    // Observe the canvas wrap directly so any layout change reflows the
+    // canvas — console expand/collapse, hub-strip changes, resize-handle
+    // drags between the editor and right panel. Without this, the canvas
+    // only re-fit on window resize and stale margins caused the canvas to
+    // jump on the next document mouseup.
+    if (typeof ResizeObserver !== 'undefined') {
+      this._wrapObserver = new ResizeObserver(() => this._resize());
+      this._wrapObserver.observe(this.canvas.parentElement);
+    }
+
     this._hoverEl = document.getElementById('canvas-hover');
     if (this._hoverEl) {
       this.canvas.addEventListener('mousemove', e => this._handleHover(e));
@@ -323,8 +333,21 @@ class RobotSimulator {
 
   _resize() {
     const wrap = this.canvas.parentElement;
-    const W = wrap.clientWidth  - 2;
-    const H = wrap.clientHeight - 2;
+    // Respect any CSS padding on .canvas-wrap (clientWidth/Height include it,
+    // but flex children are placed inside the content box). Subtracting the
+    // padding here keeps the canvas inside the visible breathing-room gutter
+    // regardless of wrap size. The extra -2 leaves room for the 1px border
+    // declared on #robot-canvas via box-shadow.
+    // getComputedStyle is browser-only; the Node test harness provides a
+    // stub document without it, so fall back to zero padding there.
+    let padX = 0, padY = 0;
+    if (typeof getComputedStyle === 'function') {
+      const cs = getComputedStyle(wrap);
+      padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+      padY = parseFloat(cs.paddingTop)  + parseFloat(cs.paddingBottom);
+    }
+    const W = wrap.clientWidth  - padX - 2;
+    const H = wrap.clientHeight - padY - 2;
 
     const scaleW = W / FIELD_W_MM;
     const scaleH = H / FIELD_H_MM;
@@ -335,10 +358,10 @@ class RobotSimulator {
 
     this.canvas.width  = fw;
     this.canvas.height = fh;
-    this._offX = (W - fw) / 2;
-    this._offY = (H - fh) / 2;
-    this.canvas.style.marginLeft = this._offX + 'px';
-    this.canvas.style.marginTop  = this._offY + 'px';
+    // Flex centering on .canvas-wrap (align-items: center; justify-content:
+    // center) positions the canvas symmetrically; no explicit margin needed.
+    // The hover overlay reads canvas position via getBoundingClientRect, so
+    // it tracks the centered canvas without needing _offX/_offY here.
 
     // Trail canvas tracks main canvas pixel size; re-render at new scale.
     this._trailCanvas.width  = fw;
@@ -1487,6 +1510,12 @@ class RobotSimulator {
   // manual contribution to zero immediately.
   manualRelease() {
     this._manualStartMs = null;
+    // Force one more draw so the panel/canvas repaint with the cleared
+    // manual contribution. The draw loop's "should I redraw?" check only
+    // stays true while manualStartMs != null OR emaN > 0.001 — without this
+    // nudge, the frame that runs right after release sees both false and
+    // skips draw(), leaving the last-painted (high) fill width on screen.
+    this._dirty = true;
     // Note: emaN is NOT cleared — a release while in physics contact should
     // still surface the physics force.
   }

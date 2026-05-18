@@ -341,8 +341,6 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
   display: flex;
   flex: 1;
   overflow: hidden;
-  /* Positioning context for the absolute-positioned hub overlay. */
-  position: relative;
 }
 
 /* ── Left panel ────────────────────────────────────────── */
@@ -645,11 +643,6 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  /* Reserve 40px on the right for the sensor-overlay rail tab. The canvas
-     and console end at the rail's left edge (so the field's right wall is
-     visible). When the overlay expands, its leftmost 260px floats over the
-     canvas; the rightmost 40px sits in this reserved zone. */
-  padding-right: 40px;
 }
 
 /* ── Canvas area ───────────────────────────────────────── */
@@ -661,6 +654,11 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Always-visible breathing room around the FLL mat. _resize() in
+     simulator.js reads this padding via getComputedStyle, so the canvas
+     never grows over it. Flex centering handles the canvas position; no
+     explicit margins are written from JS. */
+  padding: 14px;
   /* Subtle dot-grid background outside the FLL mat */
   background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
   background-size: 24px 24px;
@@ -674,154 +672,117 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
     var(--shadow-canvas);
 }
 
-/* ── Hub overlay ────────────────────────────────────────
-   Floats above the canvas on the right edge of .app-body
-   (which is position: relative). When expanded the overlay
-   sits over the canvas — the canvas does NOT reflow. The
-   collapse animation slides the panel out to the right,
-   leaving only the rail (a 40px tap-friendly tab) visible.
+/* ── Hub strip ──────────────────────────────────────────
+   Slim horizontal band above the canvas, scoped to .panel-right
+   so the editor column isn't covered. Two labelled groups —
+   Position (pose tiles) and Ports (per-port cards) — separated
+   by a 1px divider. Always visible, no collapse, no horizontal
+   scroll: every tile flex-shrinks below its preferred size so the
+   strip fits whatever width panel-right gives it.
    ─────────────────────────────────────────────────────── */
 #sensor-panel {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 8;
-  width: 300px;
   flex-shrink: 0;
   display: flex;
-  flex-direction: row;
+  align-items: stretch;
+  gap: 10px;
+  padding: 6px 10px 8px;
   background: var(--surface);
-  border-left: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
   font-family: var(--font-code);
-  font-size: 11px;
+  font-size: 12px;
   overflow: hidden;
-  box-shadow: -8px 0 24px rgba(0,0,0,0.25);
-  transition: transform 0.25s ease;
 }
 
-:root[data-theme="light"] #sensor-panel {
-  box-shadow: -8px 0 24px rgba(15,23,42,0.12);
-}
-
-#sensor-panel.collapsed {
-  /* Slide out so only the rail (40px) shows on the right edge. */
-  transform: translateX(calc(100% - 40px));
-}
-
-.hub-rail {
-  /* 40px tap target — matches the tablet-prototype thumb-friendly size. */
-  width: 40px;
-  flex-shrink: 0;
+.hub-group {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  border-right: 1px solid var(--border);
-  background: var(--surface);
-}
-
-#sensor-panel.collapsed .hub-rail {
-  border-right: none;
-  /* Subtle accent so the closed tab reads as "tap me to open ports". */
-  background: var(--surface2);
-}
-
-.hub-toggle {
-  width: 100%;
-  height: 40px;
-  flex-shrink: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-mid);
-  cursor: pointer;
-  font-family: var(--font-ui);
-  font-size: 18px;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: color 0.15s, background 0.15s;
-}
-
-.hub-toggle:hover {
-  color: var(--cyan);
-  background: var(--bg);
-}
-
-.hub-toggle-chevron {
-  display: inline-block;
-  transition: transform 0.2s ease;
-}
-
-#sensor-panel.collapsed .hub-toggle-chevron {
-  transform: rotate(180deg);
-}
-
-.hub-rail-label {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: transparent;
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-  font-family: var(--font-ui);
-  font-size: 9px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  color: var(--text-dim);
-  padding: 12px 0;
-  cursor: pointer;
-  user-select: none;
-  transition: color 0.15s, background 0.15s;
-}
-
-.hub-rail-label:hover {
-  color: var(--cyan);
-  background: var(--bg);
-}
-
-#sensor-panel:not(.collapsed) .hub-rail-label {
-  display: none;
-}
-
-.hub-title {
-  font-family: var(--font-ui);
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: var(--text);
-  margin: 0 0 14px 0;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border2);
-}
-
-.hub-content {
-  flex: 1;
+  gap: 4px;
   min-width: 0;
-  padding: 10px 12px;
-  overflow-y: auto;
-  overflow-x: hidden;
 }
 
-#sensor-panel.collapsed .hub-content {
-  opacity: 0;
-  pointer-events: none;
+.hub-pose {
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
-#sensor-panel h3 {
+.hub-ports {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.hub-group-title {
   font-family: var(--font-ui);
   font-size: 9px;
   font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--cyan);
+  margin: 0 2px;
+  line-height: 1;
+  /* No bottom border — the row of tiles directly underneath provides
+     enough separation, and the underline would crowd the slim strip. */
+}
+
+.hub-group-row {
+  display: flex;
+  align-items: stretch;
+  gap: 5px;
+  min-width: 0;
+}
+
+.hub-stat {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  flex: 1 1 0;
+  min-width: 56px;
+  padding: 4px 9px;
+  background: linear-gradient(135deg, var(--surface2), var(--surface3));
+  border: 1px solid var(--border2);
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.hub-divider {
+  width: 1px;
+  align-self: stretch;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.sensor-label {
+  color: var(--text-dim);
+  font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: var(--cyan);
-  margin-bottom: 8px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--border);
+  font-family: var(--font-ui);
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sensor-value {
+  color: var(--amber);
+  font-family: var(--font-code);
+  font-weight: 700;
+  font-size: 15px;
+  text-align: left;
+  line-height: 1.05;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sensor-color-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid var(--border2);
+  display: inline-block;
+  flex-shrink: 0;
 }
 
 .units-select {
@@ -839,103 +800,91 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
   border-color: var(--cyan);
 }
 
-.sensor-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 3px 0;
-  gap: 8px;
-}
-
-.sensor-label {
-  color: var(--text-dim);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-family: var(--font-ui);
-  font-weight: 600;
-}
-
-.sensor-value {
-  color: var(--amber);
-  font-weight: 500;
-  font-size: 11px;
-  text-align: right;
-}
-
-.sensor-color-swatch {
-  width: 13px;
-  height: 13px;
-  border-radius: 2px;
-  border: 1px solid var(--border2);
-  display: inline-block;
-  vertical-align: middle;
-  flex-shrink: 0;
-}
-
-/* ── Hub panel: ports section ──────────────────────────── */
-.port-header {
-  font-family: var(--font-ui);
-  font-size: 9px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--cyan);
-  margin: 12px 0 6px 0;
-  padding-top: 10px;
-  padding-bottom: 4px;
-  border-top: 1px solid var(--border);
-}
-
-/* Settings section sits below Ports — mirror .port-header's top divider so
-   the visual rhythm between sections stays consistent. The h3's standard
-   bottom border is dropped: with only one row beneath, the underline reads
-   as visual noise; the top divider alone is enough section separation.
-   Selector includes #sensor-panel to outrank the more-specific
-   `#sensor-panel h3` rule that defines the standard underline. */
-#sensor-panel .settings-section h3 {
-  margin-top: 12px;
-  padding-top: 10px;
-  padding-bottom: 0;
-  border-top: 1px solid var(--border);
-  border-bottom: none;
-}
-
+/* ── Hub strip: per-port cards ─────────────────────────── */
 .port-row {
   display: grid;
-  grid-template-columns: 18px 1fr auto auto;
-  gap: 6px;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  column-gap: 7px;
+  row-gap: 1px;
   align-items: center;
-  padding: 2px 0;
+  align-content: center;
+  padding: 4px 7px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  flex: 1 1 0;
+  min-width: 72px;
+  overflow: hidden;
 }
 
 .port-letter {
-  font-family: var(--font-code);
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--text-dim);
-  text-align: center;
+  grid-row: 1 / span 2;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 800;
+  color: white;
+  background: var(--surface3);
 }
 
 .port-device {
+  grid-column: 2;
+  grid-row: 1;
   font-family: var(--font-ui);
-  font-size: 10px;
-  color: var(--text-dim);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-mid);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1;
 }
 
 .port-value {
+  grid-column: 2;
+  grid-row: 2;
   font-family: var(--font-code);
-  font-size: 11px;
+  font-size: 13px;
+  font-weight: 700;
   color: var(--amber);
-  text-align: right;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.1;
 }
 
-.port-row.empty .port-letter,
+#color-swatch {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  align-self: center;
+  width: 12px;
+  height: 12px;
+}
+
+/* Port category colours — keyed off the static port IDs in index.html.
+   A/B light motors → blue, C color → red, D distance → cyan,
+   E force → orange, F empty → muted (.empty rule below). */
+#port-row-A .port-letter,
+#port-row-B .port-letter { background: var(--blue); }
+#port-row-C .port-letter { background: var(--red); }
+#port-row-D .port-letter { background: var(--cyan); color: #052e2e; }
+#port-row-E .port-letter { background: #f97316; color: #422006; }
+
+.port-row.empty .port-letter {
+  background: var(--surface3);
+  color: var(--text-dim);
+}
 .port-row.empty .port-device,
 .port-row.empty .port-value {
-  opacity: 0.35;
+  opacity: 0.45;
 }
 
 /* ── Console ───────────────────────────────────────────── */
@@ -1689,173 +1638,6 @@ li.CodeMirror-hint-active {
 }
 
 /* ════════════════════════════════════════════════════════════════════════
-   TABLET-OVERLAY HUB STYLING
-   ════════════════════════════════════════════════════════════════════════
-   The overlay (#sensor-panel converted to position:absolute above) reuses
-   the same inner DOM as the old sidebar. These rules restyle that content
-   for the overlay context: bigger numbers, port chips with category
-   colours, touch-friendly controls. Appended at the end of the file so
-   later cascade wins over earlier compact-sidebar values.
-   ──────────────────────────────────────────────────────────────────── */
-
-#sensor-panel { font-size: 13px; }
-
-.hub-rail-label {
-  font-size: 11px;
-  letter-spacing: 0.2em;
-}
-
-#sensor-panel.collapsed .hub-rail-label {
-  color: var(--text);
-}
-
-.hub-content {
-  padding: 14px 14px 20px;
-}
-
-.hub-title {
-  font-size: 13px;
-  letter-spacing: 0.18em;
-  margin-bottom: 16px;
-  padding-bottom: 10px;
-}
-
-#sensor-panel h3 {
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  margin-bottom: 10px;
-  padding-bottom: 8px;
-}
-
-/* Position card — grouped block with bigger numbers */
-.hub-section:not(.settings-section) {
-  background: linear-gradient(135deg, var(--surface2), var(--surface3));
-  border: 1px solid var(--border2);
-  border-radius: 10px;
-  padding: 12px 14px;
-  margin-bottom: 14px;
-}
-.hub-section:not(.settings-section) > h3 {
-  margin: 0 0 8px;
-  padding-bottom: 8px;
-}
-.hub-section:not(.settings-section) .sensor-row {
-  padding: 5px 0;
-  min-height: 26px;
-}
-.sensor-label {
-  font-size: 11px;
-}
-.sensor-value {
-  font-size: 18px;
-  font-weight: 700;
-  font-family: var(--font-code);
-}
-
-/* Ports — each row becomes a card with a coloured chip */
-.port-header {
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  margin: 4px 0 10px;
-  padding-top: 0;
-  border-top: none;
-}
-
-.port-row {
-  /* chip | device-text | value | (color-swatch on E) */
-  grid-template-columns: 32px 1fr auto auto;
-  gap: 10px;
-  padding: 7px 10px;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  margin-bottom: 5px;
-  min-height: 44px;
-  align-items: center;
-}
-
-.port-letter {
-  width: 32px;
-  height: 32px;
-  border-radius: 7px;
-  display: grid;
-  place-items: center;
-  font-size: 14px;
-  font-weight: 800;
-  font-family: var(--font-ui);
-  color: white;
-  background: var(--surface3);
-}
-
-/* Port chip colours — keyed off the static port IDs in index.html.
-   A/B light motors → blue, C color → red, D distance → cyan,
-   E force → orange, F empty → muted (.empty rule below).
-   When a port is reassigned at runtime, the chip stays its default colour;
-   revisit when in-app port reassignment lands. */
-#port-row-A .port-letter,
-#port-row-B .port-letter { background: var(--blue); }
-#port-row-C .port-letter { background: var(--red); }
-#port-row-D .port-letter { background: var(--cyan); color: #052e2e; }
-#port-row-E .port-letter { background: #f97316; color: #422006; }
-
-.port-row.empty .port-letter {
-  background: var(--surface3);
-  color: var(--text-dim);
-}
-
-.port-device {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--text);
-  letter-spacing: 0.04em;
-}
-
-.port-value {
-  font-size: 14px;
-  font-weight: 700;
-  font-family: var(--font-code);
-  color: var(--amber);
-}
-
-/* Settings section — bigger controls */
-.settings-section .speed-control,
-.settings-section .sensor-row {
-  padding: 8px 0;
-  min-height: 36px;
-}
-
-#speed-slider {
-  width: 130px;
-  height: 24px;
-}
-
-#sensor-panel .btn-theme {
-  min-height: 36px;
-  padding: 6px 14px;
-  font-size: 14px;
-}
-
-.units-select {
-  min-height: 32px;
-  padding: 4px 10px;
-  font-size: 12px;
-  border-radius: 6px;
-}
-
-.port-force-button {
-  height: 36px;
-  width: 130px;
-  font-size: 12px;
-  border-radius: 7px;
-}
-
-#sensor-panel .settings-section .btn-reset {
-  min-height: 40px;
-  margin-top: 12px;
-  font-size: 12px;
-}
-
-/* ════════════════════════════════════════════════════════════════════════
    TABLET-OVERLAY HEADER & CHROME
    ════════════════════════════════════════════════════════════════════════
    Bumps the top bar to 60px and every header button to 38-44px tall,
@@ -2418,24 +2200,28 @@ header h1 {
 }
 
 /* ════════════════════════════════════════════════════════════════════════
-   FORCE (C) — INLINE WITH PORT C ROW
+   FORCE (E) — INLINE WITH PORT E CARD
    ──────────────────────────────────────────────────────────────────────
-   The "Press & hold to apply" button used to live in Settings — kids
-   couldn't reach it while watching a run. Moved into the port C card so
-   it sits exactly where the sensor reading is, and the card grows a
-   second row to host it.
+   The "Press & hold" button used to live in Settings — kids couldn't reach
+   it while watching a run. In the horizontal hub strip it sits inline to
+   the right of the value, inside the port E card, so the card stays the
+   same height as its neighbours.
    ──────────────────────────────────────────────────────────────────── */
 
 .port-row.port-row-with-action {
-  grid-template-columns: 32px 1fr auto auto;
-  grid-template-rows: auto auto;
-  row-gap: 8px;
+  grid-template-columns: 26px minmax(0, 1fr) minmax(0, 1.4fr);
+  flex: 1.7 1 0;
+  min-width: 140px;
 }
 
 .port-row.port-row-with-action .port-force-button {
-  grid-column: 1 / -1;
-  width: 100%;
-  height: 36px;
-  border-radius: 8px;
-  font-size: 12px;
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  align-self: center;
+  justify-self: stretch;
+  width: auto;
+  height: 30px;
+  border-radius: 6px;
+  font-size: 10px;
+  padding: 0 6px;
 }

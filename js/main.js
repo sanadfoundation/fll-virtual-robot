@@ -139,45 +139,6 @@ function toggleTheme() {
 // Apply theme as early as possible to avoid a flash of dark UI in light mode.
 initTheme();
 
-// ── Hub sidebar collapse ────────────────────────────────────────────────────
-
-function applyHubCollapsed(collapsed) {
-  const panel = document.getElementById('sensor-panel');
-  const btn   = document.getElementById('hub-toggle');
-  if (!panel || !btn) return;
-  panel.classList.toggle('collapsed', collapsed);
-  btn.setAttribute('aria-expanded', String(!collapsed));
-  btn.setAttribute('aria-label', collapsed ? 'Expand hub panel' : 'Collapse hub panel');
-}
-
-function initHubSidebar() {
-  const panel = document.getElementById('sensor-panel');
-  const btn   = document.getElementById('hub-toggle');
-  if (!panel || !btn) return;
-
-  applyHubCollapsed(false);
-
-  btn.addEventListener('click', () => {
-    applyHubCollapsed(!panel.classList.contains('collapsed'));
-  });
-
-  const railLabel = document.getElementById('hub-rail-label');
-  if (railLabel) {
-    railLabel.addEventListener('click', () => applyHubCollapsed(false));
-  }
-
-  // The canvas auto-fits its parent on window resize. When the sidebar
-  // width changes, panel-right reflows but no resize event fires — so
-  // re-trigger the sim's fit logic when the transition lands.
-  panel.addEventListener('transitionend', e => {
-    if (e.propertyName !== 'width') return;
-    if (window.sim && typeof window.sim._resize === 'function') {
-      window.sim._resize();
-    }
-    resizeBlocklyWorkspace();
-  });
-}
-
 // ── Initialization ────────────────────────────────────────────────────────────
 
 function initEditor() {
@@ -569,9 +530,14 @@ function initResizeHandle() {
   });
 
   document.addEventListener('mouseup', () => {
+    // Only act on the mouseup that ends a resize-handle drag. Without this
+    // guard, every click anywhere in the document fired sim._resize(), which
+    // wrote stale marginLeft/marginTop onto the canvas and made it jump.
+    if (!dragging) return;
     dragging = false;
     document.body.style.userSelect = '';
-    if (sim) sim._resize();
+    // The canvas wrap has a ResizeObserver (simulator.js) so the canvas
+    // auto-fits the new panel-right width; we just need to resync Blockly.
     resizeBlocklyWorkspace();
   });
 }
@@ -649,7 +615,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initSim();
   _pollForWorker();
   initResizeHandle();
-  initHubSidebar();
   window.addEventListener('resize', resizeBlocklyWorkspace);
 
   document.getElementById('tab-python').addEventListener('click', () => switchMode('python'));
