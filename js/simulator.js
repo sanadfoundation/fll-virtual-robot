@@ -1295,10 +1295,23 @@ class RobotSimulator {
       this._applyForceImpulse(impulseJ, physDt_s, impulseJ > 0);
 
       const pose = this.physics.readPose(this.robotBody);
+      // Box2D v2.4 does not generate contacts between kinematic and static
+      // bodies, so the field walls cannot stop the robot from inside the
+      // engine. Clamp the centre so the rotated chassis+bumper AABB stays
+      // inside the field, and write the clamped pose back so Box2D's idea of
+      // the robot position stays aligned with what we render.
+      const clamped = window.kinematics.clampRobotPose(
+        { x: pose.x, y: pose.y, angle: pose.angle },
+        { bodyW: ROBOT_BODY_W, bodyH: ROBOT_BODY_H, bumperDepth: BUMPER_DEPTH_MM,
+          fieldW: FIELD_W_MM, fieldH: FIELD_H_MM },
+      );
+      if (clamped.clamped) {
+        this.physics.setKinematicPose(this.robotBody, clamped.x, clamped.y, pose.angle);
+      }
       const prevX = this.robot.x;
       const prevY = this.robot.y;
-      this.robot.x = pose.x;
-      this.robot.y = pose.y;
+      this.robot.x = clamped.x;
+      this.robot.y = clamped.y;
       this.robot.heading = pose.angle * 180 / Math.PI;
 
       this._appendTrailSegment(prevX, prevY, this.robot.x, this.robot.y);

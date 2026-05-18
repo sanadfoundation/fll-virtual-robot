@@ -28,6 +28,9 @@ function installKinematicPhysics(sim) {
     setKinematicVelocity: (_body, vx, vy, angVel) => {
       lastV = { vx, vy, angVel };
     },
+    setKinematicPose: (_body, x, y, angle) => {
+      pose.x = x; pose.y = y; pose.angle = angle;
+    },
     step: (dt_s) => {
       pose.x     += lastV.vx     * dt_s;
       pose.y     += lastV.vy     * dt_s;

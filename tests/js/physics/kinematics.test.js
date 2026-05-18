@@ -167,3 +167,92 @@ test('computeSubSteps: zero dt clamps to a minimum of 1 step', () => {
 test('computeSubSteps: 50 ms with 16.67 ms cap ⇒ 3 sub-steps', () => {
   assert.strictEqual(k.computeSubSteps(0.05, MAX_STEP), 3);
 });
+
+// ── clampRobotPose ───────────────────────────────────────────────────────────
+//
+// Box2D v2.4 does not generate contacts between kinematic and static bodies
+// (Dynamics manual: "A fixture on a kinematic body can only collide with a
+// dynamic body"). Until/unless the robot becomes dynamic, the simulator
+// clamps the robot pose to the field rectangle outside the engine.
+//
+// Body-local frame matches addRobot in world_2d.js: +X is forward, +Y is
+// lateral. The bumper extends forward of the chassis in body-local +X only;
+// the back, left, and right edges are flush with the chassis half-extents.
+
+const FIELD = { fieldW: 2362, fieldH: 1143 };
+const ROBOT = { bodyW: 160, bodyH: 200, bumperDepth: 10 };
+const GEOM  = { ...ROBOT, ...FIELD };
+
+test('clampRobotPose: centre of field, no rotation ⇒ unchanged, clamped=false', () => {
+  const out = k.clampRobotPose({ x: 1000, y: 500, angle: 0 }, GEOM);
+  assert.strictEqual(out.x, 1000);
+  assert.strictEqual(out.y, 500);
+  assert.strictEqual(out.clamped, false);
+});
+
+test('clampRobotPose: heading east, past right wall ⇒ chassis-front + bumper hugs wall', () => {
+  // Body angle 0 ⇒ forward = world +X. Forward extent = bodyH/2 + bumperDepth
+  // = 110. xMax = fieldW - 110 = 2252.
+  const out = k.clampRobotPose({ x: 2400, y: 500, angle: 0 }, GEOM);
+  assert.strictEqual(out.x, 2252);
+  assert.strictEqual(out.y, 500);
+  assert.strictEqual(out.clamped, true);
+});
+
+test('clampRobotPose: heading east, past left wall ⇒ chassis-back hugs wall (no bumper at back)', () => {
+  // Body angle 0 ⇒ back = world -X. Back extent = bodyH/2 = 100. xMin = 100.
+  const out = k.clampRobotPose({ x: 50, y: 500, angle: 0 }, GEOM);
+  assert.strictEqual(out.x, 100);
+  assert.strictEqual(out.clamped, true);
+});
+
+test('clampRobotPose: heading north, past top wall ⇒ chassis-front + bumper hugs top wall', () => {
+  // Body angle π/2 ⇒ forward = world +Y. yMax = fieldH - 110 = 1033.
+  const out = k.clampRobotPose({ x: 1000, y: 1200, angle: Math.PI / 2 }, GEOM);
+  assert.ok(Math.abs(out.y - 1033) < 1e-9, `y=${out.y}`);
+  assert.strictEqual(out.clamped, true);
+});
+
+test('clampRobotPose: heading north, past bottom wall ⇒ chassis-back hugs bottom wall', () => {
+  // Body angle π/2 ⇒ back = world -Y. yMin = 100.
+  const out = k.clampRobotPose({ x: 1000, y: 50, angle: Math.PI / 2 }, GEOM);
+  assert.ok(Math.abs(out.y - 100) < 1e-9, `y=${out.y}`);
+  assert.strictEqual(out.clamped, true);
+});
+
+test('clampRobotPose: heading south, past bottom wall ⇒ chassis-front + bumper hugs bottom wall', () => {
+  // Body angle -π/2 ⇒ forward = world -Y. yMin = 110.
+  const out = k.clampRobotPose({ x: 1000, y: 50, angle: -Math.PI / 2 }, GEOM);
+  assert.ok(Math.abs(out.y - 110) < 1e-9, `y=${out.y}`);
+  assert.strictEqual(out.clamped, true);
+});
+
+test('clampRobotPose: rotated 45° near corner ⇒ all four corners stay inside field', () => {
+  const out = k.clampRobotPose({ x: 50, y: 50, angle: Math.PI / 4 }, GEOM);
+  const halfH = ROBOT.bodyH / 2;
+  const halfW = ROBOT.bodyW / 2;
+  const corners = [
+    [-halfH,                     -halfW],
+    [-halfH,                     +halfW],
+    [+halfH + ROBOT.bumperDepth, -halfW],
+    [+halfH + ROBOT.bumperDepth, +halfW],
+  ];
+  const cos = Math.cos(Math.PI / 4);
+  const sin = Math.sin(Math.PI / 4);
+  for (const [lx, ly] of corners) {
+    const cx = out.x + lx * cos - ly * sin;
+    const cy = out.y + lx * sin + ly * cos;
+    assert.ok(cx >= -1e-9, `corner x=${cx} below field`);
+    assert.ok(cx <= FIELD.fieldW + 1e-9, `corner x=${cx} above field`);
+    assert.ok(cy >= -1e-9, `corner y=${cy} below field`);
+    assert.ok(cy <= FIELD.fieldH + 1e-9, `corner y=${cy} above field`);
+  }
+  assert.strictEqual(out.clamped, true);
+});
+
+test('clampRobotPose: default spawn (350, 163, 90°) is inside field ⇒ no clamp', () => {
+  const out = k.clampRobotPose({ x: 350, y: 163, angle: Math.PI / 2 }, GEOM);
+  assert.strictEqual(out.x, 350);
+  assert.strictEqual(out.y, 163);
+  assert.strictEqual(out.clamped, false);
+});

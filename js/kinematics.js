@@ -60,10 +60,54 @@
     return Math.max(1, Math.ceil(dtSeconds / maxStepSeconds));
   }
 
+  // Clamp the robot's centre so its rotated AABB (chassis + front bumper)
+  // stays inside the field rectangle. Box2D v2.4 will not generate contacts
+  // between kinematic and static bodies, so the simulator does this outside
+  // the engine after each physics step.
+  //
+  // geom.bodyH is the chassis front-to-back dimension (body-local +X),
+  // geom.bodyW is the chassis lateral dimension (body-local +Y); the bumper
+  // adds bumperDepth in body-local +X only. Returns the clamped (x, y) and a
+  // `clamped` flag so the caller can skip writing back when nothing changed.
+  function clampRobotPose(pose, geom) {
+    const halfH = geom.bodyH / 2;
+    const halfW = geom.bodyW / 2;
+    const corners = [
+      [-halfH,                   -halfW],
+      [-halfH,                   +halfW],
+      [+halfH + geom.bumperDepth, -halfW],
+      [+halfH + geom.bumperDepth, +halfW],
+    ];
+    const cos = Math.cos(pose.angle);
+    const sin = Math.sin(pose.angle);
+    let minDx = Infinity, maxDx = -Infinity;
+    let minDy = Infinity, maxDy = -Infinity;
+    for (const [lx, ly] of corners) {
+      const dx = lx * cos - ly * sin;
+      const dy = lx * sin + ly * cos;
+      if (dx < minDx) minDx = dx;
+      if (dx > maxDx) maxDx = dx;
+      if (dy < minDy) minDy = dy;
+      if (dy > maxDy) maxDy = dy;
+    }
+    const xMin = -minDx;
+    const xMax = geom.fieldW - maxDx;
+    const yMin = -minDy;
+    const yMax = geom.fieldH - maxDy;
+    const cx = Math.max(xMin, Math.min(xMax, pose.x));
+    const cy = Math.max(yMin, Math.min(yMax, pose.y));
+    return {
+      x: cx,
+      y: cy,
+      clamped: (cx !== pose.x) || (cy !== pose.y),
+    };
+  }
+
   return {
     steeringToWheels,
     wheelsToBodyVelocity,
     computeMoveDuration,
     computeSubSteps,
+    clampRobotPose,
   };
 });

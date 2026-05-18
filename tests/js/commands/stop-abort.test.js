@@ -19,6 +19,7 @@ const { createSim } = require('../sim-helper');
 function withStubbedPhysics(sim) {
   sim.physics = {
     setKinematicVelocity: () => {},
+    setKinematicPose: () => {},
     step: () => ({ force_impulses: {} }),
     readPose: () => ({ x: sim.robot.x, y: sim.robot.y, angle: 0 }),
     castRay: () => ({ hit: false }),
