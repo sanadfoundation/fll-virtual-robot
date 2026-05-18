@@ -881,7 +881,10 @@ class RobotSimulator {
     const el = id => document.getElementById(id);
     const set = (elId, val) => { const e = el(elId); if (e) e.textContent = val; };
 
-    if (!el('sensor-panel')) return;
+    // Guard so test environments without the hub-popover DOM are skipped.
+    // sp-x is one of the data-bound IDs that always exists when the hub
+    // Position popover is rendered (regardless of whether it is open).
+    if (!el('sp-x')) return;
 
     // Pose section
     const deg = (((r.heading % 360) + 360) % 360);

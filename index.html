@@ -68,6 +68,83 @@
   <div class="spacer"></div>
 
   <div class="header-controls">
+
+    <!-- Position popover: live X / Y / Heading / Yaw Change. Toggle by clicking
+         the button or pressing Escape; stays open while the user interacts with
+         the canvas so values can be monitored during a run. -->
+    <div class="hub-menu" id="hub-menu-position">
+      <button class="btn btn-hub" id="hub-trigger-position" type="button" aria-haspopup="true" aria-expanded="false" title="Live position">
+        <span class="hub-icon" aria-hidden="true">📍</span> Position
+      </button>
+      <div class="hub-pop" id="hub-pop-position" role="region" aria-labelledby="hub-trigger-position">
+        <h3 class="hub-pop-title">Position</h3>
+        <div class="hub-stat" title="Horizontal position from the left edge of the field">
+          <span class="sensor-label">X</span>
+          <span class="sensor-value" id="sp-x">—</span>
+        </div>
+        <div class="hub-stat" title="Vertical position from the bottom edge of the field">
+          <span class="sensor-label">Y</span>
+          <span class="sensor-value" id="sp-y">—</span>
+        </div>
+        <div class="hub-stat" title="Direction the robot is facing (0° = east, 90° = north)">
+          <span class="sensor-label">Heading</span>
+          <span class="sensor-value" id="sp-heading">—</span>
+        </div>
+        <div class="hub-stat" title="Net rotation since the last reset_yaw_angle() call">
+          <span class="sensor-label">Yaw Change</span>
+          <span class="sensor-value" id="sp-yaw">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ports popover: live per-port readout (A-F). Same toggle semantics as
+         the Position popover. The force button on port E lives inside the
+         pane so it's reachable while monitoring. -->
+    <div class="hub-menu" id="hub-menu-ports">
+      <button class="btn btn-hub" id="hub-trigger-ports" type="button" aria-haspopup="true" aria-expanded="false" title="Live port state">
+        <span class="hub-icon" aria-hidden="true">🔌</span> Ports
+      </button>
+      <div class="hub-pop" id="hub-pop-ports" role="region" aria-labelledby="hub-trigger-ports">
+        <h3 class="hub-pop-title">Ports</h3>
+        <div class="port-row" id="port-row-A" title="Light motor — left drive wheel; value is current rotation">
+          <span class="port-letter">A</span>
+          <span class="port-device">Motor (left)</span>
+          <span class="port-value" id="port-value-A">0°</span>
+        </div>
+        <div class="port-row" id="port-row-B" title="Light motor — right drive wheel; value is current rotation">
+          <span class="port-letter">B</span>
+          <span class="port-device">Motor (right)</span>
+          <span class="port-value" id="port-value-B">0°</span>
+        </div>
+        <div class="port-row" id="port-row-C" title="Color sensor — reads the colour under the robot">
+          <span class="port-letter">C</span>
+          <span class="port-device">Color sensor</span>
+          <span class="port-value" id="port-value-C">none</span>
+          <span class="sensor-color-swatch" id="color-swatch"></span>
+        </div>
+        <div class="port-row" id="port-row-D" title="Distance sensor — reads how far the nearest object is">
+          <span class="port-letter">D</span>
+          <span class="port-device">Distance sensor</span>
+          <span class="port-value" id="port-value-D">—</span>
+        </div>
+        <div class="port-row port-row-with-action" id="port-row-E" title="Force sensor — press &amp; hold the button to apply force">
+          <span class="port-letter">E</span>
+          <span class="port-device">Force sensor</span>
+          <span class="port-value" id="port-value-E">0.0 N</span>
+          <button class="port-force-button" id="port-force-E" type="button"
+                  aria-label="Apply force on the sensor at port E">
+            <span class="port-force-fill" id="port-force-fill-E"></span>
+            <span class="port-force-label">Press &amp; hold to apply</span>
+          </button>
+        </div>
+        <div class="port-row empty" id="port-row-F" title="Empty port — no device attached">
+          <span class="port-letter">F</span>
+          <span class="port-device">Empty</span>
+          <span class="port-value" id="port-value-F"></span>
+        </div>
+      </div>
+    </div>
+
     <div class="settings-menu" id="settings-menu">
       <button class="btn btn-settings" id="settings-trigger" type="button" aria-haspopup="true" aria-expanded="false" title="Settings">
         <span class="settings-gear" aria-hidden="true">⚙</span> Settings
@@ -121,79 +198,10 @@
   <!-- Resize handle -->
   <div class="resize-handle" id="resize-handle"></div>
 
-  <!-- Right panel: hub strip + canvas + console -->
+  <!-- Right panel: canvas + console. Position and Ports live in floating
+       popovers anchored to top-bar buttons (see <header>); they overlay the
+       canvas rather than consuming vertical space. -->
   <div class="panel-right">
-
-    <!-- Hub strip: pose + per-port live state. Always visible — slim
-         horizontal band above the canvas, scoped to the right column so
-         it doesn't overrun the editor. -->
-    <section id="sensor-panel" aria-label="Hub panel">
-      <div class="hub-group hub-pose" aria-label="Robot pose">
-        <h3 class="hub-group-title">Position</h3>
-        <div class="hub-group-row">
-          <div class="hub-stat" title="Horizontal position from the left edge of the field">
-            <span class="sensor-label">X</span>
-            <span class="sensor-value" id="sp-x">—</span>
-          </div>
-          <div class="hub-stat" title="Vertical position from the bottom edge of the field">
-            <span class="sensor-label">Y</span>
-            <span class="sensor-value" id="sp-y">—</span>
-          </div>
-          <div class="hub-stat" title="Direction the robot is facing (0° = east, 90° = north)">
-            <span class="sensor-label">Heading</span>
-            <span class="sensor-value" id="sp-heading">—</span>
-          </div>
-          <div class="hub-stat" title="Net rotation since the last reset_yaw_angle() call">
-            <span class="sensor-label">Yaw Change</span>
-            <span class="sensor-value" id="sp-yaw">—</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="hub-divider" aria-hidden="true"></div>
-
-      <div class="hub-group hub-ports" aria-label="Ports">
-        <h3 class="hub-group-title">Ports</h3>
-        <div class="hub-group-row">
-          <div class="port-row" id="port-row-A" title="Light motor — left drive wheel; value is current rotation">
-            <span class="port-letter">A</span>
-            <span class="port-device">Motor L</span>
-            <span class="port-value" id="port-value-A">0°</span>
-          </div>
-          <div class="port-row" id="port-row-B" title="Light motor — right drive wheel; value is current rotation">
-            <span class="port-letter">B</span>
-            <span class="port-device">Motor R</span>
-            <span class="port-value" id="port-value-B">0°</span>
-          </div>
-          <div class="port-row" id="port-row-C" title="Color sensor — reads the colour under the robot">
-            <span class="port-letter">C</span>
-            <span class="port-device">Color</span>
-            <span class="port-value" id="port-value-C">none</span>
-            <span class="sensor-color-swatch" id="color-swatch"></span>
-          </div>
-          <div class="port-row" id="port-row-D" title="Distance sensor — reads how far the nearest object is">
-            <span class="port-letter">D</span>
-            <span class="port-device">Distance</span>
-            <span class="port-value" id="port-value-D">—</span>
-          </div>
-          <div class="port-row port-row-with-action" id="port-row-E" title="Force sensor — press &amp; hold the button to apply force">
-            <span class="port-letter">E</span>
-            <span class="port-device">Force</span>
-            <span class="port-value" id="port-value-E">0.0 N</span>
-            <button class="port-force-button" id="port-force-E" type="button"
-                    aria-label="Apply force on the sensor at port E">
-              <span class="port-force-fill" id="port-force-fill-E"></span>
-              <span class="port-force-label">Press</span>
-            </button>
-          </div>
-          <div class="port-row empty" id="port-row-F" title="Empty port — no device attached">
-            <span class="port-letter">F</span>
-            <span class="port-device">Empty</span>
-            <span class="port-value" id="port-value-F"></span>
-          </div>
-        </div>
-      </div>
-    </section>
 
     <div class="canvas-wrap">
       <canvas id="robot-canvas"></canvas>
@@ -213,17 +221,17 @@
 
 </div>
 
-<!-- ── Bottom dock (status + primary actions in the thumb zone) ─── -->
+<!-- ── Bottom dock (primary actions on the left, status indicator on the right) ─── -->
 <div class="status-bar bottom-dock">
-  <div class="status-item">
-    <span class="status-dot ready" id="status-dot"></span>
-    <span id="status-label">Ready</span>
-  </div>
-  <div class="spacer"></div>
   <div class="dock-actions">
     <button class="btn btn-reset" id="btn-reset" title="Reset robot to spawn">↺ Reset</button>
     <button class="btn btn-stop"  id="btn-stop"  disabled>■ Stop</button>
     <button class="btn btn-run"   id="btn-run"   disabled title="Ctrl+Enter to run">▶ Run</button>
+  </div>
+  <div class="spacer"></div>
+  <div class="status-item">
+    <span class="status-dot ready" id="status-dot"></span>
+    <span id="status-label">Ready</span>
   </div>
 </div>
 
@@ -304,6 +312,41 @@
   });
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && pop.classList.contains('open')) close();
+  });
+})();
+
+// Hub popovers (Position / Ports) — same trigger pattern as the Settings
+// popover, tuned for live-monitoring during a run: outside clicks do NOT
+// close them, so the user can edit code or drag the robot with the
+// readouts staying visible. Mutually exclusive — opening one closes the
+// other, so the panes never overlap. Toggle by re-clicking the trigger;
+// Escape closes whichever is open.
+(function () {
+  const POPS = [
+    { triggerId: 'hub-trigger-position', popId: 'hub-pop-position' },
+    { triggerId: 'hub-trigger-ports',    popId: 'hub-pop-ports'    },
+  ];
+  const wired = POPS.map(({ triggerId, popId }) => {
+    const trigger = document.getElementById(triggerId);
+    const pop = document.getElementById(popId);
+    if (!trigger || !pop) return null;
+    return {
+      trigger, pop,
+      close: () => { pop.classList.remove('open'); trigger.setAttribute('aria-expanded', 'false'); },
+      open:  () => { pop.classList.add('open');    trigger.setAttribute('aria-expanded', 'true');  },
+    };
+  }).filter(Boolean);
+  wired.forEach(self => {
+    self.trigger.addEventListener('click', e => {
+      e.stopPropagation();
+      const wasOpen = self.pop.classList.contains('open');
+      wired.forEach(w => w.close());
+      if (!wasOpen) self.open();
+    });
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    wired.forEach(w => { if (w.pop.classList.contains('open')) w.close(); });
   });
 })();
 

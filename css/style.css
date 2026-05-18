@@ -672,108 +672,113 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
     var(--shadow-canvas);
 }
 
-/* ── Hub strip ──────────────────────────────────────────
-   Slim horizontal band above the canvas, scoped to .panel-right
-   so the editor column isn't covered. Two labelled groups —
-   Position (pose tiles) and Ports (per-port cards) — separated
-   by a 1px divider. Always visible, no collapse, no horizontal
-   scroll: every tile flex-shrinks below its preferred size so the
-   strip fits whatever width panel-right gives it.
+/* ── Hub popovers ───────────────────────────────────────
+   The horizontal "always-visible" strip was retired in favour of two
+   floating popovers anchored to top-bar buttons (Position, Ports). The
+   pops sit above the canvas — they don't consume canvas area — and they
+   stay open while the user interacts elsewhere, so values can be
+   monitored during a run. Toggled by clicking the trigger button or
+   pressing Escape; outside clicks deliberately do NOT close them.
    ─────────────────────────────────────────────────────── */
-#sensor-panel {
-  flex-shrink: 0;
+.hub-menu {
+  position: relative;
   display: flex;
-  align-items: stretch;
-  gap: 10px;
-  padding: 6px 10px 8px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  font-family: var(--font-code);
-  font-size: 12px;
-  overflow: hidden;
+  align-items: center;
 }
 
-.hub-group {
-  display: flex;
+.btn.btn-hub {
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border2);
+  white-space: nowrap;
+}
+
+.btn.btn-hub:hover {
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+
+.btn.btn-hub[aria-expanded="true"] {
+  background: var(--surface3);
+  border-color: var(--cyan);
+  color: var(--cyan);
+  box-shadow: inset 0 0 0 1px var(--cyan);
+}
+
+.hub-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.hub-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  display: none;
   flex-direction: column;
-  gap: 4px;
-  min-width: 0;
+  gap: 10px;
+  min-width: 260px;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  box-shadow: var(--shadow-panel);
+  font-family: var(--font-code);
+  /* Cap the height so the Ports pop fits short viewports; cards scroll
+     inside the pane rather than pushing the pane off-screen. */
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
 }
 
-.hub-pose {
-  flex: 0 1 auto;
-  min-width: 0;
+.hub-pop.open {
+  display: flex;
 }
 
-.hub-ports {
-  flex: 1 1 0;
-  min-width: 0;
-}
-
-.hub-group-title {
+.hub-pop-title {
   font-family: var(--font-ui);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.16em;
   color: var(--cyan);
-  margin: 0 2px;
-  line-height: 1;
-  /* No bottom border — the row of tiles directly underneath provides
-     enough separation, and the underline would crowd the slim strip. */
+  margin: 0 0 2px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
 }
 
-.hub-group-row {
-  display: flex;
-  align-items: stretch;
-  gap: 5px;
-  min-width: 0;
+/* Position pane — one stat tile per row, label kicker above a big value. */
+#hub-pop-position {
+  min-width: 220px;
 }
 
 .hub-stat {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 2px;
-  flex: 1 1 0;
-  min-width: 56px;
-  padding: 4px 9px;
+  gap: 3px;
+  padding: 8px 12px;
   background: linear-gradient(135deg, var(--surface2), var(--surface3));
   border: 1px solid var(--border2);
-  border-radius: 7px;
-  overflow: hidden;
-}
-
-.hub-divider {
-  width: 1px;
-  align-self: stretch;
-  background: var(--border);
-  flex-shrink: 0;
+  border-radius: 8px;
 }
 
 .sensor-label {
   color: var(--text-dim);
-  font-size: 9px;
+  font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   font-family: var(--font-ui);
   font-weight: 700;
   line-height: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .sensor-value {
   color: var(--amber);
   font-family: var(--font-code);
   font-weight: 700;
-  font-size: 15px;
+  font-size: 20px;
   text-align: left;
-  line-height: 1.05;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.1;
 }
 
 .sensor-color-swatch {
@@ -800,33 +805,32 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
   border-color: var(--cyan);
 }
 
-/* ── Hub strip: per-port cards ─────────────────────────── */
+/* Ports pane — one card per port. Chip on the left, label kicker + value
+   stacked on the right, optional accessory (swatch on C, force button on
+   E) to the far right. */
 .port-row {
   display: grid;
-  grid-template-columns: 26px minmax(0, 1fr) auto;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
   grid-template-rows: auto auto;
-  column-gap: 7px;
-  row-gap: 1px;
+  column-gap: 10px;
+  row-gap: 2px;
   align-items: center;
   align-content: center;
-  padding: 4px 7px;
+  padding: 8px 12px;
   background: var(--surface2);
   border: 1px solid var(--border);
-  border-radius: 7px;
-  flex: 1 1 0;
-  min-width: 72px;
-  overflow: hidden;
+  border-radius: 8px;
 }
 
 .port-letter {
   grid-row: 1 / span 2;
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
   display: grid;
   place-items: center;
   font-family: var(--font-ui);
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 800;
   color: white;
   background: var(--surface3);
@@ -836,14 +840,11 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
   grid-column: 2;
   grid-row: 1;
   font-family: var(--font-ui);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   color: var(--text-mid);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  letter-spacing: 0.08em;
   line-height: 1;
 }
 
@@ -851,13 +852,10 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
   grid-column: 2;
   grid-row: 2;
   font-family: var(--font-code);
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--amber);
   text-align: left;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   line-height: 1.1;
 }
 
@@ -865,8 +863,8 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
   grid-column: 3;
   grid-row: 1 / span 2;
   align-self: center;
-  width: 12px;
-  height: 12px;
+  width: 16px;
+  height: 16px;
 }
 
 /* Port category colours — keyed off the static port IDs in index.html.
@@ -2203,25 +2201,23 @@ header h1 {
    FORCE (E) — INLINE WITH PORT E CARD
    ──────────────────────────────────────────────────────────────────────
    The "Press & hold" button used to live in Settings — kids couldn't reach
-   it while watching a run. In the horizontal hub strip it sits inline to
-   the right of the value, inside the port E card, so the card stays the
-   same height as its neighbours.
+   it while watching a run. In the Ports popover it spans the full card
+   width on a third row, sitting just below the value so press-and-hold is
+   right where the reading is.
    ──────────────────────────────────────────────────────────────────── */
 
 .port-row.port-row-with-action {
-  grid-template-columns: 26px minmax(0, 1fr) minmax(0, 1.4fr);
-  flex: 1.7 1 0;
-  min-width: 140px;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto;
+  row-gap: 6px;
 }
 
 .port-row.port-row-with-action .port-force-button {
-  grid-column: 3;
-  grid-row: 1 / span 2;
-  align-self: center;
-  justify-self: stretch;
-  width: auto;
-  height: 30px;
-  border-radius: 6px;
-  font-size: 10px;
-  padding: 0 6px;
+  grid-column: 1 / -1;
+  grid-row: 3;
+  width: 100%;
+  height: 36px;
+  border-radius: 8px;
+  font-size: 12px;
+  padding: 0 12px;
 }
