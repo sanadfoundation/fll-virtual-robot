@@ -38,11 +38,10 @@ test('start: zero speed routes 0,0 — kinematic but stationary', async () => {
   assert.strictEqual(calls[0].rightV, 0);
 });
 
-// Catches the bug enumerated in docs/audits/2026-05-13-test-coverage-fidelity.md
-// §4.1: motor_pair.move(steering, velocity) is supposed to apply steering for
-// the whole continuous run, but _execCmd 'start' read only cmd.speed and
-// dropped cmd.steering, so the robot moved straight no matter what steering
-// value Python sent.
+// motor_pair.move(steering, velocity) is supposed to apply steering for the
+// whole continuous run, but _execCmd 'start' read only cmd.speed and dropped
+// cmd.steering, so the robot moved straight no matter what steering value
+// Python sent.
 test('start: positive steering produces unequal wheel velocities (right turn)', async () => {
   const sim = createSim();
   const calls = withTankStub(sim);

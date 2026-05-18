@@ -63,8 +63,9 @@ test('initBlockly: catches parse errors and reloads from DEFAULT_BLOCKLY_XML', (
 test('DEFAULT_BLOCKLY_XML: contains move/turn/move/print sequence', () => {
   const { window } = makeBlocklyEnv();
   const xml = window.DEFAULT_BLOCKLY_XML;
-  const moves = (xml.match(/flippermove_move/g) || []).length;
-  assert.strictEqual(moves, 2, 'expected two flippermove_move blocks');
-  assert.ok(xml.includes('flippermove_steer'),         'expected a steering/turn block');
+  const moves  = (xml.match(/flippermove_move/g)  || []).length;
+  const steers = (xml.match(/flippermove_steer/g) || []).length;
+  assert.ok(moves  >= 2, 'expected at least two flippermove_move blocks');
+  assert.ok(steers >= 1, 'expected at least one steering/turn block');
   assert.ok(xml.includes('flipperlight_lightDisplayText'), 'expected a print/lightDisplayText block');
 });

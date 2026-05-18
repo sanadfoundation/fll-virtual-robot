@@ -2,7 +2,7 @@
 
 // Tests for RobotSimulator._assertSensorAvailable — the runtime guard that
 // Blockly force-sensor generators call to mirror Python's "no force sensor
-// configured" RuntimeError. Bucket 1.7 fix from docs/audit/api-gap-report.md.
+// configured" RuntimeError.
 
 const test   = require('node:test');
 const assert = require('node:assert');

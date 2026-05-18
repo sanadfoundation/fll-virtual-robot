@@ -1,13 +1,10 @@
-"""Coverage for motor and sensor doc contracts that were unasserted before
-the api-audit pass. Each test class targets one Bucket 1 fix or Bucket 3
-gap from docs/audit/api-gap-report.md.
-"""
+"""Coverage for motor and sensor doc contracts."""
 import unittest
 import mock_js
 import spike_bridge as sb
 
 
-# ── Bucket 1.5 — motor.run_to_absolute_position direction is forwarded ──────
+# ── motor.run_to_absolute_position direction is forwarded ───────────────────
 
 class TestRunToAbsolutePositionDirection(unittest.TestCase):
 
@@ -37,7 +34,7 @@ class TestRunToAbsolutePositionDirection(unittest.TestCase):
         self.assertEqual(mock_js.bridge_mock.all()[0]['direction'], 3)
 
 
-# ── Bucket 1.6 — motor.velocity returns last commanded velocity ─────────────
+# ── motor.velocity returns last commanded velocity ──────────────────────────
 
 class TestMotorVelocityTracking(unittest.TestCase):
 
@@ -91,7 +88,7 @@ class TestMotorVelocityTracking(unittest.TestCase):
             sb.motor.velocity('C')  # C is color_sensor
 
 
-# ── Bucket 3 — motor.run default velocity ──────────────────────────────────
+# ── motor.run default velocity ──────────────────────────────────────────────
 
 class TestMotorRunDefaults(unittest.TestCase):
 
@@ -112,7 +109,7 @@ class TestMotorRunDefaults(unittest.TestCase):
         self.assertEqual(mock_js.bridge_mock.all()[0]['velocity'], 360)
 
 
-# ── Bucket 3 — motor_pair.stop with stop= kwarg ─────────────────────────────
+# ── motor_pair.stop with stop= kwarg ────────────────────────────────────────
 
 class TestMotorPairStopKwarg(unittest.TestCase):
 
@@ -135,7 +132,7 @@ class TestMotorPairStopKwarg(unittest.TestCase):
             self.assertEqual(c['pair_id'], 0)
 
 
-# ── Bucket 1.3 — motor_pair.move default velocity ───────────────────────────
+# ── motor_pair.move default velocity ────────────────────────────────────────
 
 class TestMotorPairMoveDefaults(unittest.TestCase):
 
@@ -148,7 +145,7 @@ class TestMotorPairMoveDefaults(unittest.TestCase):
         self.assertEqual(mock_js.bridge_mock.all()[0]['speed'], 360)
 
 
-# ── Bucket 3 — color_sensor return-value contracts ──────────────────────────
+# ── color_sensor return-value contracts ─────────────────────────────────────
 
 class TestColorSensorContracts(unittest.TestCase):
 
@@ -195,7 +192,7 @@ class TestColorSensorContracts(unittest.TestCase):
             self.assertIsInstance(v, int)
 
 
-# ── Bucket 3 — distance_sensor return-value contracts ───────────────────────
+# ── distance_sensor return-value contracts ──────────────────────────────────
 
 class TestDistanceSensorContracts(unittest.TestCase):
 

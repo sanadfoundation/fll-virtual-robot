@@ -1430,7 +1430,7 @@ function registerGenerators(Blockly) {
   // Each hat generator below emits either a `_mainBody = ...` assignment
   // (whenProgramStarts) or a `_hats.push(async () => { ... })` polling task.
   // The runtime they reference is set up in generateBlocklyJS's preamble +
-  // epilogue. See docs/superpowers/specs/2026-05-11-event-hats-design.md.
+  // epilogue.
 
   const HAT_TYPES = new Set([
     'flipperevents_whenProgramStarts','flipperevents_whenColor','flipperevents_whenPressed',
@@ -3487,7 +3487,7 @@ function generateBlocklyJS(workspace) {
     `var _motorStop     = {};`,
     `var _motorAccel    = {};`,
     `var _motorRelOffset= {};`,
-    // Event-hat runtime state (see docs/superpowers/specs/2026-05-11-event-hats-design.md).
+    // Event-hat runtime state.
     `var _hats     = [];`,
     `var _mainBody = null;`,
     `var _hatBusy  = {};`,

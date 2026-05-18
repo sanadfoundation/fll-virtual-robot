@@ -292,7 +292,7 @@ class TestSpeakerExtras(unittest.TestCase):
         self.assertIsNotNone(result)
 
 
-# ── Audit-tracked bugs: expectedFailure pins the LEGO-documented behaviour ──
+# ── Known bugs: expectedFailure pins the LEGO-documented behaviour ─────────
 #
 # Each test below asserts the behaviour the LEGO docs *promise*. They are
 # marked @unittest.expectedFailure because the current implementation is
@@ -303,15 +303,13 @@ class TestSpeakerExtras(unittest.TestCase):
 # This is the inverse posture from a stub-pin: a stub-pin enforces the bug
 # (test goes red when behaviour is fixed); an expectedFailure documents the
 # gap (test goes red when behaviour stays broken after the docs change).
-#
-# References point to docs/audits/2026-05-13-test-coverage-fidelity.md §X.
 
 class TestKnownBugsTracked(unittest.TestCase):
 
     def setUp(self):
         mock_js.bridge_mock.install()
 
-    # Audit §4.4 — color_sensor.rgbi always returns (128,128,128,0).
+    # color_sensor.rgbi always returns (128,128,128,0).
     # Bridge falls back to constructor defaults because _sensorState() never
     # emits an 'rgb' key (reflection got wired up post-audit; rgbi didn't).
     @unittest.expectedFailure
@@ -332,7 +330,7 @@ class TestKnownBugsTracked(unittest.TestCase):
         self.assertNotEqual(sb.color_sensor.rgbi('C'), (128, 128, 128, 0),
                             'rgbi still returning hardcoded default')
 
-    # Audit §4.5 — runloop.until(predicate, timeout) never polls predicate.
+    # runloop.until(predicate, timeout) never polls predicate.
     # The bridge returns _NoopAwaitable; the predicate is unreachable.
     @unittest.expectedFailure
     def test_runloop_until_polls_predicate(self):
@@ -355,7 +353,7 @@ class TestKnownBugsTracked(unittest.TestCase):
         self.assertGreaterEqual(counter[0], 3,
                                 'runloop.until never polled the predicate')
 
-    # Audit §4.6 — acceleration / deceleration / stop kwargs accepted at the
+    # acceleration / deceleration / stop kwargs accepted at the
     # Python signature but dropped before reaching the JS payload. Sim runs
     # constant-velocity with the default brake stop regardless.
     @unittest.expectedFailure
@@ -369,7 +367,7 @@ class TestKnownBugsTracked(unittest.TestCase):
         self.assertIn('acceleration', cmd)
         self.assertEqual(cmd['acceleration'], 2000)
 
-    # Audit 2026-05-17 follow-up §3.4 — hub.light_matrix.show(pixels) sends
+    # hub.light_matrix.show(pixels) sends
     # 'CUSTOM' regardless of the pixel array. The pixels are discarded before
     # ever reaching the bridge payload.
     @unittest.expectedFailure
@@ -382,7 +380,7 @@ class TestKnownBugsTracked(unittest.TestCase):
         self.assertIn('pixels', cmd)
         self.assertEqual(cmd['pixels'], [100] * 25)
 
-    # Audit 2026-05-17 follow-up §3.4 — get_pixel always returns 0. Per LEGO
+    # get_pixel always returns 0. Per LEGO
     # docs it should return the current brightness at (x, y).
     @unittest.expectedFailure
     def test_get_pixel_reads_current_brightness(self):
@@ -391,7 +389,7 @@ class TestKnownBugsTracked(unittest.TestCase):
         # Today the accessor doesn't read sim state — it hardcodes 0.
         self.assertEqual(sb.hub.light_matrix.get_pixel(2, 2), 50)
 
-    # Audit 2026-05-17 follow-up §3.4 — get_orientation / set_orientation are
+    # get_orientation / set_orientation are
     # stubs. set_orientation accepts any int but never affects display rotation;
     # get_orientation always returns 0.
     @unittest.expectedFailure
@@ -401,7 +399,7 @@ class TestKnownBugsTracked(unittest.TestCase):
         sb.hub.light_matrix.set_orientation(2)
         self.assertEqual(sb.hub.light_matrix.get_orientation(), 2)
 
-    # Audit 2026-05-17 follow-up §3.4 — hub.speaker.volume() emits no command.
+    # hub.speaker.volume() emits no command.
     # In real Spike this should set the speaker volume and the sim should
     # honor it for subsequent beep() / play_sound() calls.
     @unittest.expectedFailure
@@ -412,7 +410,7 @@ class TestKnownBugsTracked(unittest.TestCase):
         self.assertGreater(len(cmds), 0,
                            'hub.speaker.volume(75) should emit a bridge command')
 
-    # Audit 2026-05-17 follow-up §3.5 — hub.speaker.stop() emits no command.
+    # hub.speaker.stop() emits no command.
     # Should stop in-flight playback.
     @unittest.expectedFailure
     def test_speaker_stop_emits_command(self):

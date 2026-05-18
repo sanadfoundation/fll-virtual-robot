@@ -1,12 +1,12 @@
 'use strict';
 
-// Tests for two Bucket 1 fixes from docs/audit/api-gap-report.md:
-//   1.1 — Blockly color enum matches the LEGO word-block doc enum
-//         (0=Black, 1=Violet, 3=Blue, 4=Light Blue, 6=Green, 7=Yellow,
-//          9=Red, 10=White, -1=no color).
-//   1.7 — Blockly force-sensor generators emit a _assertSensorAvailable
-//         guard so the runtime errors match Python's RuntimeError when
-//         no force sensor is configured.
+// Two parity checks:
+//   - Blockly color enum matches the LEGO word-block doc enum
+//     (0=Black, 1=Violet, 3=Blue, 4=Light Blue, 6=Green, 7=Yellow,
+//      9=Red, 10=White, -1=no color).
+//   - Blockly force-sensor generators emit a _assertSensorAvailable guard so
+//     the runtime errors match Python's RuntimeError when no force sensor is
+//     configured.
 
 const test   = require('node:test');
 const assert = require('node:assert');
