@@ -16,6 +16,72 @@
     return { sha: data.sha, builtAt: builtAt };
   }
 
+  // Collect same-origin static asset URLs from the live DOM and Performance
+  // Resource Timing buffer. Used by hardReload() to refresh the HTTP cache
+  // before reloading, so the new page version doesn't pick up stale cached
+  // JS/CSS/images.
+  function collectSameOriginAssetUrls(doc, perf, baseHref) {
+    const urls = new Set();
+    let base;
+    try { base = new URL(baseHref); }
+    catch (e) { return urls; }
+    const addSameOrigin = (raw) => {
+      if (!raw) return;
+      let abs;
+      try { abs = new URL(raw, base); }
+      catch (e) { return; }
+      if (abs.origin !== base.origin) return;
+      urls.add(abs.href);
+    };
+    if (doc && typeof doc.querySelectorAll === 'function') {
+      const tags = [
+        ['link[rel="stylesheet"][href]', 'href'],
+        ['script[src]',                  'src'],
+        ['img[src]',                     'src'],
+      ];
+      for (const [selector, attr] of tags) {
+        const nodes = doc.querySelectorAll(selector) || [];
+        for (const el of nodes) addSameOrigin(el.getAttribute(attr));
+      }
+    }
+    if (perf && typeof perf.getEntriesByType === 'function') {
+      let entries = [];
+      try { entries = perf.getEntriesByType('resource') || []; }
+      catch (e) { entries = []; }
+      for (const e of entries) {
+        if (e && typeof e.name === 'string') addSameOrigin(e.name);
+      }
+    }
+    return urls;
+  }
+
+  // Reload that bypasses the HTTP cache for same-origin static assets.
+  // `cache: 'reload'` forces a network fetch and updates the HTTP cache, so
+  // the subsequent location.reload() uses the freshened entries.
+  async function hardReload() {
+    const tasks = [];
+    const fetchFn = root.fetch;
+    if (typeof fetchFn === 'function') {
+      const baseHref = root.location && root.location.href;
+      const urls = collectSameOriginAssetUrls(root.document, root.performance, baseHref);
+      for (const u of urls) {
+        tasks.push(fetchFn(u, { cache: 'reload' }).catch(() => {}));
+      }
+    }
+    if (root.caches && typeof root.caches.keys === 'function') {
+      tasks.push(
+        root.caches.keys()
+          .then(keys => Promise.all(keys.map(k => root.caches.delete(k).catch(() => {}))))
+          .catch(() => {})
+      );
+    }
+    try { await Promise.all(tasks); }
+    catch (e) { /* swallow: reload regardless */ }
+    if (root.location && typeof root.location.reload === 'function') {
+      root.location.reload();
+    }
+  }
+
   // ── Private state ─────────────────────────────────────────────────────────
   const VERSION_URL    = 'static/version.json';
   const DISMISSED_KEY  = 'vrs_dismissed_sha';
@@ -73,7 +139,11 @@
     reload.type = 'button';
     reload.className = 'version-banner-reload';
     reload.textContent = 'Reload';
-    reload.addEventListener('click', () => root.location.reload());
+    reload.addEventListener('click', () => {
+      reload.disabled = true;
+      reload.textContent = 'Reloading…';
+      hardReload();
+    });
     el.appendChild(reload);
 
     const dismiss = doc.createElement('button');
@@ -167,7 +237,14 @@
     bootstrap();
   }
 
-  const api = { shouldShowBanner, parseVersionPayload, init, getBaselineSha };
+  const api = {
+    shouldShowBanner,
+    parseVersionPayload,
+    init,
+    getBaselineSha,
+    collectSameOriginAssetUrls,
+    hardReload,
+  };
 
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = api;

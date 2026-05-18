@@ -9,15 +9,20 @@ const SRC = fs.readFileSync(
   'utf8',
 );
 
-function loadVersionCheck() {
-  const root = {};
+function loadVersionCheckWithRoot(rootInit) {
+  const root = Object.assign({}, rootInit || {});
   const context = vm.createContext({
     window: root,
     globalThis: root,
     console,
+    URL: globalThis.URL,
   });
   vm.runInContext(SRC, context);
-  return root.versionCheck;
+  return { api: root.versionCheck, root };
 }
 
-module.exports = { loadVersionCheck };
+function loadVersionCheck() {
+  return loadVersionCheckWithRoot().api;
+}
+
+module.exports = { loadVersionCheck, loadVersionCheckWithRoot };
