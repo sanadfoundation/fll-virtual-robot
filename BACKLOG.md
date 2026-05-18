@@ -156,11 +156,51 @@ Now that the step-interleaved execution model is in place, the 3D view can be bu
 
 ---
 
-## Obstacle Courses
+## Missions, Challenges & Obstacle Courses
 
-- Leveraging a physics engine, we're able to model collisions.
-- Able to change canvas maps, where each map has a start-to-finish goal but obstacles to avoid in-between.
-- Possibility of random map generation if feasible.
+A unified content layer for structured challenges with field setup, objectives, and scoring. Physics already handles collision; the missing pieces are the *content* (what makes a challenge a challenge) and the *authoring* (how it gets written). Play-side UX was prototyped in `prototypes/redesign-mission-map/`; `prototypes/redesign-index.html` compares it against four other layout candidates.
+
+### Challenge types
+
+- **Mission** — multi-step objectives with hints, point values, and a progress bar. Scaffolds learning by telling kids what to do next.
+- **Obstacle course** — single-objective navigation from start to goal, avoiding obstacles. Scoring on time + collisions. Random map generation as a stretch goal (parametric: obstacle count, density, corridor width).
+- **Sandbox** — the current default; no objectives, no scoring.
+
+All three share the same field / robot / object infrastructure; mission and obstacle course just add scoring rules on top.
+
+### Authoring — five candidate models, in order of cost
+
+1. **Code-annotated** — solution `.py` with `# @step "title" (Npts)` and `# @complete when robot.in_zone("red")` comments. App parses the annotations and builds the Mission Map panel. Mission file = reference solution. Zero new infrastructure; teachers use tools they already know.
+2. **JSON / YAML files** — structured definitions in a bundled `missions/` directory with a manifest. Lint-able, version-controllable, fits the static-file project.
+3. **Markdown with frontmatter** — same content as JSON but human-readable. Each section heading = one step.
+4. **Visual mission editor** — in-app author mode: drag the robot to set start, drop zones / objects, build success rules via a condition builder. Largest build; writes the JSON schema from (2).
+5. **Record-and-label** — author runs the reference solution; app captures path and sensor traces; author pauses at moments and labels them as steps. Lowest cognitive load; fuzzy state-matching is the open problem.
+
+Suggested rollout: (1) generates real missions cheaply and exposes what the schema needs; (2) once the schema settles, curate an official library; (4) only after the schema has been stress-tested by real missions.
+
+### Hard sub-problem: success-criteria checking
+
+How does the app *know* a step completed? Five check types, in order of restrictiveness:
+
+- **Code-line reached** — author marks a line; execution passing it completes the step. Deterministic but couples mission to one solution path.
+- **State predicate** — `heading in [85, 95]`, `position in zone X`. Flexible; author has to think like a tester.
+- **Zone entry** — drag a coloured rectangle onto the field; robot entering it completes the step. Intuitive, FLL-like.
+- **Sensor event** — `force > 5N`, `color = red`. Maps to kids' mental model of the actual sensors. Spoofable via API calls.
+- **Composite** — any-of / all-of trees combining the above. Powers real missions but climbs authoring complexity.
+
+Every real mission system ends up needing zone + sensor + state predicates, composed. v1 should pick the two that cover ~80% of cases (likely zone + sensor) and add predicates later.
+
+### Distribution
+
+- File format: `.llmission`, or extend `.llsp3` with a `mission/` folder — the JSZip save format already supports it.
+- Library: a static `missions/manifest.json` in the repo; a "Mission Library" panel fetches and lists. Community submits via PR.
+- Personal: localStorage / IndexedDB for user-created missions.
+- Sharing: base64-in-URL hash for no-backend sharing of single missions.
+
+### Cross-links
+
+- **Random noise events** (next section) layer environmental perturbations — pokes, friction patches — on top of any challenge. Could become a per-mission "difficulty modifier" once authored content exists.
+- **`prototypes/redesign-mission-map/`** is the play-side UX prototype. The authoring story above is the missing back half.
 
 ---
 
