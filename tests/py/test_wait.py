@@ -1,8 +1,17 @@
 """Characterize wait() command schema and runloop.run() coroutine driving."""
 import asyncio
+import sys
 import unittest
 import mock_js
 import spike_bridge as sb
+
+# Pyscript's MicroPython asyncio is JS-event-loop bound — there's no
+# synchronous run_until_complete. The MP test runner polyfills asyncio.run
+# with a manual coroutine driver that's fine for the immediate-completion
+# coroutines elsewhere, but it can't interleave at await asyncio.sleep(0).
+# Skip the interleaving tests under MP; the JS-side round-trip integration
+# tests exercise the same runloop.run path against the real event loop.
+_IS_MP = getattr(sys.implementation, 'name', '') == 'micropython'
 
 
 class TestWait(unittest.TestCase):
@@ -104,6 +113,7 @@ class TestRunloopParallel(unittest.TestCase):
         sb._bridge_call = self._original_bridge_call
         sb._user_coro = None
 
+    @unittest.skipIf(_IS_MP, 'requires CPython asyncio loop; covered by JS round-trip suite')
     def test_multiple_coroutines_interleave_at_awaits(self):
         events = []
 
@@ -132,6 +142,7 @@ class TestRunloopParallel(unittest.TestCase):
         self.assertLess(starts.index('f2-a'), starts.index('f1-b'),
                         'coroutines did not interleave: ' + repr(starts))
 
+    @unittest.skipIf(_IS_MP, 'requires CPython asyncio loop; covered by JS round-trip suite')
     def test_single_coroutine_still_runs(self):
         events = []
 

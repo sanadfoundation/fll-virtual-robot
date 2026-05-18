@@ -5,7 +5,8 @@
   "description": "Test-only dependencies for the FLL Virtual Robot simulator. Production code has no build step and pulls deps from CDN; this package.json exists solely for Node-side test harnesses.",
   "scripts": {
     "test:js": "node --test \"tests/js/**/*.test.js\"",
-    "test:py": "python3 tests/py/run.py",
+    "test:py": "node tests/py/run-mpy.js",
+    "test:py:cpython": "python3 tests/py/run.py",
     "test": "npm run test:py && npm run test:js"
   },
   "devDependencies": {

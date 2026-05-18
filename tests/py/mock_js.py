@@ -73,6 +73,11 @@ class BridgeMock:
             'motors': {'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0},
             'stopped': False,
         })
+        # Anchors / velocities also persist across calls; the CPython runner's
+        # hard-coded module order hid the leak. Reset so test order is irrelevant.
+        for _p in sb._PORT_LETTERS:
+            sb._motor_anchors[_p] = 0
+            sb._motor_velocities[_p] = 0
         self._calls = []
 
     def _capture(self, cmd):
