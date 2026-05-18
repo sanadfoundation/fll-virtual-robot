@@ -228,7 +228,7 @@ function initSim() {
   // pointerdown captures the pointer so a drag off the button still fires
   // pointerup; pointerleave / pointercancel are belt-and-suspenders for cases
   // where capture wasn't established (touch swipe, browser bug).
-  const forceBtn = document.getElementById('port-force-C');
+  const forceBtn = document.getElementById('port-force-E');
   if (forceBtn && sim) {
     forceBtn.addEventListener('pointerdown', (e) => {
       forceBtn.setPointerCapture && forceBtn.setPointerCapture(e.pointerId);
@@ -578,34 +578,39 @@ function initResizeHandle() {
 
 // ── Default Python code ───────────────────────────────────────────────────────
 
-const DEFAULT_PYTHON_CODE = `# FLL Virtual Robot — Mission: hit obstacle '1' on green, then obstacle '2' on red
+const DEFAULT_PYTHON_CODE = `# FLL Virtual Robot — Mission: hit obstacle '1' on green, then obstacle '2' on red.
+# Port layout: A/B light motors (drive), C color, D distance, E force, F empty.
 from hub import port
-import motor_pair, runloop
+import motor_pair, color_sensor, distance_sensor, force_sensor, runloop
 
 async def main():
-    # Pair the drive motors (left = port.A, right = port.B)
+    # Pair the drive motors (left = port.A, right = port.B).
     motor_pair.pair(motor_pair.PAIR_1, port.A, port.B)
 
-    # From spawn (350, 163), drive 780 mm north to the row of upper boxes (y≈943)
+    # From spawn (350, 163), drive 780 mm north to the row of upper boxes (y≈943).
     await motor_pair.move_for_degrees(motor_pair.PAIR_1, 1596, 0, velocity=720)
+    print('Color under robot:', color_sensor.color(port.C))
 
-    # Turn right 90° (now heading east)
+    # Turn right 90° (now heading east).
     await motor_pair.move_tank_for_time(motor_pair.PAIR_1, 360, -360, 500)
 
-    # Drive 1350 mm east — through yellow (x≈1000), slams obstacle '1' on green (x≈1700)
+    # Drive 1350 mm east — through yellow (x≈1000), slams obstacle '1' on green (x≈1700).
     await motor_pair.move_for_degrees(motor_pair.PAIR_1, 2762, 0, velocity=720)
+    print('Bumper force after hit:', force_sensor.force(port.E), 'N')
+    print('Distance ahead:', distance_sensor.distance(port.D), 'mm')
 
-    # Turn right 90° (now heading south)
+    # Turn right 90° (now heading south).
     await motor_pair.move_tank_for_time(motor_pair.PAIR_1, 360, -360, 500)
 
-    # Drive 600 mm south — line up with the red mission row (y≈343)
+    # Drive 600 mm south — line up with the red mission row (y≈343).
     await motor_pair.move_for_degrees(motor_pair.PAIR_1, 1228, 0, velocity=720)
 
-    # Turn left 90° (now heading east)
+    # Turn left 90° (now heading east).
     await motor_pair.move_tank_for_time(motor_pair.PAIR_1, -360, 360, 500)
 
-    # Drive 300 mm east — slams obstacle '2' on red (x≈2000)
+    # Drive 300 mm east — slams obstacle '2' on red (x≈2000).
     await motor_pair.move_for_degrees(motor_pair.PAIR_1, 614, 0, velocity=720)
+    print('Bumper force after hit:', force_sensor.force(port.E), 'N')
 
     print('Mission complete!')
 

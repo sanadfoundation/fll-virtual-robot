@@ -10,54 +10,56 @@ class TestPortConfig(unittest.TestCase):
         mock_js.bridge_mock.install()
 
     def test_port_config_default(self):
+        # New canonical wiring: A/B drive motors, C color, D distance,
+        # E force, F empty.
         self.assertEqual(sb._PORT_CONFIG['A'], 'motor')
         self.assertEqual(sb._PORT_CONFIG['B'], 'motor')
-        self.assertEqual(sb._PORT_CONFIG['C'], 'force_sensor')
-        self.assertEqual(sb._PORT_CONFIG['D'], 'empty')
-        self.assertEqual(sb._PORT_CONFIG['E'], 'color_sensor')
-        self.assertEqual(sb._PORT_CONFIG['F'], 'distance_sensor')
+        self.assertEqual(sb._PORT_CONFIG['C'], 'color_sensor')
+        self.assertEqual(sb._PORT_CONFIG['D'], 'distance_sensor')
+        self.assertEqual(sb._PORT_CONFIG['E'], 'force_sensor')
+        self.assertEqual(sb._PORT_CONFIG['F'], 'empty')
 
     def test_require_passes_for_matching_kind(self):
         self.assertEqual(sb._require('A', 'motor', 'motor.run'), 'A')
-        self.assertEqual(sb._require(sb.port.E, 'color_sensor', 'color_sensor.color'), 'E')
+        self.assertEqual(sb._require(sb.port.C, 'color_sensor', 'color_sensor.color'), 'C')
 
     def test_require_raises_for_empty_port(self):
         with self.assertRaises(RuntimeError) as cx:
-            sb._require('D', 'motor', 'motor.run')
-        self.assertIn('port D has no motor', str(cx.exception))
+            sb._require('F', 'motor', 'motor.run')
+        self.assertIn('port F has no motor', str(cx.exception))
         self.assertIn('configured: empty', str(cx.exception))
 
     def test_require_raises_for_wrong_kind(self):
         with self.assertRaises(RuntimeError) as cx:
-            sb._require('F', 'color_sensor', 'color_sensor.color')
-        self.assertIn('port F has no color sensor', str(cx.exception))
+            sb._require('D', 'color_sensor', 'color_sensor.color')
+        self.assertIn('port D has no color sensor', str(cx.exception))
         self.assertIn('configured: distance_sensor', str(cx.exception))
 
     def test_require_accepts_int_port(self):
         # port.A = 0
         self.assertEqual(sb._require(0, 'motor', 'motor.run'), 'A')
-        # port.E = 4
+        # port.E = 4 → force_sensor, so requiring motor raises.
         with self.assertRaises(RuntimeError):
             sb._require(4, 'motor', 'motor.run')
 
     def test_motor_run_for_degrees_on_empty_port_raises(self):
         with self.assertRaises(RuntimeError) as cx:
-            sb.motor.run_for_degrees('C', 360)
-        self.assertIn('port C has no motor', str(cx.exception))
+            sb.motor.run_for_degrees('F', 360)
+        self.assertIn('port F has no motor', str(cx.exception))
 
     def test_motor_run_on_sensor_port_raises(self):
         with self.assertRaises(RuntimeError) as cx:
-            sb.motor.run('E', velocity=500)
-        self.assertIn('port E has no motor', str(cx.exception))
+            sb.motor.run('C', velocity=500)
+        self.assertIn('port C has no motor', str(cx.exception))
         self.assertIn('configured: color_sensor', str(cx.exception))
 
     def test_motor_stop_on_empty_port_raises(self):
         with self.assertRaises(RuntimeError):
-            sb.motor.stop('D')
+            sb.motor.stop('F')
 
     def test_motor_run_for_time_on_distance_port_raises(self):
         with self.assertRaises(RuntimeError) as cx:
-            sb.motor.run_for_time('F', 1000)
+            sb.motor.run_for_time('D', 1000)
         self.assertIn('configured: distance_sensor', str(cx.exception))
 
     def test_motor_run_to_absolute_position_validates(self):
@@ -70,7 +72,7 @@ class TestPortConfig(unittest.TestCase):
 
     def test_motor_absolute_position_on_empty_port_raises(self):
         with self.assertRaises(RuntimeError):
-            sb.motor.absolute_position('C')
+            sb.motor.absolute_position('F')
 
     def test_motor_relative_position_on_sensor_port_raises(self):
         with self.assertRaises(RuntimeError):
@@ -78,11 +80,11 @@ class TestPortConfig(unittest.TestCase):
 
     def test_motor_velocity_on_empty_port_raises(self):
         with self.assertRaises(RuntimeError):
-            sb.motor.velocity('D')
+            sb.motor.velocity('F')
 
     def test_motor_reset_relative_position_validates(self):
         with self.assertRaises(RuntimeError):
-            sb.motor.reset_relative_position('F', 0)
+            sb.motor.reset_relative_position('D', 0)
 
     def test_motor_set_duty_cycle_validates(self):
         with self.assertRaises(RuntimeError):
@@ -108,20 +110,20 @@ class TestPortConfig(unittest.TestCase):
 
     def test_color_sensor_reflection_on_distance_port_raises(self):
         with self.assertRaises(RuntimeError):
-            sb.color_sensor.reflection('F')
+            sb.color_sensor.reflection('D')
 
     def test_color_sensor_rgbi_on_empty_port_raises(self):
         with self.assertRaises(RuntimeError):
-            sb.color_sensor.rgbi('C')
+            sb.color_sensor.rgbi('F')
 
     def test_color_sensor_color_on_color_port_succeeds(self):
         sb._state['color'] = 'red'
-        self.assertEqual(sb.color_sensor.color('E'), 9)  # red == 9 in _COLOR_INT_MAP
+        self.assertEqual(sb.color_sensor.color('C'), 9)  # red == 9 in _COLOR_INT_MAP
 
     # ── Distance sensor ─────────────────────────────────────────
     def test_distance_sensor_distance_on_color_port_raises(self):
         with self.assertRaises(RuntimeError) as cx:
-            sb.distance_sensor.distance('E')
+            sb.distance_sensor.distance('C')
         self.assertIn('configured: color_sensor', str(cx.exception))
 
     def test_distance_sensor_distance_on_motor_port_raises(self):
@@ -130,7 +132,7 @@ class TestPortConfig(unittest.TestCase):
 
     def test_distance_sensor_distance_on_distance_port_succeeds(self):
         sb._state['distance_mm'] = 250
-        self.assertEqual(sb.distance_sensor.distance('F'), 250)
+        self.assertEqual(sb.distance_sensor.distance('D'), 250)
 
     def test_distance_sensor_get_pixel_validates(self):
         with self.assertRaises(RuntimeError):
@@ -148,11 +150,11 @@ class TestPortConfig(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             sb.distance_sensor.clear('A')
 
-    # ── Force sensor (port C in default config) ────────
+    # ── Force sensor (port E in default config) ────────
     def test_force_sensor_force_always_raises(self):
-        # Port C is configured as force_sensor, so it should NOT raise.
+        # Port E is configured as force_sensor, so it should NOT raise.
         # All other ports should raise.
-        for p in ('A', 'B', 'D', 'E', 'F'):
+        for p in ('A', 'B', 'C', 'D', 'F'):
             with self.assertRaises(RuntimeError):
                 sb.force_sensor.force(p)
 

@@ -8,12 +8,22 @@ const test   = require('node:test');
 const assert = require('node:assert');
 const { createSim } = require('../sim-helper');
 
-test('_assertSensorAvailable("color_sensor") passes — port E is color in default config', () => {
+test('PORT_CONFIG default — A/B motors, C color, D distance, E force, F empty', () => {
+  const sim = createSim();
+  assert.strictEqual(sim._portConfig.A.kind, 'motor');
+  assert.strictEqual(sim._portConfig.B.kind, 'motor');
+  assert.strictEqual(sim._portConfig.C.kind, 'color_sensor');
+  assert.strictEqual(sim._portConfig.D.kind, 'distance_sensor');
+  assert.strictEqual(sim._portConfig.E.kind, 'force_sensor');
+  assert.strictEqual(sim._portConfig.F.kind, 'empty');
+});
+
+test('_assertSensorAvailable("color_sensor") passes — port C is color in default config', () => {
   const sim = createSim();
   assert.doesNotThrow(() => sim._assertSensorAvailable('color_sensor'));
 });
 
-test('_assertSensorAvailable("distance_sensor") passes — port F is distance in default config', () => {
+test('_assertSensorAvailable("distance_sensor") passes — port D is distance in default config', () => {
   const sim = createSim();
   assert.doesNotThrow(() => sim._assertSensorAvailable('distance_sensor'));
 });
@@ -23,7 +33,7 @@ test('_assertSensorAvailable("motor") passes — ports A,B are motors in default
   assert.doesNotThrow(() => sim._assertSensorAvailable('motor'));
 });
 
-test('_assertSensorAvailable("force_sensor") passes — port C is force_sensor in default config', () => {
+test('_assertSensorAvailable("force_sensor") passes — port E is force_sensor in default config', () => {
   const sim = createSim();
   assert.doesNotThrow(() => sim._assertSensorAvailable('force_sensor'));
 });

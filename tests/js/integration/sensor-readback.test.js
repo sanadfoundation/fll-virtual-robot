@@ -5,7 +5,7 @@
 // test_motor_sensor_gaps.py.
 //
 // Those Python tests follow the pattern: seed sb._state['force_dn'] = X, then
-// assert force_sensor.force('C') == X. That proves the bridge's accessor
+// assert force_sensor.force('E') == X. That proves the bridge's accessor
 // reads from _state, but NOT that the simulator ever populates _state with
 // the right value. These round-trips close that gap by driving the simulator
 // (or seeding the underlying sensor input that the simulator reads) and
@@ -32,9 +32,9 @@ async def main():
     global _f, _p, _r
     # Issue a no-op bridge call so _state syncs from the sim snapshot.
     await runloop.sleep_ms(0)
-    _f = force_sensor.force('C')
-    _p = force_sensor.pressed('C')
-    _r = force_sensor.raw('C')
+    _f = force_sensor.force('E')
+    _p = force_sensor.pressed('E')
+    _r = force_sensor.raw('E')
 runloop.run(main())
 `);
 
@@ -53,7 +53,7 @@ test('round-trip: force_sensor.pressed false at zero force', async () => {
 async def main():
     global _p
     await runloop.sleep_ms(0)
-    _p = force_sensor.pressed('C')
+    _p = force_sensor.pressed('E')
 runloop.run(main())
 `);
   assert.strictEqual(mp.globals.get('_p'), false);

@@ -20,7 +20,7 @@ test('round-trip: color_sensor.color over a Light-Blue tile returns color.AZURE'
 async def main():
     global _c, _is_azure
     await runloop.sleep_ms(0)
-    _c = color_sensor.color('E')
+    _c = color_sensor.color('C')
     _is_azure = (_c == color.AZURE)
 runloop.run(main())
 `);

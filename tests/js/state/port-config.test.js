@@ -10,11 +10,11 @@ test('PORT_CONFIG is exposed and matches default wiring', () => {
   assert.strictEqual(sim._portConfig.A.role, 'drive-left');
   assert.strictEqual(sim._portConfig.B.kind, 'motor');
   assert.strictEqual(sim._portConfig.B.role, 'drive-right');
-  assert.strictEqual(sim._portConfig.C.kind, 'force_sensor');
-  assert.strictEqual(sim._portConfig.C.mount, 'front');
-  assert.strictEqual(sim._portConfig.D.kind, 'empty');
-  assert.strictEqual(sim._portConfig.E.kind, 'color_sensor');
-  assert.strictEqual(sim._portConfig.F.kind, 'distance_sensor');
+  assert.strictEqual(sim._portConfig.C.kind, 'color_sensor');
+  assert.strictEqual(sim._portConfig.D.kind, 'distance_sensor');
+  assert.strictEqual(sim._portConfig.E.kind, 'force_sensor');
+  assert.strictEqual(sim._portConfig.E.mount, 'front');
+  assert.strictEqual(sim._portConfig.F.kind, 'empty');
 });
 
 test('_execCmd throws on motor command targeting empty port', async () => {
@@ -22,12 +22,12 @@ test('_execCmd throws on motor command targeting empty port', async () => {
   sim.isRunning = true;
   let threw = null;
   try {
-    await sim._execCmd({ type: 'motor_run', port: 'D', velocity: 360 });
+    await sim._execCmd({ type: 'motor_run', port: 'F', velocity: 360 });
   } catch (e) {
     threw = e;
   }
   assert.ok(threw, 'expected throw');
-  assert.match(threw.message, /port D has no motor/);
+  assert.match(threw.message, /port F has no motor/);
   assert.match(threw.message, /configured: empty/);
 });
 
@@ -36,12 +36,12 @@ test('_execCmd throws on motor command targeting sensor port', async () => {
   sim.isRunning = true;
   let threw = null;
   try {
-    await sim._execCmd({ type: 'motor_degrees', port: 'E', degrees: 360, velocity: 500 });
+    await sim._execCmd({ type: 'motor_degrees', port: 'C', degrees: 360, velocity: 500 });
   } catch (e) {
     threw = e;
   }
   assert.ok(threw, 'expected throw');
-  assert.match(threw.message, /port E has no motor/);
+  assert.match(threw.message, /port C has no motor/);
   assert.match(threw.message, /configured: color_sensor/);
 });
 

@@ -27,8 +27,8 @@ class TestMotorDutyCycleAndReset(unittest.TestCase):
 
     def test_reset_relative_position_validates_port(self):
         with self.assertRaises(RuntimeError) as ctx:
-            sb.motor.reset_relative_position('E')  # E is color_sensor
-        self.assertIn('port E has no motor', str(ctx.exception))
+            sb.motor.reset_relative_position('C')  # C is color_sensor
+        self.assertIn('port C has no motor', str(ctx.exception))
 
     def test_get_duty_cycle_returns_int(self):
         result = sb.motor.get_duty_cycle('A')
@@ -47,7 +47,7 @@ class TestMotorDutyCycleAndReset(unittest.TestCase):
 
     def test_set_duty_cycle_validates_port(self):
         with self.assertRaises(RuntimeError):
-            sb.motor.set_duty_cycle('F', 50)  # F is distance_sensor
+            sb.motor.set_duty_cycle('D', 50)  # D is distance_sensor
 
 
 # ── motor_pair: unpair ──────────────────────────────────────────────────────
@@ -81,7 +81,7 @@ class TestColorSensorReflection(unittest.TestCase):
 
     def test_reflection_default(self):
         # No 'reflection' key in default _state → falls back to 50.
-        result = sb.color_sensor.reflection('E')
+        result = sb.color_sensor.reflection('C')
         self.assertEqual(result, 50)
         self.assertIsInstance(result, int)
         self.assertEqual(mock_js.bridge_mock.all(), [])
@@ -89,7 +89,7 @@ class TestColorSensorReflection(unittest.TestCase):
     def test_reflection_reads_state(self):
         sb._state['reflection'] = 75
         try:
-            self.assertEqual(sb.color_sensor.reflection('E'), 75)
+            self.assertEqual(sb.color_sensor.reflection('C'), 75)
         finally:
             del sb._state['reflection']
 
@@ -105,7 +105,7 @@ class TestColorSensorRGBI(unittest.TestCase):
         mock_js.bridge_mock.install()
 
     def test_rgbi_default(self):
-        result = sb.color_sensor.rgbi('E')
+        result = sb.color_sensor.rgbi('C')
         self.assertIsInstance(result, tuple)
         self.assertEqual(len(result), 4)
         # Default RGB falls back to 128,128,128; intensity is 0.
@@ -114,14 +114,14 @@ class TestColorSensorRGBI(unittest.TestCase):
     def test_rgbi_reads_state(self):
         sb._state['rgb'] = [200, 100, 50]
         try:
-            r, g, b, i = sb.color_sensor.rgbi('E')
+            r, g, b, i = sb.color_sensor.rgbi('C')
             self.assertEqual((r, g, b), (200, 100, 50))
         finally:
             del sb._state['rgb']
 
     def test_rgbi_validates_port(self):
         with self.assertRaises(RuntimeError):
-            sb.color_sensor.rgbi('F')  # F is distance_sensor
+            sb.color_sensor.rgbi('D')  # D is distance_sensor
 
 
 # ── force_sensor: every method raises because no port is configured ────────
@@ -138,7 +138,7 @@ class TestForceSensor(unittest.TestCase):
 
     def test_force_raises_on_empty_port(self):
         with self.assertRaises(RuntimeError):
-            sb.force_sensor.force('D')
+            sb.force_sensor.force('F')
 
     def test_pressed_raises(self):
         with self.assertRaises(RuntimeError):
@@ -321,7 +321,7 @@ class TestKnownBugsTracked(unittest.TestCase):
         # sensor is over.
         sb._state['rgb'] = [255, 0, 0]  # red light
         try:
-            r, g, b, _i = sb.color_sensor.rgbi('E')
+            r, g, b, _i = sb.color_sensor.rgbi('C')
             # If _sensorState ever populates rgb correctly, this passes.
             # Today the bridge ignores _state['rgb'] for accessor reads.
             self.assertEqual((r, g, b), (255, 0, 0))
@@ -329,7 +329,7 @@ class TestKnownBugsTracked(unittest.TestCase):
             del sb._state['rgb']
         # Force an explicit failure today: the actual behaviour is the
         # default tuple, regardless of what we put in _state.
-        self.assertNotEqual(sb.color_sensor.rgbi('E'), (128, 128, 128, 0),
+        self.assertNotEqual(sb.color_sensor.rgbi('C'), (128, 128, 128, 0),
                             'rgbi still returning hardcoded default')
 
     # Audit §4.5 — runloop.until(predicate, timeout) never polls predicate.

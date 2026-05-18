@@ -123,7 +123,7 @@ class TestColorConstants(unittest.TestCase):
 
     def test_color_sensor_returns_int(self):
         mock_js.bridge_mock.install()
-        result = sb.color_sensor.color('E')
+        result = sb.color_sensor.color('C')
         self.assertIsInstance(result, int)
         self.assertEqual(result, -1)
 

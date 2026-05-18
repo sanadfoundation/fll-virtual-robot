@@ -1788,14 +1788,15 @@ li.CodeMirror-hint-active {
 }
 
 /* Port chip colours — keyed off the static port IDs in index.html.
-   A/B motors → blue, C force → orange, E color → red, F distance → cyan.
-   When a port is reassigned (e.g. C becomes a motor), the chip stays
-   force-orange; treat this as v1 and revisit when port reassignment lands. */
+   A/B light motors → blue, C color → red, D distance → cyan,
+   E force → orange, F empty → muted (.empty rule below).
+   When a port is reassigned at runtime, the chip stays its default colour;
+   revisit when in-app port reassignment lands. */
 #port-row-A .port-letter,
 #port-row-B .port-letter { background: var(--blue); }
-#port-row-C .port-letter { background: #f97316; color: #422006; }
-#port-row-E .port-letter { background: var(--red); }
-#port-row-F .port-letter { background: var(--cyan); color: #052e2e; }
+#port-row-C .port-letter { background: var(--red); }
+#port-row-D .port-letter { background: var(--cyan); color: #052e2e; }
+#port-row-E .port-letter { background: #f97316; color: #422006; }
 
 .port-row.empty .port-letter {
   background: var(--surface3);

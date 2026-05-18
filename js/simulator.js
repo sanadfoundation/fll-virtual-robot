@@ -40,10 +40,10 @@ const DIST_SENSOR_OOR_VALUE = 9999;  // wire sentinel; py/spike_bridge.py:308 ma
 const PORT_CONFIG = {
   A: { kind: 'motor',           role: 'drive-left'  },
   B: { kind: 'motor',           role: 'drive-right' },
-  C: { kind: 'force_sensor',    mount: 'front'      },
-  D: { kind: 'empty' },
-  E: { kind: 'color_sensor' },
-  F: { kind: 'distance_sensor' },
+  C: { kind: 'color_sensor' },
+  D: { kind: 'distance_sensor' },
+  E: { kind: 'force_sensor',    mount: 'front'      },
+  F: { kind: 'empty' },
 };
 
 // Maps a command type to the port `kind` it requires. Only motor commands

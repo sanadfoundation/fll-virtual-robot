@@ -88,7 +88,7 @@ class TestMotorVelocityTracking(unittest.TestCase):
 
     def test_velocity_validates_port(self):
         with self.assertRaises(RuntimeError):
-            sb.motor.velocity('E')  # E is color_sensor
+            sb.motor.velocity('C')  # C is color_sensor
 
 
 # ── Bucket 3 — motor.run default velocity ──────────────────────────────────
@@ -162,8 +162,8 @@ class TestColorSensorContracts(unittest.TestCase):
 
     def test_color_default_is_unknown(self):
         # Docs: returns color.UNKNOWN (-1) when no color is detected.
-        self.assertEqual(sb.color_sensor.color('E'), sb.color.UNKNOWN)
-        self.assertEqual(sb.color_sensor.color('E'), -1)
+        self.assertEqual(sb.color_sensor.color('C'), sb.color.UNKNOWN)
+        self.assertEqual(sb.color_sensor.color('C'), -1)
 
     def test_color_reads_state_for_each_token(self):
         # Verify every documented enum value round-trips through _state → color().
@@ -174,14 +174,14 @@ class TestColorSensorContracts(unittest.TestCase):
         }
         for token, expected in token_to_int.items():
             sb._state['color'] = token
-            self.assertEqual(sb.color_sensor.color('E'), expected,
+            self.assertEqual(sb.color_sensor.color('C'), expected,
                              f"token {token} should map to {expected}")
 
     def test_reflection_in_documented_range(self):
         # Docs: reflection returns 0-100. Pin the impl's behavior at the bounds.
         for v in (0, 50, 100):
             sb._state['reflection'] = v
-            result = sb.color_sensor.reflection('E')
+            result = sb.color_sensor.reflection('C')
             self.assertEqual(result, v)
             self.assertGreaterEqual(result, 0)
             self.assertLessEqual(result, 100)
@@ -189,7 +189,7 @@ class TestColorSensorContracts(unittest.TestCase):
     def test_rgbi_returns_4_ints(self):
         # Docs: rgbi returns tuple[int, int, int, int].
         sb._state['rgb'] = [50, 100, 150]
-        result = sb.color_sensor.rgbi('E')
+        result = sb.color_sensor.rgbi('C')
         self.assertEqual(len(result), 4)
         for v in result:
             self.assertIsInstance(v, int)
@@ -206,40 +206,40 @@ class TestDistanceSensorContracts(unittest.TestCase):
     def test_distance_default(self):
         # Default state has distance_mm = 300 (from spike_bridge.py _state init).
         # If it's been mutated by another test, 300 is still the spawn default.
-        self.assertEqual(sb.distance_sensor.distance('F'), 300)
+        self.assertEqual(sb.distance_sensor.distance('D'), 300)
 
     def test_distance_reads_state(self):
         sb._state['distance_mm'] = 1500
-        self.assertEqual(sb.distance_sensor.distance('F'), 1500)
+        self.assertEqual(sb.distance_sensor.distance('D'), 1500)
 
     def test_distance_minus_one_when_no_valid_reading(self):
         # Docs: returns -1 if no object detected. Impl reports >= 9999 as -1.
         sb._state['distance_mm'] = 9999
-        self.assertEqual(sb.distance_sensor.distance('F'), -1)
+        self.assertEqual(sb.distance_sensor.distance('D'), -1)
         sb._state['distance_mm'] = 12345
-        self.assertEqual(sb.distance_sensor.distance('F'), -1)
+        self.assertEqual(sb.distance_sensor.distance('D'), -1)
 
     def test_distance_returns_int(self):
         sb._state['distance_mm'] = 200
-        self.assertIsInstance(sb.distance_sensor.distance('F'), int)
+        self.assertIsInstance(sb.distance_sensor.distance('D'), int)
 
     def test_clear_emits_no_command(self):
         # Pinned no-op: clear / get_pixel / set_pixel / show currently do
         # nothing on the bridge, but they must accept the documented signature.
-        sb.distance_sensor.clear('F')
+        sb.distance_sensor.clear('D')
         self.assertEqual(mock_js.bridge_mock.all(), [])
 
     def test_get_pixel_returns_int(self):
-        result = sb.distance_sensor.get_pixel('F', 0, 0)
+        result = sb.distance_sensor.get_pixel('D', 0, 0)
         self.assertIsInstance(result, int)
         self.assertEqual(mock_js.bridge_mock.all(), [])
 
     def test_set_pixel_emits_no_command(self):
-        sb.distance_sensor.set_pixel('F', 1, 1, 50)
+        sb.distance_sensor.set_pixel('D', 1, 1, 50)
         self.assertEqual(mock_js.bridge_mock.all(), [])
 
     def test_show_emits_no_command(self):
-        sb.distance_sensor.show('F', [100, 100, 100, 100])
+        sb.distance_sensor.show('D', [100, 100, 100, 100])
         self.assertEqual(mock_js.bridge_mock.all(), [])
 
 

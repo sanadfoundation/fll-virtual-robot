@@ -79,10 +79,10 @@ _COLOR_INT_MAP = {
 _PORT_CONFIG = {
     'A': 'motor',
     'B': 'motor',
-    'C': 'force_sensor',
-    'D': 'empty',
-    'E': 'color_sensor',
-    'F': 'distance_sensor',
+    'C': 'color_sensor',
+    'D': 'distance_sensor',
+    'E': 'force_sensor',
+    'F': 'empty',
 }
 
 # ── Phase 3: Spike Prime v3 API ──────────────────────────────────────────────
