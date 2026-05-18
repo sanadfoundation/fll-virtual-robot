@@ -341,12 +341,15 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
   display: flex;
   flex: 1;
   overflow: hidden;
+  /* Positioning context for the absolute-positioned hub overlay. */
+  position: relative;
 }
 
 /* ── Left panel ────────────────────────────────────────── */
 .panel-left {
-  width: 45%;
-  min-width: 300px;
+  /* Editor takes ~1/3 of the screen; canvas (right panel) gets the rest. */
+  width: 33%;
+  min-width: 280px;
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--border);
@@ -642,6 +645,11 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  /* Reserve 40px on the right for the sensor-overlay rail tab. The canvas
+     and console end at the rail's left edge (so the field's right wall is
+     visible). When the overlay expands, its leftmost 260px floats over the
+     canvas; the rightmost 40px sits in this reserved zone. */
+  padding-right: 40px;
 }
 
 /* ── Canvas area ───────────────────────────────────────── */
@@ -666,9 +674,20 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
     var(--shadow-canvas);
 }
 
-/* ── Hub sidebar ───────────────────────────────────────── */
+/* ── Hub overlay ────────────────────────────────────────
+   Floats above the canvas on the right edge of .app-body
+   (which is position: relative). When expanded the overlay
+   sits over the canvas — the canvas does NOT reflow. The
+   collapse animation slides the panel out to the right,
+   leaving only the rail (a 40px tap-friendly tab) visible.
+   ─────────────────────────────────────────────────────── */
 #sensor-panel {
-  width: 210px;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 8;
+  width: 300px;
   flex-shrink: 0;
   display: flex;
   flex-direction: row;
@@ -677,36 +696,46 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
   font-family: var(--font-code);
   font-size: 11px;
   overflow: hidden;
-  transition: width 0.2s ease;
+  box-shadow: -8px 0 24px rgba(0,0,0,0.25);
+  transition: transform 0.25s ease;
+}
+
+:root[data-theme="light"] #sensor-panel {
+  box-shadow: -8px 0 24px rgba(15,23,42,0.12);
 }
 
 #sensor-panel.collapsed {
-  width: 28px;
+  /* Slide out so only the rail (40px) shows on the right edge. */
+  transform: translateX(calc(100% - 40px));
 }
 
 .hub-rail {
-  width: 28px;
+  /* 40px tap target — matches the tablet-prototype thumb-friendly size. */
+  width: 40px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   align-items: stretch;
   border-right: 1px solid var(--border);
+  background: var(--surface);
 }
 
 #sensor-panel.collapsed .hub-rail {
   border-right: none;
+  /* Subtle accent so the closed tab reads as "tap me to open ports". */
+  background: var(--surface2);
 }
 
 .hub-toggle {
   width: 100%;
-  height: 28px;
+  height: 40px;
   flex-shrink: 0;
   border: none;
   background: transparent;
-  color: var(--text-dim);
+  color: var(--text-mid);
   cursor: pointer;
   font-family: var(--font-ui);
-  font-size: 16px;
+  font-size: 18px;
   line-height: 1;
   display: flex;
   align-items: center;
@@ -1657,4 +1686,755 @@ li.CodeMirror-hint-active {
 
 .fll-cstrip-swatch:hover {
   outline-color: rgba(255,255,255,0.6);
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   TABLET-OVERLAY HUB STYLING
+   ════════════════════════════════════════════════════════════════════════
+   The overlay (#sensor-panel converted to position:absolute above) reuses
+   the same inner DOM as the old sidebar. These rules restyle that content
+   for the overlay context: bigger numbers, port chips with category
+   colours, touch-friendly controls. Appended at the end of the file so
+   later cascade wins over earlier compact-sidebar values.
+   ──────────────────────────────────────────────────────────────────── */
+
+#sensor-panel { font-size: 13px; }
+
+.hub-rail-label {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+}
+
+#sensor-panel.collapsed .hub-rail-label {
+  color: var(--text);
+}
+
+.hub-content {
+  padding: 14px 14px 20px;
+}
+
+.hub-title {
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+}
+
+#sensor-panel h3 {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+}
+
+/* Position card — grouped block with bigger numbers */
+.hub-section:not(.settings-section) {
+  background: linear-gradient(135deg, var(--surface2), var(--surface3));
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+.hub-section:not(.settings-section) > h3 {
+  margin: 0 0 8px;
+  padding-bottom: 8px;
+}
+.hub-section:not(.settings-section) .sensor-row {
+  padding: 5px 0;
+  min-height: 26px;
+}
+.sensor-label {
+  font-size: 11px;
+}
+.sensor-value {
+  font-size: 18px;
+  font-weight: 700;
+  font-family: var(--font-code);
+}
+
+/* Ports — each row becomes a card with a coloured chip */
+.port-header {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  margin: 4px 0 10px;
+  padding-top: 0;
+  border-top: none;
+}
+
+.port-row {
+  /* chip | device-text | value | (color-swatch on E) */
+  grid-template-columns: 32px 1fr auto auto;
+  gap: 10px;
+  padding: 7px 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 5px;
+  min-height: 44px;
+  align-items: center;
+}
+
+.port-letter {
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  font-weight: 800;
+  font-family: var(--font-ui);
+  color: white;
+  background: var(--surface3);
+}
+
+/* Port chip colours — keyed off the static port IDs in index.html.
+   A/B motors → blue, C force → orange, E color → red, F distance → cyan.
+   When a port is reassigned (e.g. C becomes a motor), the chip stays
+   force-orange; treat this as v1 and revisit when port reassignment lands. */
+#port-row-A .port-letter,
+#port-row-B .port-letter { background: var(--blue); }
+#port-row-C .port-letter { background: #f97316; color: #422006; }
+#port-row-E .port-letter { background: var(--red); }
+#port-row-F .port-letter { background: var(--cyan); color: #052e2e; }
+
+.port-row.empty .port-letter {
+  background: var(--surface3);
+  color: var(--text-dim);
+}
+
+.port-device {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.04em;
+}
+
+.port-value {
+  font-size: 14px;
+  font-weight: 700;
+  font-family: var(--font-code);
+  color: var(--amber);
+}
+
+/* Settings section — bigger controls */
+.settings-section .speed-control,
+.settings-section .sensor-row {
+  padding: 8px 0;
+  min-height: 36px;
+}
+
+#speed-slider {
+  width: 130px;
+  height: 24px;
+}
+
+#sensor-panel .btn-theme {
+  min-height: 36px;
+  padding: 6px 14px;
+  font-size: 14px;
+}
+
+.units-select {
+  min-height: 32px;
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+
+.port-force-button {
+  height: 36px;
+  width: 130px;
+  font-size: 12px;
+  border-radius: 7px;
+}
+
+#sensor-panel .settings-section .btn-reset {
+  min-height: 40px;
+  margin-top: 12px;
+  font-size: 12px;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   TABLET-OVERLAY HEADER & CHROME
+   ════════════════════════════════════════════════════════════════════════
+   Bumps the top bar to 60px and every header button to 38-44px tall,
+   makes Run/Stop the unmistakable primary action, replaces the mouse-tuned
+   project-name input with a pill-styled control, hides the noisy
+   attribution from the status bar. Appended at the end of the file so
+   later cascade wins over the original compact values.
+   ──────────────────────────────────────────────────────────────────── */
+
+header {
+  height: 60px;
+  gap: 14px;
+  padding: 0 16px;
+}
+
+.logo-mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  font-size: 19px;
+}
+
+header h1 {
+  font-size: 16px;
+}
+
+/* File buttons — Open / Save */
+.btn-file {
+  min-height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
+  border-radius: 10px;
+  gap: 8px;
+}
+
+/* Project name pill — bigger input field */
+.project-name-wrap {
+  margin-right: 4px;
+  gap: 8px;
+}
+.project-name-icon {
+  font-size: 20px;
+  opacity: 0.85;
+}
+.project-name-input {
+  padding: 8px 14px;
+  font-size: 14px;
+  border-radius: 10px;
+  min-height: 40px;
+  min-width: 180px;
+}
+
+/* Tab pill — Blocks / Python */
+.tab-group {
+  padding: 4px;
+  border-radius: 12px;
+}
+.tab-btn {
+  padding: 0 22px;
+  font-size: 13px;
+  min-height: 34px;
+  border-radius: 9px;
+  gap: 6px;
+  display: flex;
+  align-items: center;
+}
+
+/* Base .btn override applies to GitHub link, Reset; Run/Stop tighten below */
+.btn {
+  min-height: 40px;
+  padding: 0 16px;
+  font-size: 13px;
+  border-radius: 10px;
+  gap: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Run = primary action. Bigger, bolder, brighter. */
+.btn-run {
+  min-height: 44px;
+  padding: 0 26px;
+  font-size: 15px;
+  font-weight: 800;
+  border-radius: 22px;
+  letter-spacing: 0.05em;
+  gap: 8px;
+  /* Persistent soft glow so it reads as "press me" even when idle. */
+  box-shadow: 0 0 0 0 rgba(34,197,94,0), 0 3px 12px rgba(34,197,94,0.25);
+}
+.btn-run:not(:disabled):hover {
+  box-shadow: 0 0 22px rgba(34,197,94,0.5), 0 4px 14px rgba(34,197,94,0.3);
+}
+
+.btn-stop {
+  min-height: 44px;
+  padding: 0 22px;
+  font-size: 15px;
+  font-weight: 800;
+  border-radius: 22px;
+  letter-spacing: 0.05em;
+  gap: 8px;
+}
+
+.btn-reset {
+  min-height: 40px;
+  padding: 0 16px;
+  font-size: 13px;
+  border-radius: 10px;
+  gap: 6px;
+}
+
+.btn-github {
+  min-height: 40px;
+  padding: 0 14px;
+  font-size: 13px;
+  border-radius: 10px;
+  gap: 8px;
+}
+
+/* Status bar — trim noise (kid doesn't read trademark attribution mid-run) */
+.status-bar {
+  height: 26px;
+  font-size: 11px;
+  padding: 0 16px;
+}
+.status-bar .attribution {
+  display: none;
+}
+.status-bar .status-dot {
+  width: 8px;
+  height: 8px;
+}
+
+/* Console header — bigger label, easier to read */
+.console-header {
+  padding: 8px 16px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+}
+.console-header .dot {
+  width: 8px;
+  height: 8px;
+}
+#console-output {
+  font-size: 13px;
+  line-height: 1.7;
+  padding: 10px 16px;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   FILE MENU POPOVER
+   ──────────────────────────────────────────────────────────────────────
+   Replaces the .file-controls + .project-name-wrap pair. A single "File ▾"
+   trigger; clicking opens a 240px popover containing the Project name input,
+   Open .llsp3, and Save buttons. Reclaims ~200px of header width.
+   ──────────────────────────────────────────────────────────────────── */
+.file-menu { position: relative; display: flex; align-items: center; }
+
+.file-trigger {
+  gap: 8px;
+}
+.file-trigger .caret {
+  font-size: 10px;
+  opacity: 0.65;
+}
+
+.file-pop {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 240px;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.4);
+  z-index: 50;
+}
+:root[data-theme="light"] .file-pop {
+  box-shadow: 0 12px 32px rgba(15,23,42,0.18);
+}
+.file-pop.open { display: block; }
+
+.file-pop-label {
+  font: 700 9px var(--font-ui);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 6px 10px 4px;
+}
+
+.file-pop-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 6px 6px;
+}
+.file-pop-name .project-name-input {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+  margin: 0;
+}
+
+.file-pop-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 6px 0;
+}
+
+.file-pop-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  padding: 0 12px;
+  border-radius: 8px;
+  color: var(--text);
+  font: 600 13px var(--font-ui);
+  cursor: pointer;
+  text-align: left;
+  min-height: 40px;
+  letter-spacing: 0.02em;
+}
+.file-pop-item:hover { background: var(--surface2); }
+
+/* ════════════════════════════════════════════════════════════════════════
+   BOTTOM DOCK (formerly the status bar)
+   ──────────────────────────────────────────────────────────────────────
+   The status bar grew into a 72px thumb-zone dock. Status indicator stays
+   on the left; Reset / Stop / Run live on the right where the user's
+   right thumb naturally rests on a held tablet. Overrides the original
+   .status-bar height = 22px and trims the attribution line.
+   ──────────────────────────────────────────────────────────────────── */
+
+.status-bar.bottom-dock {
+  height: 72px;
+  padding: 0 16px;
+  gap: 14px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.status-bar.bottom-dock .status-item {
+  font-size: 13px;
+  gap: 10px;
+  font-weight: 700;
+  color: var(--text-mid);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.status-bar.bottom-dock .status-dot {
+  width: 12px;
+  height: 12px;
+  transition: background 0.15s, transform 0.15s;
+}
+
+/* The original pulse keyframes only ticked opacity (1 → 0.5 → 1) with an
+   invisible box-shadow — too subtle on a 12px dot. Override the running
+   dot with a visible expanding-ring pulse so it actually reads as "alive". */
+.status-bar.bottom-dock .status-dot.running {
+  animation: dock-pulse-ring 1.2s ease-out infinite;
+  transform: scale(1.15);
+  background: #fbbf24;
+}
+@keyframes dock-pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.55); }
+  100% { box-shadow: 0 0 0 14px rgba(251, 191, 36, 0); }
+}
+
+.status-bar.bottom-dock .status-dot.error {
+  animation: dock-pulse-ring-red 1s ease-out infinite;
+  transform: scale(1.15);
+}
+@keyframes dock-pulse-ring-red {
+  0%   { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55); }
+  100% { box-shadow: 0 0 0 14px rgba(239, 68, 68, 0); }
+}
+
+/* The whole status-item picks up the active state via :has() — label
+   colour and a faint surface tint, so the running indicator reads from
+   across a classroom, not just at arm's length. */
+.status-bar.bottom-dock .status-item:has(.status-dot.running) {
+  color: #d97706;             /* amber-600 — readable on both themes */
+}
+.status-bar.bottom-dock .status-item:has(.status-dot.error) {
+  color: var(--red);
+}
+
+.dock-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Big-button overrides inside the dock — Run/Stop are the stars. */
+.status-bar.bottom-dock .btn-run {
+  min-height: 52px;
+  padding: 0 32px;
+  font-size: 16px;
+  border-radius: 26px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+.status-bar.bottom-dock .btn-stop {
+  min-height: 52px;
+  padding: 0 28px;
+  font-size: 16px;
+  border-radius: 26px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+.status-bar.bottom-dock .btn-reset {
+  min-height: 44px;
+  padding: 0 20px;
+  font-size: 14px;
+  border-radius: 22px;
+  gap: 6px;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   BLOCKLY TOOLBOX — touch-friendly category dots
+   ──────────────────────────────────────────────────────────────────────
+   Bumps the dot column to 84px wide (was 72), the colour dot itself from
+   28px to 40px, and the caption from 8.5px to 11px. !important required
+   to outrank the !important values set in the original toolbox rules.
+   ──────────────────────────────────────────────────────────────────── */
+
+.blocklyToolboxDiv {
+  /* 108px gives a comfortable margin for the longest single-word categories
+     ("OPERATORS", "VARIABLES") at 11px. "MY BLOCKS" still wraps at its
+     space — that's fine, it's a two-word label. */
+  width: 108px !important;
+  padding: 10px 0 !important;
+}
+
+.blocklyToolboxCategory {
+  margin: 7px 0 !important;
+}
+
+.blocklyTreeRow {
+  padding: 8px 6px !important;
+  border-radius: 8px;
+}
+
+.blocklyTreeRow::before {
+  width: 40px !important;
+  height: 40px !important;
+  margin-bottom: 6px !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.18) !important;
+}
+
+.blocklyTreeRow .blocklyTreeLabel {
+  font-size: 11px !important;
+  letter-spacing: 0.05em !important;
+  line-height: 1.2 !important;
+}
+
+/* Extensions toggle sits at the bottom-left of the workspace — needs to
+   clear the wider 108px toolbox + a small gutter. */
+#extensions-toggle {
+  left: 116px;
+  padding: 8px 14px;
+  font-size: 12px;
+  min-height: 36px;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   COLLAPSIBLE CONSOLE
+   ──────────────────────────────────────────────────────────────────────
+   The console-header becomes the toggle. Clicking it folds the output
+   away, leaving just the header strip; the chevron rotates 180°. State
+   persists in localStorage. Smooth height transition.
+   ──────────────────────────────────────────────────────────────────── */
+
+.console-wrap {
+  transition: height 0.22s ease;
+}
+
+.console-header {
+  /* Was a div; now a button. Strip default button chrome. */
+  border: 0;
+  margin: 0;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  /* Keep its other appearance values from the earlier rule. */
+}
+.console-header:hover {
+  background: var(--surface2);
+}
+.console-header:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: -2px;
+}
+
+.console-spacer { flex: 1; }
+
+.console-toggle-chevron {
+  display: inline-block;
+  color: var(--text-dim);
+  font-size: 12px;
+  transition: transform 0.22s ease;
+}
+
+.console-wrap.collapsed {
+  /* Collapses to just the header strip height. The header has 8px×2 = 16px
+     padding plus ~14px content, giving ~32px total. */
+  height: 32px;
+}
+.console-wrap.collapsed .console-toggle-chevron {
+  transform: rotate(-90deg);
+}
+.console-wrap.collapsed #console-output {
+  /* Keep it in flow but invisible / non-interactive for the transition. */
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   SETTINGS POPOVER (top-right gear)
+   ──────────────────────────────────────────────────────────────────────
+   Speed / Theme / Units / Defaults moved out of the sensor panel into a
+   floating pane anchored under the header's ⚙ Settings button. All inner
+   IDs preserved (speed-slider, btn-theme, units-select, btn-defaults), so
+   the JS wiring in main.js stays untouched.
+   ──────────────────────────────────────────────────────────────────── */
+
+.settings-menu { position: relative; display: flex; align-items: center; }
+
+.btn-settings {
+  background: transparent;
+  color: var(--text-mid);
+  border: 1px solid var(--border2);
+  gap: 6px;
+}
+.btn-settings:hover {
+  color: var(--amber);
+  border-color: var(--amber);
+}
+.btn-settings[aria-expanded="true"] {
+  color: var(--amber);
+  border-color: var(--amber);
+  background: var(--surface2);
+}
+.settings-gear {
+  display: inline-block;
+  font-size: 16px;
+  line-height: 1;
+  transition: transform 0.4s ease;
+}
+.btn-settings:hover .settings-gear,
+.btn-settings[aria-expanded="true"] .settings-gear {
+  transform: rotate(60deg);
+}
+
+/* Floating pane */
+.settings-pop {
+  display: none;
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 280px;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 24px 48px rgba(0,0,0,0.45), 0 4px 12px rgba(0,0,0,0.25);
+  z-index: 60;
+  animation: settings-pop-in 0.18s ease-out;
+}
+:root[data-theme="light"] .settings-pop {
+  box-shadow: 0 20px 40px rgba(15,23,42,0.18), 0 4px 10px rgba(15,23,42,0.10);
+}
+.settings-pop.open { display: block; }
+
+@keyframes settings-pop-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.settings-pop h3 {
+  font: 800 11px var(--font-ui);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* The Speed row uses .speed-control; Theme/Units use .sensor-row. Adapt
+   their layouts to the wider popover surface (no longer cramped 210px). */
+.settings-pop .speed-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.settings-pop .speed-control > span:first-child { flex: 1; }
+.settings-pop #speed-slider { width: 120px; accent-color: var(--amber); }
+.settings-pop #speed-label {
+  font-family: var(--font-code);
+  font-size: 12px;
+  color: var(--amber);
+  min-width: 28px;
+  text-align: right;
+}
+
+.settings-pop .sensor-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 0;
+  min-height: 40px;
+}
+.settings-pop .sensor-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.settings-pop .btn-theme {
+  min-height: 36px;
+  padding: 6px 14px;
+  font-size: 14px;
+  border-radius: 8px;
+  width: auto;
+  justify-content: center;
+}
+
+.settings-pop .units-select {
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: 13px;
+  border-radius: 8px;
+}
+
+.settings-pop .btn-reset {
+  width: 100%;
+  justify-content: center;
+  margin-top: 10px;
+  min-height: 40px;
+  font-size: 13px;
+  border-radius: 10px;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   FORCE (C) — INLINE WITH PORT C ROW
+   ──────────────────────────────────────────────────────────────────────
+   The "Press & hold to apply" button used to live in Settings — kids
+   couldn't reach it while watching a run. Moved into the port C card so
+   it sits exactly where the sensor reading is, and the card grows a
+   second row to host it.
+   ──────────────────────────────────────────────────────────────────── */
+
+.port-row.port-row-with-action {
+  grid-template-columns: 32px 1fr auto auto;
+  grid-template-rows: auto auto;
+  row-gap: 8px;
+}
+
+.port-row.port-row-with-action .port-force-button {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 36px;
+  border-radius: 8px;
+  font-size: 12px;
 }

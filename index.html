@@ -43,15 +43,21 @@
     <h1><span class="fll">FLL</span></h1>
   </div>
 
-  <div class="file-controls">
-    <input type="file" id="file-open-input" accept=".llsp3" style="display:none">
-    <button class="btn btn-file" id="btn-open"  title="Open .llsp3 file">📂 Open</button>
-    <button class="btn btn-file" id="btn-save"  title="Save current project as .llsp3">💾 Save</button>
-  </div>
-
-  <div class="project-name-wrap">
-    <span class="project-name-icon">📝</span>
-    <input type="text" id="project-name" class="project-name-input" placeholder="Untitled-Project" maxlength="64">
+  <div class="file-menu" id="file-menu">
+    <button class="btn btn-file file-trigger" id="file-trigger" type="button" aria-haspopup="true" aria-expanded="false" title="Project menu">
+      📁 File <span class="caret">▾</span>
+    </button>
+    <div class="file-pop" id="file-pop" role="menu">
+      <div class="file-pop-label">Project name</div>
+      <div class="file-pop-name">
+        <span class="project-name-icon">📝</span>
+        <input type="text" id="project-name" class="project-name-input" placeholder="Untitled-Project" maxlength="64">
+      </div>
+      <div class="file-pop-divider"></div>
+      <input type="file" id="file-open-input" accept=".llsp3" style="display:none">
+      <button class="file-pop-item" id="btn-open" type="button">📂 Open .llsp3…</button>
+      <button class="file-pop-item" id="btn-save" type="button">💾 Save project</button>
+    </div>
   </div>
 
   <div class="tab-group">
@@ -62,15 +68,40 @@
   <div class="spacer"></div>
 
   <div class="header-controls">
+    <div class="settings-menu" id="settings-menu">
+      <button class="btn btn-settings" id="settings-trigger" type="button" aria-haspopup="true" aria-expanded="false" title="Settings">
+        <span class="settings-gear" aria-hidden="true">⚙</span> Settings
+      </button>
+      <div class="settings-pop" id="settings-pop" role="menu" aria-labelledby="settings-trigger">
+        <h3>Settings</h3>
+        <div class="speed-control">
+          <span>Speed</span>
+          <input type="range" id="speed-slider" min="0.25" max="4" step="0.25" value="1">
+          <span id="speed-label">1x</span>
+        </div>
+        <div class="sensor-row">
+          <span class="sensor-label">Theme</span>
+          <button class="btn btn-theme" id="btn-theme" title="Toggle light/dark theme" aria-label="Toggle theme">
+            <span class="icon-moon">🌙</span><span class="icon-sun">☀️</span>
+          </button>
+        </div>
+        <div class="sensor-row">
+          <span class="sensor-label">Units</span>
+          <select id="units-select" class="units-select" aria-label="Position units">
+            <option value="cm">cm</option>
+            <option value="mm">mm</option>
+            <option value="in">in</option>
+          </select>
+        </div>
+        <button class="btn btn-reset" id="btn-defaults" title="Reset theme, speed, and editor contents to defaults">⟲ Reset to defaults</button>
+      </div>
+    </div>
     <a class="btn btn-github" id="btn-github" href="https://github.com/sanadfoundation/fll-virtual-robot" target="_blank" rel="noopener noreferrer" title="View source on GitHub">
       <svg class="btn-github-mark" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
         <path fill="currentColor" fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
       </svg>
       GitHub
     </a>
-    <button class="btn btn-reset" id="btn-reset">↺ Reset</button>
-    <button class="btn btn-stop"  id="btn-stop"  disabled>■ Stop</button>
-    <button class="btn btn-run"   id="btn-run"   disabled>▶ Run</button>
   </div>
 </header>
 
@@ -97,11 +128,13 @@
       <div id="canvas-hover" hidden></div>
     </div>
 
-    <div class="console-wrap">
-      <div class="console-header">
+    <div class="console-wrap" id="console-wrap">
+      <button class="console-header" id="console-toggle" type="button" aria-expanded="true" aria-controls="console-output">
         <span class="dot"></span>
-        Console Output
-      </div>
+        <span class="console-header-label">Console Output</span>
+        <span class="console-spacer"></span>
+        <span class="console-toggle-chevron" aria-hidden="true">▾</span>
+      </button>
       <div id="console-output"></div>
     </div>
   </div>
@@ -149,10 +182,15 @@
           <span class="port-device">motor (R)</span>
           <span class="port-value" id="port-value-B">0°</span>
         </div>
-        <div class="port-row" id="port-row-C">
+        <div class="port-row port-row-with-action" id="port-row-C">
           <span class="port-letter">C</span>
           <span class="port-device">force</span>
           <span class="port-value" id="port-value-C">0.0 N</span>
+          <button class="port-force-button" id="port-force-C" type="button"
+                  aria-label="Apply force on the sensor at port C">
+            <span class="port-force-fill" id="port-force-fill-C"></span>
+            <span class="port-force-label">Press &amp; hold to apply</span>
+          </button>
         </div>
         <div class="port-row empty" id="port-row-D">
           <span class="port-letter">D</span>
@@ -172,54 +210,23 @@
         </div>
       </div>
 
-      <div class="hub-section settings-section">
-        <h3>Settings</h3>
-        <div class="speed-control">
-          <span>Speed</span>
-          <input type="range" id="speed-slider" min="0.25" max="4" step="0.25" value="1">
-          <span id="speed-label">1x</span>
-        </div>
-        <div class="sensor-row">
-          <span class="sensor-label">Theme</span>
-          <button class="btn btn-theme" id="btn-theme" title="Toggle light/dark theme" aria-label="Toggle theme">
-            <span class="icon-moon">🌙</span><span class="icon-sun">☀️</span>
-          </button>
-        </div>
-        <div class="sensor-row">
-          <span class="sensor-label">Units</span>
-          <select id="units-select" class="units-select" aria-label="Position units">
-            <option value="cm">cm</option>
-            <option value="mm">mm</option>
-            <option value="in">in</option>
-          </select>
-        </div>
-        <div class="sensor-row">
-          <span class="sensor-label">Force (C)</span>
-          <button class="port-force-button" id="port-force-C" type="button"
-                  aria-label="Apply force on the sensor at port C">
-            <span class="port-force-fill" id="port-force-fill-C"></span>
-            <span class="port-force-label">Apply</span>
-          </button>
-        </div>
-        <button class="btn btn-reset" id="btn-defaults" title="Reset theme, speed, and editor contents to defaults">⟲ Defaults</button>
-      </div>
     </div>
   </aside>
 
 </div>
 
-<!-- ── Status bar ────────────────────────────────────────── -->
-<div class="status-bar">
+<!-- ── Bottom dock (status + primary actions in the thumb zone) ─── -->
+<div class="status-bar bottom-dock">
   <div class="status-item">
     <span class="status-dot ready" id="status-dot"></span>
     <span id="status-label">Ready</span>
   </div>
-  <div class="status-item">FLL Virtual Robot Simulator · Spike Prime v3 API</div>
   <div class="spacer"></div>
-  <div class="status-item attribution">
-    LEGO® and SPIKE™ are trademarks of The LEGO Group. Not affiliated with or endorsed by LEGO.
+  <div class="dock-actions">
+    <button class="btn btn-reset" id="btn-reset" title="Reset robot to spawn">↺ Reset</button>
+    <button class="btn btn-stop"  id="btn-stop"  disabled>■ Stop</button>
+    <button class="btn btn-run"   id="btn-run"   disabled title="Ctrl+Enter to run">▶ Run</button>
   </div>
-  <div class="status-item">Ctrl+Enter to Run</div>
 </div>
 
 <!-- ── JavaScript ────────────────────────────────────────── -->
@@ -238,6 +245,90 @@
 <script src="js/main.js"></script>
 <script src="js/version_check.js"></script>
 <script>window.versionCheck && window.versionCheck.init();</script>
+
+<!-- File menu popover — toggle + outside-click close. The Open/Save/Project-name
+     elements inside keep their original IDs, so the wiring in llsp3_ui.js stays
+     intact. Closes the popover when the user picks an item or clicks outside. -->
+<script>
+(function () {
+  const trigger = document.getElementById('file-trigger');
+  const pop = document.getElementById('file-pop');
+  if (!trigger || !pop) return;
+  function close() {
+    pop.classList.remove('open');
+    trigger.setAttribute('aria-expanded', 'false');
+  }
+  function open() {
+    pop.classList.add('open');
+    trigger.setAttribute('aria-expanded', 'true');
+  }
+  trigger.addEventListener('click', e => {
+    e.stopPropagation();
+    pop.classList.contains('open') ? close() : open();
+  });
+  // Click outside closes; clicks on Open/Save fire their handlers AND close.
+  document.addEventListener('click', e => {
+    if (!pop.contains(e.target) && e.target !== trigger) close();
+  });
+  // Close on Escape.
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && pop.classList.contains('open')) close();
+  });
+  // After Open/Save fire their llsp3_ui.js handlers, fold the menu away.
+  ['btn-open', 'btn-save'].forEach(id => {
+    const b = document.getElementById(id);
+    if (b) b.addEventListener('click', () => setTimeout(close, 0));
+  });
+})();
+
+// Settings popover — gear button in the header top-right opens a floating
+// pane containing Speed / Theme / Units / Defaults. All inner element IDs
+// stay the same (speed-slider, btn-theme, units-select, btn-defaults), so
+// the wiring in main.js / monaco_config.js / simulator.js stays intact.
+(function () {
+  const trigger = document.getElementById('settings-trigger');
+  const pop = document.getElementById('settings-pop');
+  if (!trigger || !pop) return;
+  function close() {
+    pop.classList.remove('open');
+    trigger.setAttribute('aria-expanded', 'false');
+  }
+  function open() {
+    pop.classList.add('open');
+    trigger.setAttribute('aria-expanded', 'true');
+  }
+  trigger.addEventListener('click', e => {
+    e.stopPropagation();
+    pop.classList.contains('open') ? close() : open();
+  });
+  document.addEventListener('click', e => {
+    if (!pop.contains(e.target) && e.target !== trigger && !trigger.contains(e.target)) close();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && pop.classList.contains('open')) close();
+  });
+})();
+
+// Console collapse — click the header to fold/unfold the output panel.
+// State persists across reloads via localStorage so kids who like a tall
+// canvas keep their preference.
+(function () {
+  const wrap = document.getElementById('console-wrap');
+  const toggle = document.getElementById('console-toggle');
+  if (!wrap || !toggle) return;
+  const KEY = 'fll-console-collapsed';
+  function apply(collapsed) {
+    wrap.classList.toggle('collapsed', collapsed);
+    toggle.setAttribute('aria-expanded', String(!collapsed));
+  }
+  apply(localStorage.getItem(KEY) === '1');
+  toggle.addEventListener('click', () => {
+    const next = !wrap.classList.contains('collapsed');
+    apply(next);
+    localStorage.setItem(KEY, next ? '1' : '0');
+  });
+})();
+</script>
 
 <!-- ── PyScript: Spike Prime API Bridge ─────────────────── -->
 <script type="mpy" worker src="py/spike_bridge.py"></script>
