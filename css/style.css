@@ -1960,15 +1960,15 @@ header h1 {
   border-radius: 26px;
   font-weight: 800;
   letter-spacing: 0.06em;
-  background: var(--amber);
-  color: #1a1206;
+  background: var(--text-mid);
+  color: #fff;
   border: none;
 }
 .status-bar.bottom-dock .btn-reset:hover {
-  background: var(--amber);
-  color: #1a1206;
+  background: var(--text-mid);
+  color: #fff;
   border: none;
-  box-shadow: 0 0 18px rgba(251,191,36,0.4);
+  box-shadow: 0 0 18px rgba(148,163,184,0.4);
   transform: translateY(-1px);
 }
 
