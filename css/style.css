@@ -1954,11 +1954,22 @@ header h1 {
   letter-spacing: 0.06em;
 }
 .status-bar.bottom-dock .btn-reset {
-  min-height: 44px;
-  padding: 0 20px;
-  font-size: 14px;
-  border-radius: 22px;
-  gap: 6px;
+  min-height: 52px;
+  padding: 0 28px;
+  font-size: 16px;
+  border-radius: 26px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  background: var(--amber);
+  color: #1a1206;
+  border: none;
+}
+.status-bar.bottom-dock .btn-reset:hover {
+  background: var(--amber);
+  color: #1a1206;
+  border: none;
+  box-shadow: 0 0 18px rgba(251,191,36,0.4);
+  transform: translateY(-1px);
 }
 
 /* ════════════════════════════════════════════════════════════════════════
