@@ -343,6 +343,32 @@ function handleStop() {
   appendOutput('[Stopped]', 'warn');
 }
 
+// "New" — wipe the editor and Blockly workspace, reset the project name,
+// and clear the dirty flag. Confirms first if there are unsaved changes so
+// a stray click in the header can't blow away work. The Open/Save handlers
+// are still in llsp3_ui.js; this one lives here because it touches the
+// editor + Blockly directly and reuses DEFAULT_PYTHON_CODE.
+function handleNewProject() {
+  if (isDirty()) {
+    const ok = window.confirm('Discard the current project and start a new one?');
+    if (!ok) return;
+  }
+  if (editor) editor.setValue(DEFAULT_PYTHON_CODE);
+  lsRemove(PYCODE_KEY);
+  if (blocklyWs && typeof Blockly !== 'undefined') {
+    blocklyWs.clear();
+    lsRemove(BLOCKLY_KEY);
+  } else {
+    lsRemove(BLOCKLY_KEY);
+  }
+  setProjectName(DEFAULT_NAME);
+  const nameInput = document.getElementById('project-name');
+  if (nameInput) nameInput.value = DEFAULT_NAME;
+  setLoadedManifest(null);
+  setDirty(false);
+  appendOutput(`[new] Started a fresh project.`, 'info');
+}
+
 function handleReset() {
   if (!sim) return;
   const wasRunning = sim.isRunning;
@@ -514,6 +540,11 @@ function initResizeHandle() {
   let startX = 0, startW = 0;
 
   handle.addEventListener('mousedown', e => {
+    // Don't start a resize-drag if the user pressed the collapse button —
+    // that button sits on top of the handle and has its own click handler.
+    if (e.target && e.target.closest('.resize-collapse-btn')) return;
+    // Drag is meaningless when the panel is collapsed.
+    if (left.classList.contains('collapsed')) return;
     dragging = true;
     startX = e.clientX;
     startW = left.offsetWidth;
@@ -540,6 +571,49 @@ function initResizeHandle() {
     // auto-fits the new panel-right width; we just need to resync Blockly.
     resizeBlocklyWorkspace();
   });
+
+  initCollapseToggle(left);
+}
+
+// ── Editor-panel collapse/expand ─────────────────────────────────────────────
+// A button centred on the resize handle folds .panel-left away so the canvas
+// can run full-width — useful on small laptops or when watching the field
+// while a long program runs. Persisted in localStorage so the preference
+// survives reloads. Editor / Blockly layouts re-sync after the transition so
+// they don't render at zero width when expanded again.
+
+const COLLAPSE_KEY = 'fll-vr-left-collapsed';
+
+function initCollapseToggle(left) {
+  const btn = document.getElementById('resize-collapse-btn');
+  if (!btn) return;
+
+  function apply(collapsed) {
+    left.classList.toggle('collapsed', collapsed);
+    btn.setAttribute('aria-pressed', String(collapsed));
+    btn.setAttribute('aria-label', collapsed ? 'Expand editor panel' : 'Collapse editor panel');
+    btn.title = collapsed ? 'Expand editor panel' : 'Collapse editor panel';
+    // After the width animation completes (.panel-left transitions at 0.22s),
+    // re-layout the editor/Blockly so they fill the new column or hide cleanly.
+    setTimeout(() => {
+      if (editor) editor.layout();
+      resizeBlocklyWorkspace();
+    }, 240);
+  }
+
+  apply(lsGet(COLLAPSE_KEY) === '1');
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const next = !left.classList.contains('collapsed');
+    apply(next);
+    lsSet(COLLAPSE_KEY, next ? '1' : '0');
+  });
+
+  // Block the resize-handle's mousedown drag from triggering when the user
+  // presses the button (covered by the closest() check there too, belt and
+  // suspenders).
+  btn.addEventListener('mousedown', (e) => e.stopPropagation());
 }
 
 // ── Default Python code ───────────────────────────────────────────────────────
@@ -624,6 +698,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-reset').addEventListener('click', handleReset);
   document.getElementById('btn-defaults').addEventListener('click', handleDefaults);
   document.getElementById('btn-theme').addEventListener('click', toggleTheme);
+
+  const newBtn = document.getElementById('btn-new');
+  if (newBtn) newBtn.addEventListener('click', handleNewProject);
 
   const speedSlider = document.getElementById('speed-slider');
   if (speedSlider) speedSlider.addEventListener('input', e => updateSpeed(e.target.value));
