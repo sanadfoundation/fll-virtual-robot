@@ -907,7 +907,14 @@ class RobotSimulator {
       if (!valueEl) continue;
 
       if (cfg.kind === 'motor') {
-        valueEl.textContent = (r.motors[port] || 0).toFixed(0) + '°';
+        // Two readouts: current commanded velocity (deg/s, sign preserved)
+        // and cumulative revolutions (motors[port] / 360). Speed reads as
+        // "what the motor is doing right now"; revs is the encoder count in
+        // a kid-friendly unit. Separator is two spaces so the chip's
+        // monospace value never collapses them.
+        const vel = r.motors_velocity[port] || 0;
+        const rev = (r.motors[port] || 0) / 360;
+        valueEl.textContent = `${Math.round(vel)}°/s  ${rev.toFixed(1)}↻`;
       } else if (cfg.kind === 'color_sensor') {
         valueEl.textContent = s.colorValue || 'none';
       } else if (cfg.kind === 'distance_sensor') {
@@ -1298,8 +1305,21 @@ class RobotSimulator {
     // the motion so getMotorSpeed reflects the active wheels. Cleared at
     // motion-end.
     const desc      = this._activeMotion || {};
-    const leftPort  = desc.leftPort  || null;
-    const rightPort = desc.rightPort || null;
+    let leftPort   = desc.leftPort  || null;
+    let rightPort  = desc.rightPort || null;
+    // Blockly generators (js/blockly_config.js) invoke _animateTank directly
+    // without going through _runMotion, so _activeMotion is null and the
+    // descriptor above has no port info. Without this fallback the drive
+    // encoders never accumulate when running block programs, and the
+    // motor-port readouts stay pinned at zero. Python's _execCmd always
+    // supplies a real descriptor via _descriptorForPair, so this branch is
+    // a no-op for that path.
+    if (!leftPort && !rightPort) {
+      for (const [p, c] of Object.entries(this._portConfig)) {
+        if (c.role === 'drive-left')  leftPort  = p;
+        if (c.role === 'drive-right') rightPort = p;
+      }
+    }
     if (leftPort)  this.robot.motors_velocity[leftPort]  = leftV  * 1000;
     if (rightPort) this.robot.motors_velocity[rightPort] = rightV * 1000;
 
@@ -1366,6 +1386,11 @@ class RobotSimulator {
     // Clear active-motion wheel velocities so getMotorSpeed reads 0 at rest.
     if (leftPort)  this.robot.motors_velocity[leftPort]  = 0;
     if (rightPort) this.robot.motors_velocity[rightPort] = 0;
+    // Trigger one more redraw so the motor-port chip in the status bar
+    // refreshes from the last in-loop frame (which still saw a non-zero
+    // commanded velocity) to the at-rest 0°/s. Without this the chip
+    // stays pinned at the final motion speed until the next command.
+    this._dirty = true;
   }
 
   async _animateSingleMotor(port, velocity, distMM) {
