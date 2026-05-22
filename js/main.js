@@ -278,6 +278,12 @@ function applyStoredTab() {
 
 async function handleRun() {
   if (!sim) return;
+  // Re-entry guard: the Run button is disabled while a run is in flight, but
+  // Monaco's Cmd-Enter command fires regardless of button state. Without this
+  // check a second press spawns a parallel Python worker invocation or a
+  // second Blockly AsyncFunction — both fight over the same sim.
+  const runBtn = document.getElementById('btn-run');
+  if (runBtn && runBtn.disabled) return;
   clearOutput();
 
   if (currentMode === 'python') {
