@@ -1668,6 +1668,13 @@ class RobotSimulator {
 
   _showText(text) {
     const s = String(text || '');
+    // Mirror to the Console panel so light_matrix.write doubles as a
+    // print-style debug surface in the sim. On a real hub this same call
+    // scrolls text on the 5×5; the Console mirror is sim-only because no
+    // Console exists on hardware.
+    if (typeof window !== 'undefined' && typeof window.appendOutput === 'function') {
+      window.appendOutput(s);
+    }
     if (s.length === 0) {
       this.robot.display = Array(25).fill(0);
       return;
