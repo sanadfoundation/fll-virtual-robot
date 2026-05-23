@@ -312,6 +312,25 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
 .btn-github:active { transform: translateY(0); }
 .btn-github-mark { display: block; }
 
+/* ── Support / donate button — amber accent so it draws the eye ── */
+.btn-support {
+  background: var(--amber);
+  color: #1a1206;
+  border: 1px solid var(--amber);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  font-weight: 700;
+  box-shadow: var(--glow-amber);
+}
+.btn-support:hover {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+.btn-support:active { transform: translateY(0); }
+.btn-support-icon { display: inline-block; line-height: 1; }
+
 .btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
 
 /* ── Speed control ─────────────────────────────────────── */
@@ -1752,12 +1771,21 @@ header h1 {
   gap: 6px;
 }
 
-.btn-github {
+.btn-github,
+.btn-support {
   min-height: 40px;
   padding: 0 14px;
   font-size: 13px;
   border-radius: 10px;
   gap: 8px;
+}
+
+/* Icon-only GitHub button: square footprint, centered mark, no text. */
+.btn-github-iconly {
+  padding: 0;
+  width: 40px;
+  justify-content: center;
+  gap: 0;
 }
 
 /* Status bar — trim noise (kid doesn't read trademark attribution mid-run) */
