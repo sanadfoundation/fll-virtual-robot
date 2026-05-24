@@ -113,3 +113,67 @@ test('load: obstacle_course type requires scoring.kind = objective_minus_penalti
   const bad = { ...MINIMAL_MISSION, type: 'obstacle_course' };
   assert.throws(() => ctx.MISSIONS.loader.load(bad), /obstacle_course.*objective_minus_penalties/);
 });
+
+test('load: rejects non-object input', () => {
+  const ctx = env();
+  assert.throws(() => ctx.MISSIONS.loader.load(null),      /expected an object/);
+  assert.throws(() => ctx.MISSIONS.loader.load(undefined), /expected an object/);
+  assert.throws(() => ctx.MISSIONS.loader.load(42),        /expected an object/);
+  assert.throws(() => ctx.MISSIONS.loader.load('string'),  /expected an object/);
+});
+
+test('load: rejects when a required top-level field is missing', () => {
+  const ctx = env();
+  for (const field of ['id', 'title', 'type', 'difficulty_tier', 'field', 'steps', 'scoring']) {
+    const bad = { ...MINIMAL_MISSION };
+    delete bad[field];
+    assert.throws(() => ctx.MISSIONS.loader.load(bad),
+      new RegExp(`missing required field "${field}"`));
+  }
+});
+
+test('load: rejects a step that is missing its own required fields', () => {
+  const ctx = env();
+  for (const field of ['id', 'title', 'points', 'condition']) {
+    const bad = JSON.parse(JSON.stringify(MINIMAL_MISSION));
+    delete bad.steps[0][field];
+    assert.throws(() => ctx.MISSIONS.loader.load(bad),
+      new RegExp(`missing "${field}"`));
+  }
+});
+
+test('load: rejects a sensor condition missing port / op / value', () => {
+  const ctx = env();
+  for (const field of ['port', 'op', 'value']) {
+    const bad = JSON.parse(JSON.stringify(MINIMAL_MISSION));
+    bad.steps[0].condition = { kind: 'sensor', port: 'C', op: '==', value: 'red' };
+    delete bad.steps[0].condition[field];
+    assert.throws(() => ctx.MISSIONS.loader.load(bad),
+      new RegExp(`sensor condition missing "${field}"`));
+  }
+});
+
+test('load: rejects a zone condition naming an unknown obstacle subject', () => {
+  const ctx = env();
+  const bad = JSON.parse(JSON.stringify(MINIMAL_MISSION));
+  bad.steps[0].condition = { kind: 'zone', subject: 'obstacle:ghost', zone: 'red' };
+  assert.throws(() => ctx.MISSIONS.loader.load(bad), /unknown obstacle "ghost"/);
+});
+
+test('load: rejects a zone condition with a malformed subject string', () => {
+  const ctx = env();
+  const bad = JSON.parse(JSON.stringify(MINIMAL_MISSION));
+  bad.steps[0].condition = { kind: 'zone', subject: 'banana', zone: 'red' };
+  assert.throws(() => ctx.MISSIONS.loader.load(bad),
+    /zone\.subject must be "robot" or "obstacle:<id>"/);
+});
+
+test('load: rejects all_of / any_of with an empty "of" array', () => {
+  const ctx = env();
+  for (const kind of ['all_of', 'any_of']) {
+    const bad = JSON.parse(JSON.stringify(MINIMAL_MISSION));
+    bad.steps[0].condition = { kind, of: [] };
+    assert.throws(() => ctx.MISSIONS.loader.load(bad),
+      new RegExp(`${kind} requires non-empty "of" array`));
+  }
+});
