@@ -271,6 +271,11 @@ class RobotSimulator {
     // semantics); the rest bail after their preempt-await resolves.
     this._motionSeq = 0;
 
+    // Obstacle-contact subscription registry. Missions engine subscribes via
+    // onObstacleContact(); _dispatchObstacleContact() is the call site wired
+    // from the Box2D BeginContact listener (see _initPhysics / TODO below).
+    this._obstacleContactSubs = new Set();
+
     // Force-sensor pipeline state. emaN is the smoothed physics force in Newtons;
     // manualStartMs is the timestamp the user pressed the Hub-panel button (null
     // = released); the public combined value lives on robot.sensors.forceN.
@@ -2054,6 +2059,28 @@ class RobotSimulator {
         E: this.robot.sensors.forceN,
       },
     };
+  }
+
+  // ── Obstacle contact subscription ────────────────────────────────────────────
+
+  // Subscribe to obstacle-contact events. `cb` is called with the obstacle's
+  // label (string) each time the robot body first contacts that obstacle in a
+  // physics step. Returns an unsubscribe function.
+  //
+  // TODO (Task 19 integration): wire _dispatchObstacleContact into the Box2D
+  // BeginContact listener inside _initPhysics so that real physics contacts
+  // (robot ↔ obstacle body) automatically invoke all subscribers. The test
+  // seam below is sufficient for missions engine unit tests and integration
+  // tests that don't drive real physics.
+  onObstacleContact(cb) {
+    this._obstacleContactSubs.add(cb);
+    return () => this._obstacleContactSubs.delete(cb);
+  }
+
+  // Wired into the Box2D contact listener by _initPhysics. Tests can call it
+  // directly to synthesise contacts without driving real physics.
+  _dispatchObstacleContact(obstacleId) {
+    for (const cb of this._obstacleContactSubs) cb(obstacleId);
   }
 
   // ── Audio ───────────────────────────────────────────────────────────────────
