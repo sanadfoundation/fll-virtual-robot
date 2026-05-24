@@ -222,6 +222,18 @@ function initSim() {
     forceBtn.addEventListener('pointerleave',  () => sim.manualRelease());
     forceBtn.addEventListener('pointercancel', () => sim.manualRelease());
   }
+
+  // Boot the missions layer. No-op when there's no #mission=… hash.
+  if (window.MISSIONS && window.MISSIONS.boot) {
+    window.MISSIONS.boot({
+      sim: window.sim,
+      doc: document,
+      location: window.location,
+      fetch: window.fetch.bind(window),
+      storage: window.localStorage,
+    }).then((app) => { window.missionApp = app; })
+      .catch((e) => console.warn('missions: boot failed', e));
+  }
 }
 
 // Blockly caches its parent div's dimensions in workspace metrics — positioning
@@ -311,10 +323,23 @@ async function handleRun() {
   clearOutput();
   if (window._watch) window._watch.clear();
 
+  // Start the mission engine when a mission is active.
+  if (window.missionApp && window.missionApp.mode === 'play') {
+    window.missionApp.engine.start(Date.now());
+  }
+
   if (currentMode === 'python') {
     await runPython();
   } else {
     await runBlockly();
+  }
+
+  // Finalize the mission engine when the program completes (natural end or error).
+  if (window.missionApp && window.missionApp.mode === 'play') {
+    const eng = window.missionApp.engine;
+    if (eng.startTimeMs != null) {
+      eng.finalize(Date.now() - eng.startTimeMs);
+    }
   }
 }
 
@@ -381,6 +406,13 @@ function handleStop() {
   setButtons(false);
   sim._setStatus('ready');
   appendOutput('[Stopped]', 'warn');
+  // Finalize the mission engine when the user stops the program manually.
+  if (window.missionApp && window.missionApp.mode === 'play') {
+    const eng = window.missionApp.engine;
+    if (eng.startTimeMs != null) {
+      eng.finalize(Date.now() - eng.startTimeMs);
+    }
+  }
 }
 
 // "New" — start a fresh project of the given type. Only the buffer for

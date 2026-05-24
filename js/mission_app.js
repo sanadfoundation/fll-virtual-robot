@@ -33,5 +33,61 @@
     return m ? m[1] : null;
   }
 
-  MISSIONS.app = { create, parseHash };
+  async function boot({ sim, doc, location, fetch, storage, autoStart }) {
+    const app    = create();
+    const engine = new MISSIONS.engine.ChallengeEngine();
+    const ui     = MISSIONS.ui.mount(doc);
+
+    // Initialise: ensure the panel is hidden until a mission is entered.
+    ui.render(null, null);
+
+    // Wire the Exit Mission button.
+    const exitBtn = doc.getElementById('mm-exit');
+    if (exitBtn) exitBtn.addEventListener('click', () => app.exitMission());
+
+    // When mode changes, re-render the panel.
+    app.onChange(({ mode, mission }) => {
+      if (mode === 'play') {
+        ui.render(mission, engine);
+      } else {
+        engine.reset();
+        ui.render(null, null);
+      }
+    });
+
+    // Subscribe to obstacle contacts for the contact condition primitive.
+    if (sim && sim.onObstacleContact) {
+      sim.onObstacleContact((id) => engine.recordContact(id, Date.now()));
+    }
+
+    const id = MISSIONS.app.parseHash(location.hash);
+    if (id) {
+      const libFetch = fetch || global.fetch;
+      const res = await libFetch(`missions/${id}/mission.json`);
+      if (res.ok) {
+        const raw = await res.json();
+        const mission = MISSIONS.loader.load(raw);
+        if (sim && sim.placeRobot) {
+          sim.placeRobot(mission.field.robot_start.x, mission.field.robot_start.y,
+                         mission.field.robot_start.heading);
+        }
+        engine.load(mission);
+        app.enterPlay(mission);
+        if (autoStart) engine.start(Date.now());
+      }
+    }
+
+    // Test seam: tick once with the sim's current snapshot.
+    function _tickOnce() {
+      if (app.mode !== 'play') return;
+      const snap = sim.getStateSnapshot();
+      engine.tick(snap);
+      ui.updateProgress(engine);
+    }
+
+    return Object.assign(app, { engine, ui, _tickOnce });
+  }
+
+  MISSIONS.app  = { create, parseHash };
+  MISSIONS.boot = boot;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -447,6 +447,13 @@ class RobotSimulator {
       this._draw();
       this._dirty = false;
     }
+    // Drive mission engine ticks at the draw-loop rate (~60 Hz).
+    if (window.missionApp && window.missionApp.mode === 'play' &&
+        window.missionApp.engine.startTimeMs != null) {
+      const snap = this.getStateSnapshot();
+      window.missionApp.engine.tick(snap);
+      window.missionApp.ui.updateProgress(window.missionApp.engine);
+    }
     this._raf = requestAnimationFrame(() => this._drawLoop());
   }
 
