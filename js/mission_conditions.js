@@ -32,9 +32,24 @@
     return pointInZone(pos, snap.zones[cond.zone]);
   }
 
+  function evaluateSensor(cond, snap) {
+    const reading = snap.sensors[cond.port];
+    if (reading === undefined) return false;
+    switch (cond.op) {
+      case '==': return reading === cond.value;
+      case '!=': return reading !== cond.value;
+      case '<':  return reading <  cond.value;
+      case '<=': return reading <= cond.value;
+      case '>':  return reading >  cond.value;
+      case '>=': return reading >= cond.value;
+      default: throw new Error(`evaluateSensor: unknown operator "${cond.op}"`);
+    }
+  }
+
   function evaluate(cond, snap) {
     switch (cond.kind) {
-      case 'zone': return evaluateZone(cond, snap);
+      case 'zone':   return evaluateZone(cond, snap);
+      case 'sensor': return evaluateSensor(cond, snap);
       default: throw new Error(`evaluate: unsupported kind "${cond.kind}"`);
     }
   }
