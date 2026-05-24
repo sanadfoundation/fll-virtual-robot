@@ -50,7 +50,19 @@
       if (!this.progress) return null;
       this.progress.finalized = true;
       this.progress.elapsedMs = elapsedMs;
+      this.progress.maxScore  = maxScore(this.mission);
+      this.progress.breakdown = this._buildBreakdown();
       return this.progress;
+    }
+
+    _buildBreakdown() {
+      const rows = [];
+      for (const step of this.mission.steps) {
+        if (this.progress.stepResults[step.id]) {
+          rows.push({ kind: 'step', stepId: step.id, title: step.title, points: step.points });
+        }
+      }
+      return rows;
     }
 
     reset() {
@@ -75,5 +87,24 @@
     }
   }
 
-  MISSIONS.engine = { ChallengeEngine };
+  function maxScore(mission) {
+    if (mission.scoring.kind === 'step_sum') {
+      return mission.steps.reduce((s, st) => s + st.points, 0);
+    }
+    if (mission.scoring.kind === 'objective_minus_penalties') {
+      return 100;
+    }
+    return 0;
+  }
+
+  function starRating(score, max) {
+    if (max <= 0) return 3;
+    if (score <= 0) return 0;
+    const r = score / max;
+    if (r >= 0.9) return 3;
+    if (r >= 0.6) return 2;
+    return 1;
+  }
+
+  MISSIONS.engine = { ChallengeEngine, maxScore, starRating };
 })(typeof window !== 'undefined' ? window : globalThis);
