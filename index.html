@@ -22,6 +22,7 @@
   <!-- App styles -->
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/myblocks.css">
+  <link rel="stylesheet" href="css/missions.css">
 </head>
 <body>
 
@@ -68,6 +69,7 @@
     </div>
     <button class="btn btn-icon-file" id="btn-open" type="button" title="Open .llsp3 file" aria-label="Open project">📂</button>
     <button class="btn btn-icon-file" id="btn-save" type="button" title="Save project" aria-label="Save project">💾</button>
+    <button class="btn btn-icon-file mission-pill" id="btn-missions" type="button" title="Browse missions" aria-label="Browse missions">🎯</button>
   </div>
 
   <div class="spacer"></div>
@@ -290,6 +292,27 @@
     </div>
 
     <div class="console-resize-handle" id="console-resize-handle" aria-hidden="true"></div>
+
+    <!-- ── Mission Map panel (hidden unless app.mode === 'play') ────────── -->
+    <div class="mission-map" id="mission-map" hidden>
+      <div class="mm-head">
+        <div class="mm-tag" id="mm-tag">▶ MISSION</div>
+        <div class="mm-title" id="mm-title">—</div>
+        <div class="mm-meta"  id="mm-meta">—</div>
+      </div>
+      <div class="mm-score">
+        <div>
+          <div class="mm-score-label">Score</div>
+          <div class="mm-score-num"><span id="mm-score-current">0</span><span class="max" id="mm-score-max">/0</span></div>
+        </div>
+        <div class="mission-stars" id="mm-stars" aria-label="Stars earned"></div>
+      </div>
+      <ul class="mm-steps" id="mm-steps"></ul>
+      <div class="mm-bottom">
+        <button class="btn btn-mini" id="mm-exit" type="button">✕ Exit Mission</button>
+      </div>
+    </div>
+
     <div class="console-wrap" id="console-wrap">
       <button class="console-header" id="console-toggle" type="button" aria-expanded="true" aria-controls="console-content-row">
         <span class="dot"></span>
@@ -353,6 +376,14 @@
 <script src="js/llsp3_blocks.js"></script>
 <script src="js/llsp3_io.js"></script>
 <script src="js/llsp3_ui.js"></script>
+<script src="js/mission_schema.js"></script>
+<script src="js/mission_loader.js"></script>
+<script src="js/mission_conditions.js"></script>
+<script src="js/mission_engine.js"></script>
+<script src="js/mission_persistence.js"></script>
+<script src="js/mission_library.js"></script>
+<script src="js/mission_ui.js"></script>
+<script src="js/mission_app.js"></script>
 <script src="js/main.js"></script>
 <script src="js/version_check.js"></script>
 <script>window.versionCheck && window.versionCheck.init();</script>
