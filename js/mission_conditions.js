@@ -32,6 +32,10 @@
     return pointInZone(pos, snap.zones[cond.zone]);
   }
 
+  function evaluateContact(cond, snap) {
+    return !!snap.contacts[cond.obstacle];
+  }
+
   function evaluateSensor(cond, snap) {
     const reading = snap.sensors[cond.port];
     if (reading === undefined) return false;
@@ -48,8 +52,9 @@
 
   function evaluate(cond, snap) {
     switch (cond.kind) {
-      case 'zone':   return evaluateZone(cond, snap);
-      case 'sensor': return evaluateSensor(cond, snap);
+      case 'zone':    return evaluateZone(cond, snap);
+      case 'sensor':  return evaluateSensor(cond, snap);
+      case 'contact': return evaluateContact(cond, snap);
       default: throw new Error(`evaluate: unsupported kind "${cond.kind}"`);
     }
   }
