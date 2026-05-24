@@ -50,11 +50,24 @@
     }
   }
 
+  function evaluateNot(cond, snap)    { return !evaluate(cond.of, snap); }
+  function evaluateAllOf(cond, snap)  {
+    for (const child of cond.of) { if (!evaluate(child, snap)) return false; }
+    return true;
+  }
+  function evaluateAnyOf(cond, snap)  {
+    for (const child of cond.of) { if (evaluate(child, snap)) return true; }
+    return false;
+  }
+
   function evaluate(cond, snap) {
     switch (cond.kind) {
       case 'zone':    return evaluateZone(cond, snap);
       case 'sensor':  return evaluateSensor(cond, snap);
       case 'contact': return evaluateContact(cond, snap);
+      case 'not':    return evaluateNot(cond, snap);
+      case 'all_of': return evaluateAllOf(cond, snap);
+      case 'any_of': return evaluateAnyOf(cond, snap);
       default: throw new Error(`evaluate: unsupported kind "${cond.kind}"`);
     }
   }
