@@ -58,7 +58,7 @@
           hooks.switchTab('python');
         } else if (result.type === 'word-blocks') {
           const sb3 = await LLSP3.blocks.readSb3(result.sb3);
-          const state = LLSP3.blocks.sb3BlocksToBlocklyState(sb3.blocks);
+          const state = LLSP3.blocks.sb3BlocksToBlocklyState(sb3.blocks, sb3.variables);
           hooks.setBlocklyState(state);
           hooks.switchTab('blocks');
         }
@@ -99,7 +99,14 @@
           const state = hooks.getBlocklyState();
           const sb3Blocks = LLSP3.blocks.blocklyStateToSb3Blocks(state);
           const extensions = LLSP3.blocks.deriveExtensions(sb3Blocks);
-          const sb3 = await LLSP3.blocks.writeSb3(sb3Blocks, extensions);
+          // Mirror Blockly's `state.variables` into the sb3's `{id: [name, value]}`
+          // map so the round-tripped file lands back in Spike with the user's
+          // variables registered.
+          const sb3Variables = {};
+          for (const v of (state && state.variables) || []) {
+            sb3Variables[v.id] = [v.name, '0'];
+          }
+          const sb3 = await LLSP3.blocks.writeSb3(sb3Blocks, extensions, sb3Variables);
           const manifest = hooks.loadedManifest && hooks.loadedManifest.type === 'word-blocks'
             ? LLSP3.manifest.mergeForSave(hooks.loadedManifest, { name, extensions })
             : LLSP3.manifest.defaultManifest('word-blocks', { name });

@@ -1050,6 +1050,38 @@ const SPIKE_BLOCKS = [
     inputsInline: true, output: 'Number', colour: C_OPERATOR,
   },
 
+  // ── VARIABLES ───────────────────────────────────────────────────────────────
+  // Scratch sb3 opcodes (data_*) — used over Blockly's native variables_get /
+  // variables_set so an .llsp3 round-trips back into the official Spike app
+  // with the same blocks the user dropped onto the canvas.
+
+  { type: 'data_variable',
+    message0: '%1',
+    args0: [{ type: 'field_variable', name: 'VARIABLE', variable: 'item' }],
+    output: ['Number', 'String'], colour: C_VARS,
+    tooltip: 'Read the current value of a variable.',
+  },
+
+  { type: 'data_setvariableto',
+    message0: 'set %1 to %2',
+    args0: [
+      { type: 'field_variable', name: 'VARIABLE', variable: 'item' },
+      { type: 'input_value',    name: 'VALUE',    check: ['Number', 'String'] },
+    ],
+    inputsInline: true, previousStatement: null, nextStatement: null,
+    colour: C_VARS, tooltip: 'Set a variable to a value.',
+  },
+
+  { type: 'data_changevariableby',
+    message0: 'change %1 by %2',
+    args0: [
+      { type: 'field_variable', name: 'VARIABLE', variable: 'item' },
+      { type: 'input_value',    name: 'VALUE',    check: ['Number', 'String'] },
+    ],
+    inputsInline: true, previousStatement: null, nextStatement: null,
+    colour: C_VARS, tooltip: 'Add to the current value of a variable.',
+  },
+
   // ── MORE-MOVEMENT ───────────────────────────────────────────────────────────
 
   { type: 'flippermoremove_movementSetStopMethod',
@@ -1869,6 +1901,24 @@ function registerGenerators(Blockly) {
     const hi  = val(b,'HIGH','100');
     return [`((${v}) >= (${low}) && (${v}) <= (${hi}))`, ORDER_ATOMIC];
   };
+
+  // ── Variables ──────────────────────────────────────────────────────────────
+  // field_variable stores the variable's *id*; look up the name through the
+  // workspace so the generated JS uses a stable, readable identifier.
+  const _sanitize = (typeof window !== 'undefined' && window._sanitizeVarName)
+    ? window._sanitizeVarName
+    : _sanitizeVarName;
+  function _varNameOf(block) {
+    const id = block.getFieldValue('VARIABLE');
+    const ws = block.workspace;
+    const v = ws && ws.getVariableById ? ws.getVariableById(id) : null;
+    return _sanitize(v ? v.name : id);
+  }
+
+  js['data_variable']         = (b) => [_varNameOf(b), ORDER_ATOMIC];
+  js['data_setvariableto']    = (b) => `${_varNameOf(b)} = ${val(b,'VALUE','0')};\n`;
+  js['data_changevariableby'] = (b) =>
+    `${_varNameOf(b)} = (Number(${_varNameOf(b)}) || 0) + (Number(${val(b,'VALUE','0')}) || 0);\n`;
 
   // ── More-Movement ──────────────────────────────────────────────────────────
 
@@ -3376,6 +3426,8 @@ function initBlockly(divId, themeName, initialXml) {
   const host = document.getElementById(divId);
   if (host) host.appendChild(toggleBtn);
 
+  _registerSpikeVariablesFlyout(Blockly, workspace);
+
   const xmlText = (typeof initialXml === 'string' && initialXml.trim()) ? initialXml : DEFAULT_BLOCKLY_XML;
   try {
     Blockly.Xml.domToWorkspace(Blockly.utils.xml.textToDom(xmlText), workspace);
@@ -3388,6 +3440,85 @@ function initBlockly(divId, themeName, initialXml) {
   _attachRepeatCurls(workspace, Blockly);
 
   return workspace;
+}
+
+// Replace Blockly's default VARIABLE flyout (variables_get / variables_set /
+// math_change) with SPIKE's data_* opcodes, so .llsp3 round-trips back into
+// the official Spike app with the same blocks. Each workspace gets its own
+// callback because Blockly stores them per-workspace.
+function _registerSpikeVariablesFlyout(Blockly, workspace) {
+  workspace.registerButtonCallback('CREATE_SPIKE_VARIABLE', (button) => {
+    Blockly.Variables.createVariableButtonHandler(button.getTargetWorkspace());
+  });
+  workspace.registerToolboxCategoryCallback('VARIABLE', (ws) => {
+    const xmlList = [];
+    const makeBtn = document.createElement('button');
+    makeBtn.setAttribute('text', 'Make a Variable');
+    makeBtn.setAttribute('callbackKey', 'CREATE_SPIKE_VARIABLE');
+    xmlList.push(makeBtn);
+
+    const variables = ws.getVariablesOfType('').slice().sort((a, b) =>
+      Blockly.Names.equals(a.name, b.name) ? 0 : (a.name < b.name ? -1 : 1));
+
+    if (variables.length > 0) {
+      // Reporter blocks for each variable — most-recent-first so the variable
+      // the user just created shows up at the top.
+      const recent = variables.slice().reverse();
+      for (const v of recent) {
+        const blk = document.createElement('block');
+        blk.setAttribute('type', 'data_variable');
+        const f = document.createElement('field');
+        f.setAttribute('name', 'VARIABLE');
+        f.setAttribute('id', v.getId());
+        f.setAttribute('variabletype', v.type || '');
+        f.textContent = v.name;
+        blk.appendChild(f);
+        xmlList.push(blk);
+      }
+
+      // One setter and one changer, bound to the first available variable.
+      const first = variables[0];
+      const setter = document.createElement('block');
+      setter.setAttribute('type', 'data_setvariableto');
+      setter.setAttribute('gap', '20');
+      const setF = document.createElement('field');
+      setF.setAttribute('name', 'VARIABLE');
+      setF.setAttribute('id', first.getId());
+      setF.textContent = first.name;
+      setter.appendChild(setF);
+      const setV = document.createElement('value');
+      setV.setAttribute('name', 'VALUE');
+      const setShadow = document.createElement('shadow');
+      setShadow.setAttribute('type', 'math_number');
+      const setFieldNum = document.createElement('field');
+      setFieldNum.setAttribute('name', 'NUM');
+      setFieldNum.textContent = '0';
+      setShadow.appendChild(setFieldNum);
+      setV.appendChild(setShadow);
+      setter.appendChild(setV);
+      xmlList.push(setter);
+
+      const changer = document.createElement('block');
+      changer.setAttribute('type', 'data_changevariableby');
+      const chgF = document.createElement('field');
+      chgF.setAttribute('name', 'VARIABLE');
+      chgF.setAttribute('id', first.getId());
+      chgF.textContent = first.name;
+      changer.appendChild(chgF);
+      const chgV = document.createElement('value');
+      chgV.setAttribute('name', 'VALUE');
+      const chgShadow = document.createElement('shadow');
+      chgShadow.setAttribute('type', 'math_number');
+      const chgFieldNum = document.createElement('field');
+      chgFieldNum.setAttribute('name', 'NUM');
+      chgFieldNum.textContent = '1';
+      chgShadow.appendChild(chgFieldNum);
+      chgV.appendChild(chgShadow);
+      changer.appendChild(chgV);
+      xmlList.push(changer);
+    }
+    return xmlList;
+  });
 }
 
 // SPIKE word-block decoration: a small curl glyph at the bottom-right of every
@@ -3467,12 +3598,66 @@ function _attachRepeatCurls(workspace, Blockly) {
 
 // ── Code generator — prepends run-time state variables ──────────────────────
 
+// Scratch variable names allow characters JavaScript identifiers don't (spaces,
+// punctuation, leading digits). Map every var name through this so the same
+// reference always produces the same JS identifier, and so two distinct names
+// that sanitize to the same value still get hashed apart.
+function _sanitizeVarName(name) {
+  const raw = String(name == null ? '' : name);
+  let s = raw.replace(/[^A-Za-z0-9_$]/g, '_');
+  if (!/^[A-Za-z_$]/.test(s)) s = '_' + s;
+  return 'v_' + s;
+}
+if (typeof window !== 'undefined') window._sanitizeVarName = _sanitizeVarName;
+
+// Hat blocks that already emit their own `_hats.push(...)` polling loop, plus
+// `flipperevents_whenProgramStarts` which emits the `_mainBody = ...`
+// assignment. Anything else at the top level is a raw statement chain that
+// would otherwise run inline (sequentially) before _mainBody started — which
+// deadlocks programs whose top-level chains include awaits (e.g. a
+// control_repeat_until that monitors a sensor in parallel with the main body).
+// Those chains get wrapped in `_hats.push(async () => { ... })` so the
+// runtime starts them concurrently with _mainBody.
+const _SELF_REGISTERING_TOP_TYPES = new Set([
+  'flipperevents_whenProgramStarts',
+  'flipperevents_whenColor', 'flipperevents_whenPressed', 'flipperevents_whenDistance',
+  'flipperevents_whenTilted', 'flipperevents_whenOrientation', 'flipperevents_whenGesture',
+  'flipperevents_whenButton', 'flipperevents_whenTimer', 'flipperevents_whenCondition',
+  'event_whenbroadcastreceived',
+]);
+
 function generateBlocklyJS(workspace) {
   if (!workspace || typeof Blockly === 'undefined') return '';
   const js = Blockly.JavaScript || Blockly.javascriptGenerator;
   if (!js) return '';
 
-  const body = js.workspaceToCode(workspace);
+  // Walk the top-level blocks ourselves rather than calling
+  // `js.workspaceToCode`, so we can wrap non-hat statement chains in
+  // parallel runners. Skip orphan reporter blocks (outputConnection != null).
+  if (typeof js.init === 'function') js.init(workspace);
+  const topBlocks = (workspace.getTopBlocks && workspace.getTopBlocks(true)) || [];
+  const parts = [];
+  for (const blk of topBlocks) {
+    if (blk.outputConnection) continue;
+    const code = js.blockToCode(blk);
+    if (!code) continue;
+    const codeStr = Array.isArray(code) ? code[0] : code;
+    if (_SELF_REGISTERING_TOP_TYPES.has(blk.type)) {
+      parts.push(codeStr);
+    } else {
+      parts.push(`_hats.push(async () => {\n${codeStr}});\n`);
+    }
+  }
+  if (typeof js.finish === 'function') {
+    const finished = js.finish(parts.join(''));
+    if (typeof finished === 'string') parts.length = 0, parts.push(finished);
+  }
+  const body = parts.join('');
+
+  const userVars = (workspace.getAllVariables && workspace.getAllVariables()) || [];
+  const userVarDecls = userVars
+    .map(v => `var ${_sanitizeVarName(v.name)} = 0;`)
+    .join('\n');
 
   const preamble = [
     `var _moveSpeed     = 50;`,
@@ -3494,7 +3679,8 @@ function generateBlocklyJS(workspace) {
     `var _hatPrev  = {};`,
     `var _hatFired  = {};`,
     `var _t0       = performance.now();`,
-  ].join('\n');
+    userVarDecls,
+  ].filter(Boolean).join('\n');
 
   const epilogue = [
     `await (async () => {`,
