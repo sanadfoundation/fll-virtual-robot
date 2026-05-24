@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "id": "red-zone-then-push",
+  "title": "Red Zone then Push",
+  "description": "Drive to the red zone, then knock obstacle 1 off the green zone.",
+  "author": "Sanad Foundation",
+  "type": "mission",
+  "difficulty_tier": "beginner",
+
+  "field": {
+    "robot_start": { "x": 350, "y": 163, "heading": 90 },
+    "zones": [
+      { "id": "red",   "shape": "rect", "x": 1900, "y": 243, "w": 200, "h": 200, "color": "red"   },
+      { "id": "green", "shape": "rect", "x": 1600, "y": 843, "w": 200, "h": 200, "color": "green" }
+    ],
+    "obstacles": [
+      { "id": "1", "shape": "rect", "x": 1700, "y": 943, "w": 100, "h": 100, "label": "1", "fill": "#9b59b6" }
+    ]
+  },
+
+  "steps": [
+    {
+      "id": "reach-red",
+      "title": "Reach the red zone",
+      "points": 10,
+      "hint": "Drive forward about 1200 mm, then a bit south.",
+      "condition": { "kind": "zone", "subject": "robot", "zone": "red" }
+    },
+    {
+      "id": "push-obstacle-1",
+      "title": "Push obstacle 1 off the green zone",
+      "points": 15,
+      "hint": "Turn left and drive forward into the green zone.",
+      "requires": ["reach-red"],
+      "condition": {
+        "kind": "not",
+        "of": { "kind": "zone", "subject": "obstacle:1", "zone": "green" }
+      }
+    }
+  ],
+
+  "scoring": { "kind": "step_sum" },
+
+  "modifiers": { "available": [], "defaults": {} }
+}
