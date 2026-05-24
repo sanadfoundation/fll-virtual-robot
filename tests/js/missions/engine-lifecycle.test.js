@@ -1,0 +1,113 @@
+'use strict';
+
+const test   = require('node:test');
+const assert = require('node:assert');
+const { makeMissionsEnv } = require('../mocks/missions-env');
+
+function env() {
+  return makeMissionsEnv([
+    'mission_schema', 'mission_loader', 'mission_conditions', 'mission_engine',
+  ]).ctx;
+}
+
+const MISSION = {
+  schema_version: 1, id: 'lc', title: 'LC', type: 'mission', difficulty_tier: 'beginner',
+  field: {
+    robot_start: { x: 0, y: 0, heading: 0 },
+    zones:     [{ id: 'red', shape: 'rect', x: 100, y: 100, w: 50, h: 50, color: 'red' }],
+    obstacles: [],
+  },
+  steps: [
+    { id: 's1', title: 'Reach red', points: 10,
+      condition: { kind: 'zone', subject: 'robot', zone: 'red' } },
+  ],
+  scoring: { kind: 'step_sum' },
+};
+
+function snap(opts = {}) {
+  return {
+    robot: opts.robot || { x: 0, y: 0, heading: 0 },
+    obstacles: {}, sensors: {}, contacts: {},
+    zones: { red: { id: 'red', shape: 'rect', x: 100, y: 100, w: 50, h: 50 } },
+  };
+}
+
+test('engine: load() returns a progress object with no steps complete', () => {
+  const ctx = env();
+  const e = new ctx.MISSIONS.engine.ChallengeEngine();
+  const p = e.load(ctx.MISSIONS.loader.load(MISSION));
+  assert.strictEqual(p.score, 0);
+  assert.deepStrictEqual(p.stepResults, {});
+  assert.strictEqual(p.finalized, false);
+});
+
+test('engine: tick before start() is a no-op', () => {
+  const ctx = env();
+  const e = new ctx.MISSIONS.engine.ChallengeEngine();
+  e.load(ctx.MISSIONS.loader.load(MISSION));
+  const completed = e.tick(snap({ robot: { x: 120, y: 120, heading: 0 } }));
+  assert.deepStrictEqual(completed, []);
+  assert.strictEqual(e.progress.score, 0);
+});
+
+test('engine: start() sets startTimeMs and arms the tick loop', () => {
+  const ctx = env();
+  const e = new ctx.MISSIONS.engine.ChallengeEngine();
+  e.load(ctx.MISSIONS.loader.load(MISSION));
+  e.start(1000);
+  assert.strictEqual(e.startTimeMs, 1000);
+});
+
+test('engine: tick after start() completes a step whose condition fires true', () => {
+  const ctx = env();
+  const e = new ctx.MISSIONS.engine.ChallengeEngine();
+  e.load(ctx.MISSIONS.loader.load(MISSION));
+  e.start(0);
+  const completed = e.tick(snap({ robot: { x: 120, y: 120, heading: 0 } }));
+  assert.deepStrictEqual(completed, ['s1']);
+  assert.strictEqual(e.progress.score, 10);
+  assert.strictEqual(e.progress.stepResults.s1.complete, true);
+});
+
+test('engine: completed steps do NOT re-fire on subsequent ticks', () => {
+  const ctx = env();
+  const e = new ctx.MISSIONS.engine.ChallengeEngine();
+  e.load(ctx.MISSIONS.loader.load(MISSION));
+  e.start(0);
+  e.tick(snap({ robot: { x: 120, y: 120, heading: 0 } }));
+  const completed2 = e.tick(snap({ robot: { x: 120, y: 120, heading: 0 } }));
+  assert.deepStrictEqual(completed2, []);
+  assert.strictEqual(e.progress.score, 10);  // not 20
+});
+
+test('engine: reset() clears progress and timer back to fresh load state', () => {
+  const ctx = env();
+  const e = new ctx.MISSIONS.engine.ChallengeEngine();
+  e.load(ctx.MISSIONS.loader.load(MISSION));
+  e.start(0);
+  e.tick(snap({ robot: { x: 120, y: 120, heading: 0 } }));
+  e.reset();
+  assert.strictEqual(e.startTimeMs, null);
+  assert.strictEqual(e.progress.score, 0);
+  assert.deepStrictEqual(e.progress.stepResults, {});
+});
+
+test('engine: finalize() marks finalized=true and locks score', () => {
+  const ctx = env();
+  const e = new ctx.MISSIONS.engine.ChallengeEngine();
+  e.load(ctx.MISSIONS.loader.load(MISSION));
+  e.start(0);
+  e.tick(snap({ robot: { x: 120, y: 120, heading: 0 } }));
+  const result = e.finalize(1500);
+  assert.strictEqual(result.finalized, true);
+  assert.strictEqual(result.score, 10);
+  assert.strictEqual(result.elapsedMs, 1500);
+});
+
+test('engine: recordContact populates the contacts map (first-hit only)', () => {
+  const ctx = env();
+  const e = new ctx.MISSIONS.engine.ChallengeEngine();
+  e.recordContact('1', 100);
+  e.recordContact('1', 200);  // ignored — already recorded
+  assert.strictEqual(e.firstContact['1'], 100);
+});
