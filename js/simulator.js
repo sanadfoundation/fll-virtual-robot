@@ -2031,6 +2031,31 @@ class RobotSimulator {
   getMotorSpeed(port)         { return (this.robot.motors_velocity && this.robot.motors_velocity[port]) || 0; }
   getMotorPosition(port)      { return this.robot.motors[port] || 0; }
 
+  // Read-only snapshot for the missions ChallengeEngine. Returns a fresh
+  // object — callers can mutate without affecting simulator state. Sensor
+  // values mirror what's displayed in the right-rail panel.
+  getStateSnapshot() {
+    const obstacles = {};
+    const obstacleList = this._obstacles.length
+      ? this._obstacles
+      : OBSTACLES.map(cfg => ({ cfg, body: null }));
+    for (const o of obstacleList) {
+      const pos = (o.body && this.physics)
+        ? this.physics.readPose(o.body)
+        : { x: o.cfg.x, y: o.cfg.y };
+      obstacles[o.cfg.label] = { x: pos.x, y: pos.y };
+    }
+    return {
+      robot: { x: this.robot.x, y: this.robot.y, heading: this.robot.heading },
+      obstacles,
+      sensors: {
+        C: this.robot.sensors.colorValue,
+        D: this.robot.sensors.distanceMM,
+        E: this.robot.sensors.forceN,
+      },
+    };
+  }
+
   // ── Audio ───────────────────────────────────────────────────────────────────
 
   _playBeep(note, durationMs) {
