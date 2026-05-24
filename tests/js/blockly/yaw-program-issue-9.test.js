@@ -82,15 +82,18 @@ function buildIssue9ProgramCode(Blockly, window) {
   const assembledBody = line1 + line2 + line3;
 
   // Use the real generateBlocklyJS() to get the authoritative preamble + body.
-  // Override workspaceToCode to return our assembled body, then restore.
-  // This ensures any future preamble change in blockly_config.js flows into
-  // this test automatically (e.g. the _timerMs variable won't go missing).
-  const origWorkspaceToCode = js.workspaceToCode;
-  js.workspaceToCode = () => assembledBody;
-  // Pass a truthy stub so the early `!workspace` guard in generateBlocklyJS
-  // doesn't bail out.
-  const code = window.generateBlocklyJS({ _stub: true });
-  js.workspaceToCode = origWorkspaceToCode;
+  // The function walks top-level blocks and calls js.blockToCode per block; we
+  // synthesize a single whenProgramStarts top block whose emitted code is the
+  // assembled body (whenProgramStarts is self-registering, so it's inlined
+  // verbatim rather than wrapped in `_hats.push(...)`).
+  const origBlockToCode = js.blockToCode;
+  js.blockToCode = () => assembledBody;
+  const fakeWs = {
+    getAllVariables: () => [],
+    getTopBlocks: () => [{ type: 'flipperevents_whenProgramStarts', outputConnection: null }],
+  };
+  const code = window.generateBlocklyJS(fakeWs);
+  js.blockToCode = origBlockToCode;
 
   return code;
 }

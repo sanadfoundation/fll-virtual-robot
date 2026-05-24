@@ -23,6 +23,8 @@ function makeBlocklyEnv(opts = {}) {
     clear() { calls.workspaceClear++; },
     dispose() {},
     addChangeListener: () => {},
+    registerButtonCallback: () => {},
+    registerToolboxCategoryCallback: () => {},
   };
 
   // Tests can pass a textToDom that throws to exercise the catch path.

@@ -378,6 +378,20 @@
     return [typeCode, String(value)];
   }
 
+  // Variable / list reporters live in the *block* slot (not the shadow slot)
+  // of a `[3, block, shadow]` tuple — Scratch 3 still emits them inline as
+  // `[12, name, id]` / `[13, name, id]`. Lists aren't modeled by the
+  // simulator, so we only emit type 12.
+  function tryInlineVariableBlock(block) {
+    if (!block || typeof block !== 'object') return null;
+    if (block.type !== 'data_variable') return null;
+    if (block.next) return null;
+    if (block.inputs && Object.keys(block.inputs).length) return null;
+    const v = block.fields && block.fields.VARIABLE;
+    if (!v || typeof v !== 'object') return null;
+    return [12, String(v.name || ''), String(v.id || '')];
+  }
+
   // ── Blockly serialization → sb3 blocks ───────────────────────────────────
   // Blockly's `inputs` shape:  { INPUTNAME: { block: {...}, shadow: {...} } }
   // Blockly's `fields` shape:  { FIELDNAME: <value> }
@@ -461,6 +475,13 @@
     //     field_dropdown values that Spike also stores as fields).
     for (const [fieldName, fieldValue] of Object.entries(blklyFields)) {
       if (handledFieldNames.has(fieldName)) continue;
+      // field_variable round-trip: Blockly serializes the field as
+      // `{ id, name }`; Scratch stores it as `[name, id]`.
+      if (VARIABLE_FIELD_KEYS.has(`${blkly.type}|${fieldName}`) &&
+          fieldValue && typeof fieldValue === 'object') {
+        node.fields[fieldName] = [String(fieldValue.name || ''), String(fieldValue.id || '')];
+        continue;
+      }
       // Scratch 3 spec: field values must be strings, regardless of whether
       // the field is conceptually numeric. Coerce here.
       node.fields[fieldName] = [
@@ -490,6 +511,23 @@
     if (inp.shadow && !inp.block) {
       const inline = tryInlinePrimitive(inp.shadow);
       if (inline) return [1, inline];
+    }
+
+    // Variable reporters in the block slot also use the inline-primitive
+    // form ([12, name, id]) in Scratch 3, regardless of whether a fallback
+    // shadow accompanies them.
+    const inlineVarBlock = inp.block ? tryInlineVariableBlock(inp.block) : null;
+    if (inlineVarBlock) {
+      let shadowPart = null;
+      if (inp.shadow) {
+        const inlineShadow = tryInlinePrimitive(inp.shadow);
+        shadowPart = inlineShadow
+          ? inlineShadow
+          : emitBlock(out, { ...inp.shadow, shadow: true }, parentId, false);
+      }
+      return shadowPart
+        ? [3, inlineVarBlock, shadowPart]
+        : [2, inlineVarBlock];
     }
 
     let shadowId = null;
@@ -525,13 +563,36 @@
     return [1, synthId];
   }
 
+  // Set of (opcode, fieldName) pairs whose field entry is `[name, id]` (a
+  // variable or list reference) rather than the usual `[value, null]`. Used
+  // to round-trip between Scratch's wire form and Blockly's field_variable.
+  const VARIABLE_FIELD_KEYS = new Set([
+    'data_setvariableto|VARIABLE',
+    'data_changevariableby|VARIABLE',
+    'data_variable|VARIABLE',
+  ]);
+
+  function isVariableFieldRef(opcode, fieldName, entry) {
+    if (!VARIABLE_FIELD_KEYS.has(`${opcode}|${fieldName}`)) return false;
+    return Array.isArray(entry) && entry.length >= 2 && entry[1] != null;
+  }
+
   // ── sb3 blocks → Blockly serialization ───────────────────────────────────
-  function sb3BlocksToBlocklyState(sb3Blocks) {
+  // `variables` is the sb3 variables map: `{ id: [name, value] }`. When
+  // supplied, it is mirrored into Blockly's workspace-level `variables` array
+  // so the workspace can resolve field_variable refs at load time.
+  function sb3BlocksToBlocklyState(sb3Blocks, variables) {
     normalizeSb3Shadows(sb3Blocks);
     const tops = Object.entries(sb3Blocks)
       .filter(([_, b]) => b.topLevel === true)
       .map(([id, _]) => buildBlocklyBlock(sb3Blocks, id));
-    return { blocks: { languageVersion: 0, blocks: tops } };
+    const state = { blocks: { languageVersion: 0, blocks: tops } };
+    if (variables && typeof variables === 'object') {
+      state.variables = Object.entries(variables).map(([id, entry]) => ({
+        id, name: entry && entry[0], type: '',
+      }));
+    }
+    return state;
   }
 
   function buildBlocklyBlock(sb3, id) {
@@ -546,8 +607,19 @@
     }
 
     // Fields (start from sb3 fields; we'll add demoted inputs below).
+    // Scratch encodes variable / list references as a two-element field
+    // entry `[name, id]` (rather than the usual `[value, null]`). When a
+    // block declares a variable slot, surface it in Blockly's `field_variable`
+    // shape `{ id, name }` so the workspace can wire it to the matching
+    // workspace variable.
     const fields = {};
-    for (const [k, v] of Object.entries(sb.fields || {})) fields[k] = v[0];
+    for (const [k, v] of Object.entries(sb.fields || {})) {
+      if (isVariableFieldRef(sb.opcode, k, v)) {
+        fields[k] = { id: v[1], name: v[0] };
+      } else {
+        fields[k] = v[0];
+      }
+    }
 
     // Inputs: demote contract-matching shadow-only inputs back to Blockly
     // fields when the shadow opcode matches the contract.
@@ -600,11 +672,17 @@
     //   [1, idOrPrimitive]       — shadow only
     //   [2, blockId]             — block only
     //   [3, blockId, shadowId]   — block-with-shadow
+    //
+    // Any slot can also be `null` — that's the encoding Scratch uses for an
+    // empty stack (e.g. `SUBSTACK: [1, null]` on a control_repeat_until that
+    // hasn't had its body filled in yet). Return null from decodeShadowSlot
+    // in that case so the caller drops the input entirely.
     const tag = value[0];
     const a = value[1];
     const b = value[2];
 
     function decodeShadowSlot(slot) {
+      if (slot === null || slot === undefined) return null;
       if (Array.isArray(slot)) {
         // Inline primitive: [4, "10"] etc.
         const ptype = slot[0];
@@ -617,16 +695,34 @@
         // Scratch's broadcast-menu inline primitive. Our event_broadcast model
         // uses a text shadow in BROADCAST_INPUT, not a separate menu block.
         if (ptype === 11) return { type: 'text', fields: { TEXT: pval } };
+        // [12, name, id] variable reporter, [13, name, id] list reporter.
+        // Blockly's field_variable looks up the workspace variable by `id`
+        // (with `name` as a hint); we model lists as variables too since the
+        // simulator has no list support yet — better to render the reference
+        // than to drop the whole stack.
+        if (ptype === 12 || ptype === 13) {
+          return { type: 'data_variable', fields: { VARIABLE: { id: slot[2], name: pval } } };
+        }
         return { type: 'math_number', fields: { NUM: String(pval) } };
       }
+      const ref = sb3[slot];
+      if (!ref) return null;
       const blk = buildBlocklyBlock(sb3, slot);
       delete blk.x; delete blk.y;
       return blk;
     }
 
-    if (tag === 1) return { shadow: decodeShadowSlot(a) };
-    if (tag === 2) return { block: decodeShadowSlot(a) };
-    if (tag === 3) return { block: decodeShadowSlot(a), shadow: decodeShadowSlot(b) };
+    const shadow = decodeShadowSlot(a);
+    if (tag === 1) return shadow ? { shadow } : null;
+    if (tag === 2) return shadow ? { block: shadow } : null;
+    if (tag === 3) {
+      const real = shadow;
+      const fallback = decodeShadowSlot(b);
+      if (real && fallback) return { block: real, shadow: fallback };
+      if (real)             return { block: real };
+      if (fallback)         return { shadow: fallback };
+      return null;
+    }
     return null;
   }
 
@@ -661,10 +757,10 @@
     return n;
   }
 
-  function defaultSprite(blocks) {
+  function defaultSprite(blocks, variables) {
     return {
       isStage: false, name: defaultSpriteName(),
-      variables: {}, lists: {}, broadcasts: {},
+      variables: variables || {}, lists: {}, broadcasts: {},
       blocks, comments: {}, currentCostume: 0,
       costumes: [{
         assetId: 'd41d8cd98f00b204e9800998ecf8427e',
@@ -695,9 +791,9 @@
     return Array.from(set).sort();
   }
 
-  async function writeSb3(blocks, extensionsOverride) {
+  async function writeSb3(blocks, extensionsOverride, variables) {
     const project = {
-      targets: [defaultStage(), defaultSprite(blocks)],
+      targets: [defaultStage(), defaultSprite(blocks, variables)],
       monitors: [],
       extensions: extensionsOverride || deriveExtensions(blocks),
       meta: META,
@@ -717,11 +813,17 @@
     const project = JSON.parse(await projectEntry.async('string'));
 
     const allBlocks = {};
+    const allVariables = {};
     for (const t of project.targets || []) {
       if (t.isStage) continue;
       Object.assign(allBlocks, t.blocks || {});
+      Object.assign(allVariables, t.variables || {});
     }
-    return { blocks: allBlocks, extensions: project.extensions || [] };
+    return {
+      blocks: allBlocks,
+      variables: allVariables,
+      extensions: project.extensions || [],
+    };
   }
 
   LLSP3.blocks = {
