@@ -293,26 +293,6 @@
 
     <div class="console-resize-handle" id="console-resize-handle" aria-hidden="true"></div>
 
-    <!-- ── Mission Map panel (hidden unless app.mode === 'play') ────────── -->
-    <div class="mission-map" id="mission-map" hidden>
-      <div class="mm-head">
-        <div class="mm-tag" id="mm-tag">▶ MISSION</div>
-        <div class="mm-title" id="mm-title">—</div>
-        <div class="mm-meta"  id="mm-meta">—</div>
-      </div>
-      <div class="mm-score">
-        <div>
-          <div class="mm-score-label">Score</div>
-          <div class="mm-score-num"><span id="mm-score-current">0</span><span class="max" id="mm-score-max">/0</span></div>
-        </div>
-        <div class="mission-stars" id="mm-stars" aria-label="Stars earned"></div>
-      </div>
-      <ul class="mm-steps" id="mm-steps"></ul>
-      <div class="mm-bottom">
-        <button class="btn btn-mini" id="mm-exit" type="button">✕ Exit Mission</button>
-      </div>
-    </div>
-
     <div class="console-wrap" id="console-wrap">
       <button class="console-header" id="console-toggle" type="button" aria-expanded="true" aria-controls="console-content-row">
         <span class="dot"></span>
@@ -332,6 +312,26 @@
           <div class="watch-pane-list" id="watch-pane-list"></div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- ── Mission Map panel (right column, hidden unless app.mode === 'play') ── -->
+  <div class="mission-map" id="mission-map" hidden>
+    <div class="mm-head">
+      <div class="mm-tag" id="mm-tag">▶ MISSION</div>
+      <div class="mm-title" id="mm-title">—</div>
+      <div class="mm-meta"  id="mm-meta">—</div>
+    </div>
+    <div class="mm-score">
+      <div>
+        <div class="mm-score-label">Score</div>
+        <div class="mm-score-num"><span id="mm-score-current">0</span><span class="max" id="mm-score-max">/0</span></div>
+      </div>
+      <div class="mission-stars" id="mm-stars" aria-label="Stars earned"></div>
+    </div>
+    <ul class="mm-steps" id="mm-steps"></ul>
+    <div class="mm-bottom">
+      <button class="btn btn-mini" id="mm-exit" type="button">✕ Exit Mission</button>
     </div>
   </div>
 
