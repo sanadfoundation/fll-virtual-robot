@@ -312,6 +312,17 @@ function applyStoredProjectType() {
 
 // ── Run / Stop ────────────────────────────────────────────────────────────────
 
+// Finalize the mission engine if a mission is currently being played and the
+// engine is mid-run. Safe no-op otherwise. Called from the Blockly Run path,
+// the Stop handler, and the Python worker's done/error messages.
+function finalizeMissionIfActive() {
+  const app = window.missionApp;
+  if (!app || app.mode !== 'play') return;
+  const eng = app.engine;
+  if (eng.startTimeMs == null || eng.progress.finalized) return;
+  eng.finalize(Date.now() - eng.startTimeMs);
+}
+
 async function handleRun() {
   if (!sim) return;
   // Re-entry guard: the Run button is disabled while a run is in flight, but
@@ -334,12 +345,11 @@ async function handleRun() {
     await runBlockly();
   }
 
-  // Finalize the mission engine when the program completes (natural end or error).
-  if (window.missionApp && window.missionApp.mode === 'play') {
-    const eng = window.missionApp.engine;
-    if (eng.startTimeMs != null) {
-      eng.finalize(Date.now() - eng.startTimeMs);
-    }
+  // For Blockly, runBlockly awaits the AsyncFunction to completion, so we
+  // finalize the mission engine here. Python runs in a worker; its
+  // finalize is wired to the worker's `done` / `error` messages below.
+  if (currentMode !== 'python') {
+    finalizeMissionIfActive();
   }
 }
 
@@ -407,12 +417,7 @@ function handleStop() {
   sim._setStatus('ready');
   appendOutput('[Stopped]', 'warn');
   // Finalize the mission engine when the user stops the program manually.
-  if (window.missionApp && window.missionApp.mode === 'play') {
-    const eng = window.missionApp.engine;
-    if (eng.startTimeMs != null) {
-      eng.finalize(Date.now() - eng.startTimeMs);
-    }
-  }
+  finalizeMissionIfActive();
 }
 
 // "New" — start a fresh project of the given type. Only the buffer for
@@ -610,10 +615,12 @@ function _pollForWorker() {
       appendOutput('[Done] Simulation complete.', 'info');
       setButtons(false);
       sim._setStatus('ready');
+      finalizeMissionIfActive();
     } else if (data.type === 'error') {
       appendOutput('[Error] ' + data.message, 'error');
       setButtons(false);
       sim._setStatus('error');
+      finalizeMissionIfActive();
     }
   });
 }
