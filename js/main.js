@@ -54,7 +54,6 @@ const SPEED_KEY          = 'fll-vr-speed';
 const UNITS_KEY          = 'fll-vr-units';
 const PYCODE_KEY         = 'fll-vr-python-code';
 const BLOCKLY_KEY        = 'fll-vr-blockly-xml';
-const TAB_KEY            = 'fll-vr-tab';
 const NAME_KEY           = 'fll-vr-project-name';
 const DIRTY_KEY          = 'fll-vr-dirty';
 const PROJECT_TYPE_KEY   = 'fll-vr-project-type';
@@ -63,7 +62,6 @@ const DEFAULT_THEME        = 'light';
 const DEFAULT_SPEED        = 1;
 const DEFAULT_UNITS        = 'cm';
 const VALID_UNITS          = ['cm', 'mm', 'in'];
-const DEFAULT_TAB          = 'blocks';
 const DEFAULT_NAME         = 'Untitled-Project';
 const DEFAULT_PROJECT_TYPE = 'blocks';
 const VALID_PROJECT_TYPES  = ['python', 'blocks'];
@@ -106,10 +104,10 @@ function setProjectType(type) {
 
 function migrateLegacyTabKey() {
   if (lsGet(PROJECT_TYPE_KEY)) return;          // already migrated
-  const legacy = lsGet(TAB_KEY);
+  const legacy = lsGet('fll-vr-tab');           // legacy TAB_KEY, retired
   const type = VALID_PROJECT_TYPES.includes(legacy) ? legacy : DEFAULT_PROJECT_TYPE;
   lsSet(PROJECT_TYPE_KEY, type);
-  if (legacy !== null) lsRemove(TAB_KEY);
+  if (legacy !== null) lsRemove('fll-vr-tab');
 }
 
 // ── Theme ────────────────────────────────────────────────────────────────────
@@ -505,8 +503,8 @@ function handleDefaults() {
   }
   if (defaultXml) lsSet(BLOCKLY_KEY, defaultXml);
 
-  // Active tab
-  switchMode(DEFAULT_TAB);
+  // Active project type
+  switchMode(DEFAULT_PROJECT_TYPE);
 
   setProjectName(DEFAULT_NAME);
   const nameInput = document.getElementById('project-name');
