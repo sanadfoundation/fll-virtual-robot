@@ -142,11 +142,68 @@
     return next;
   }
 
+  function serializeToMission(state) {
+    const SCHEMA_VERSION = MISSIONS.schema.SCHEMA_VERSION;
+    return {
+      schema_version: SCHEMA_VERSION,
+      id:              state.id,
+      title:           state.title,
+      description:     state.description,
+      author:          state.author,
+      type:            state.type,
+      difficulty_tier: state.difficulty_tier,
+      field: {
+        robot_start: { ...state.field.robot_start },
+        zones:       state.field.zones.map(z => ({ ...z })),
+        obstacles:   state.field.obstacles.map(o => ({ ...o })),
+      },
+      steps: state.steps.map(s => ({
+        id: s.id,
+        title: s.title,
+        points: s.points,
+        ...(s.hint ? { hint: s.hint } : {}),
+        ...(s.requires && s.requires.length ? { requires: s.requires.slice() } : {}),
+        condition: deepClone(s.condition),
+      })),
+      scoring: { ...state.scoring },
+      modifiers: { available: state.modifiers.available.slice(), defaults: { ...state.modifiers.defaults } },
+    };
+  }
+
+  function loadFromMission(mission) {
+    const state = createBlank();
+    state.id              = mission.id;
+    state.title           = mission.title;
+    state.description     = mission.description || '';
+    state.author          = mission.author || '';
+    state.type            = mission.type;
+    state.difficulty_tier = mission.difficulty_tier;
+    state.field           = {
+      robot_start: { ...mission.field.robot_start },
+      zones:       (mission.field.zones || []).map(z => ({ ...z })),
+      obstacles:   (mission.field.obstacles || []).map(o => ({ ...o })),
+    };
+    state.steps = mission.steps.map(s => ({
+      id: s.id, title: s.title, points: s.points,
+      ...(s.hint ? { hint: s.hint } : {}),
+      ...(s.requires ? { requires: s.requires.slice() } : {}),
+      condition: deepClone(s.condition),
+    }));
+    state.scoring   = { ...mission.scoring };
+    state.modifiers = mission.modifiers
+      ? { available: mission.modifiers.available.slice(), defaults: { ...mission.modifiers.defaults } }
+      : { available: [], defaults: {} };
+    state.selection = null;
+    state.dirty     = false;
+    return state;
+  }
+
   editor.state = {
     createBlank, newId,
     addObstacle, moveObstacle, resizeObstacle, deleteObstacle,
     addZone, moveZone, resizeZone, deleteZone,
     setRobotStart, setSelection,
+    serializeToMission, loadFromMission,
     _clone: clone,
   };
 })(typeof window !== 'undefined' ? window : globalThis);
