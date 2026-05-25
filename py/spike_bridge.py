@@ -726,6 +726,24 @@ class _HubModule:
     def temperature(self): return hub.temperature()
 
 
+# ── sim: simulator-only helpers ──────────────────────────────────────────────
+# This module is NOT in the official Spike Prime API; it's exposed by the
+# simulator so kids can push values to the live watch panel directly. v1 has
+# one function: watch(name, value) or watch(name=value, ...).
+class _Sim:
+    @staticmethod
+    def watch(name=None, value=None, **kwargs):
+        last = None
+        if name is not None:
+            last = _bridge_call({'type': 'var_update',
+                                 'name': str(name), 'value': value})
+        for k, v in kwargs.items():
+            last = _bridge_call({'type': 'var_update',
+                                 'name': k, 'value': v})
+        return last
+
+sim = _Sim()
+
 sys.modules['hub']             = _HubModule()
 sys.modules['app']             = app
 sys.modules['motor']           = motor
@@ -738,6 +756,7 @@ sys.modules['color']           = color
 sys.modules['orientation']     = orientation
 sys.modules['device']          = device
 sys.modules['color_matrix']    = color_matrix
+sys.modules['sim']             = sim
 
 
 # ── Phase 7: Worker message handler ──────────────────────────────────────────
