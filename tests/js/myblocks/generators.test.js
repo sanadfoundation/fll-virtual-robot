@@ -118,15 +118,20 @@ test('myblocks_call generator: string_number default-empty falls back to `0`', (
 
 // ── definition ───────────────────────────────────────────────────────────────
 
-test('myblocks_definition generator: emits async function with arg list, body inline', () => {
+test('myblocks_definition generator: stashes async function in definitions_ and returns null', () => {
+  // Returning the function STRING would cause Blockly.blockToCode to also
+  // auto-append the next-chain code at top scope, where arg-reporter
+  // references go out of scope and trip ReferenceError. We instead push
+  // the function into js.definitions_ (js.finish prepends it) and return
+  // null to suppress the auto-append. Mirrors procedures_defnoreturn.
   const { Blockly } = setup();
   const js = Blockly.JavaScript;
-  // Stub blockToCode to simulate a body of two statements following the hat.
   const origBlockToCode = js.blockToCode;
   js.blockToCode = (b) => {
     if (b === 'NEXT_BODY') return 'await window.sim._sleep(100);\nawait window.sim._sleep(200);\n';
     return '';
   };
+  js.definitions_ = {};
   try {
     const block = {
       argspec_: [
@@ -138,12 +143,14 @@ test('myblocks_definition generator: emits async function with arg list, body in
       ],
       getNextBlock: () => 'NEXT_BODY',
     };
-    const code = js['myblocks_definition'](block);
-    assert.ok(code.startsWith('async function rotate_my_function(angle, direction) {\n'),
-      `expected function header, got: ${code.slice(0, 80)}`);
-    assert.ok(code.includes('await window.sim._sleep(100);'), 'includes first body line');
-    assert.ok(code.includes('await window.sim._sleep(200);'), 'includes second body line');
-    assert.ok(code.trimEnd().endsWith('}'), 'closes function block');
+    const ret = js['myblocks_definition'](block);
+    assert.strictEqual(ret, null, 'returns null to suppress auto-append of next chain');
+    const stashed = js.definitions_['%myblocks_rotate_my_function'];
+    assert.ok(stashed && stashed.startsWith('async function rotate_my_function(angle, direction) {\n'),
+      `expected stashed function header, got: ${(stashed||'').slice(0, 80)}`);
+    assert.ok(stashed.includes('await window.sim._sleep(100);'), 'includes first body line');
+    assert.ok(stashed.includes('await window.sim._sleep(200);'), 'includes second body line');
+    assert.ok(stashed.trimEnd().endsWith('}'), 'closes function block');
   } finally {
     js.blockToCode = origBlockToCode;
   }
@@ -152,12 +159,14 @@ test('myblocks_definition generator: emits async function with arg list, body in
 test('myblocks_definition generator: empty body produces a valid empty function', () => {
   const { Blockly } = setup();
   const js = Blockly.JavaScript;
+  js.definitions_ = {};
   const block = {
     argspec_: [{ kind: 'label', text: 'do nothing' }],
     getNextBlock: () => null,
   };
-  const code = js['myblocks_definition'](block);
-  assert.strictEqual(code, 'async function do_nothing() {\n}\n');
+  const ret = js['myblocks_definition'](block);
+  assert.strictEqual(ret, null);
+  assert.strictEqual(js.definitions_['%myblocks_do_nothing'], 'async function do_nothing() {\n}\n');
 });
 
 test('generateBlocklyJS: orphan call (no matching definition) gets a no-op stub function declared at top scope', () => {

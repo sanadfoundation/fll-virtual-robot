@@ -46,6 +46,15 @@ const HAT_GENERATORS = new Set([
   'event_whenbroadcastreceived',
 ]);
 
+// Generators that intentionally return `null` (not a string) to suppress
+// Blockly's auto-append of the next-chain. The function code is stashed in
+// js.definitions_ and prepended via js.finish() instead. Shape contract:
+// "returns null and populates definitions_" — tested in
+// tests/js/myblocks/generators.test.js, not here.
+const NULL_RETURN_GENERATORS = new Set([
+  'myblocks_definition',
+]);
+
 function makeBlock() {
   return {
     getFieldValue(name) {
@@ -108,7 +117,8 @@ test('blockly_config registers ≥ 90 generators on Blockly.JavaScript', () => {
 
 test('every non-hat generator returns non-empty code without throwing', () => {
   const { Blockly } = setupGenerators();
-  const gens  = listGenerators(Blockly).filter(n => !HAT_GENERATORS.has(n));
+  const gens  = listGenerators(Blockly).filter(
+    n => !HAT_GENERATORS.has(n) && !NULL_RETURN_GENERATORS.has(n));
   const block = makeBlock();
   const failures = [];
 

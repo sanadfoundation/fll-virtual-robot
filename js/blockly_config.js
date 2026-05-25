@@ -2019,9 +2019,19 @@ function registerGenerators(Blockly) {
   };
 
   // Definition: `async function name(args) { body }`. Body is the next-block
-  // chain (statements connected below the hat). Top-level emission is
-  // suppressed via _SELF_REGISTERING_TOP_TYPES so the function appears at
-  // file scope, reachable from any call site.
+  // chain (statements connected below the hat).
+  //
+  // CRITICAL: returns `null` and stashes the function in js.definitions_
+  // rather than returning the function string. Blockly's blockToCode
+  // contract: a STRING return is auto-concatenated with the next-chain's
+  // code. We already read the next chain ourselves to build the body, so
+  // returning the function string would cause Blockly to walk that chain
+  // AGAIN and emit the body at top scope — at which point arg-reporter
+  // references like `a` fall outside the function and ReferenceError. A
+  // `null` return suppresses both this block's emission AND the next-chain
+  // auto-append. js.finish() then prepends everything in js.definitions_
+  // so the function still appears at top scope, reachable from call sites.
+  // This mirrors Blockly's own procedures_defnoreturn generator.
   js['myblocks_definition'] = (block) => {
     const spec = block.argspec_ || [];
     const fnName = window.MyBlocks
@@ -2030,7 +2040,10 @@ function registerGenerators(Blockly) {
     const params = spec.filter(t => t.kind === 'arg').map(t => _slug(t.name));
     const next = block.getNextBlock ? block.getNextBlock() : null;
     const body = next ? js.blockToCode(next) : '';
-    return `async function ${fnName}(${params.join(', ')}) {\n${body}}\n`;
+    if (!js.definitions_) js.definitions_ = {};
+    js.definitions_['%myblocks_' + fnName] =
+      `async function ${fnName}(${params.join(', ')}) {\n${body}}\n`;
+    return null;
   };
 }
 
