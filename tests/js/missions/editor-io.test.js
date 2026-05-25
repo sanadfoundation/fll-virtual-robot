@@ -79,3 +79,27 @@ test('attach: clicking the Save button triggers a download with the title as fil
   assert.strictEqual(downloads.length, 1);
   assert.match(downloads[0].filename, /^my-mission(.*)\.llmission$/i);
 });
+
+test('attach: clicking Load opens file picker; selecting a file loads it', async () => {
+  const ctx = env();
+  const doc = require('../mocks/editor-dom').makeEditorDoc(['editor-file-open-input']);
+  ctx.document = doc;
+  const app = ctx.MISSIONS.app.create();
+  // Build a small valid .llmission bytes via writeBundle.
+  const mission = {
+    schema_version: 1, id: 'load-test', title: 'Load Test',
+    type: 'mission', difficulty_tier: 'beginner',
+    field: { robot_start: { x: 0, y: 0, heading: 0 },
+             zones: [{ id: 'z', shape: 'rect', x: 0, y: 0, w: 10, h: 10, color: 'red' }],
+             obstacles: [] },
+    steps: [{ id: 'a', title: 'a', points: 1,
+      condition: { kind: 'zone', subject: 'robot', zone: 'z' } }],
+    scoring: { kind: 'step_sum' },
+  };
+  const bytes = await ctx.MISSIONS.editor.io.writeBundle(mission);
+  ctx.MISSIONS.editor.io.attach(app, doc, {});
+  // Simulate file selection.
+  await ctx.MISSIONS.editor.io._test_loadBytes(bytes);
+  assert.strictEqual(app.mode, 'editor');
+  assert.strictEqual(app.editorState.title, 'Load Test');
+});

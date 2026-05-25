@@ -53,6 +53,31 @@
         downloadFile(filename, bytes);
       });
     }
+
+    const btnLoad = doc.getElementById('btn-editor-load');
+    const fileInput = doc.getElementById('editor-file-open-input');
+    if (btnLoad && fileInput) {
+      btnLoad.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', async (ev) => {
+        const file = ev.target && ev.target.files && ev.target.files[0];
+        if (!file) return;
+        const buf = await file.arrayBuffer();
+        await loadBytesIntoEditor(app, new Uint8Array(buf));
+        fileInput.value = '';
+      });
+    }
+
+    async function loadBytesIntoEditor(app, bytes) {
+      try {
+        const { mission } = await readBundle(bytes);
+        app.enterEditor(mission);
+      } catch (e) {
+        _showError(doc, e.message);
+      }
+    }
+
+    // Test seam.
+    editor.io._test_loadBytes = (bytes) => loadBytesIntoEditor(app, bytes);
   }
 
   function _showError(doc, msg) {
@@ -80,5 +105,5 @@
     setTimeout(() => global.URL.revokeObjectURL(url), 0);
   }
 
-  editor.io = { writeBundle, readBundle, attach };
+  editor.io = { writeBundle, readBundle, attach, _test_loadBytes: null };
 })(typeof window !== 'undefined' ? window : globalThis);
