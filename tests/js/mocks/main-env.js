@@ -18,7 +18,11 @@ function makeEl(initial) {
     children: [],
     appendChild(child) { this.children.push(child); },
     removeChild() {},
-    addEventListener: () => {},
+    addEventListener(evt, handler) {
+      if (evt === 'click') this._clickHandler = handler;
+      // Other events are dropped on the floor; tests that need them can
+      // extend this later.
+    },
     removeEventListener: () => {},
     setAttribute: () => {},
     getAttribute: () => null,
@@ -32,6 +36,7 @@ function makeEl(initial) {
     offsetWidth: 0,
     scrollHeight: 0,
     scrollTop: 0,
+    _clickHandler: null,
   };
   return Object.assign(el, initial || {});
 }
@@ -66,6 +71,9 @@ function makeMainEnv(opts = {}) {
     'status-dot':         makeEl(),
     'status-label':       makeEl(),
     'project-type-badge': makeEl({ dataset: {} }),
+    'btn-new-python':     makeEl(),
+    'btn-new-blocks':     makeEl(),
+    'new-menu-pop':       makeEl(),
   };
 
   const documentEl = makeEl();

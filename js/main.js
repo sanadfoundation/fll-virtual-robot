@@ -738,6 +738,11 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-defaults').addEventListener('click', handleDefaults);
   document.getElementById('btn-theme').addEventListener('click', toggleTheme);
 
+  const newPyBtn  = document.getElementById('btn-new-python');
+  const newBlkBtn = document.getElementById('btn-new-blocks');
+  if (newPyBtn)  newPyBtn.addEventListener('click', () => handleNewProject('python'));
+  if (newBlkBtn) newBlkBtn.addEventListener('click', () => handleNewProject('blocks'));
+
   const speedSlider = document.getElementById('speed-slider');
   if (speedSlider) speedSlider.addEventListener('input', e => updateSpeed(e.target.value));
 

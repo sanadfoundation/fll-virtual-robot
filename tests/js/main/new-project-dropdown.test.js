@@ -104,3 +104,29 @@ test('switchMode("blocks"): updates project-type-badge text and dataset', () => 
   assert.strictEqual(badge.dataset.type, 'blocks');
   assert.match(badge.textContent, /blocks/i);
 });
+
+test('DOMContentLoaded: btn-new-python click → handleNewProject("python")', () => {
+  const { storage, elementsById } = makeMainEnv({
+    storage: { 'fll-vr-python-code': 'old\n' },
+    confirm: true,
+    fireDOMContentLoaded: true,
+  });
+  const el = elementsById['btn-new-python'];
+  assert.ok(el._clickHandler, 'bootstrap must register a click handler on btn-new-python');
+  el._clickHandler();
+  assert.strictEqual(storage.has('fll-vr-python-code'), false);
+  assert.strictEqual(storage.get('fll-vr-project-type'), 'python');
+});
+
+test('DOMContentLoaded: btn-new-blocks click → handleNewProject("blocks")', () => {
+  const { storage, elementsById } = makeMainEnv({
+    storage: { 'fll-vr-blockly-xml': '<xml/>' },
+    confirm: true,
+    fireDOMContentLoaded: true,
+  });
+  const el = elementsById['btn-new-blocks'];
+  assert.ok(el._clickHandler);
+  el._clickHandler();
+  assert.strictEqual(storage.has('fll-vr-blockly-xml'), false);
+  assert.strictEqual(storage.get('fll-vr-project-type'), 'blocks');
+});
