@@ -166,6 +166,22 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
 
 .tab-btn:not(.active):hover { color: var(--text-mid); }
 
+.project-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: var(--surface2);
+  color: var(--text-mid);
+  font: 700 12px var(--font-ui);
+  letter-spacing: 0.04em;
+  border: 1px solid var(--border2);
+  user-select: none;
+}
+.project-type-badge[data-type="python"] { color: var(--cyan); border-color: var(--cyan); }
+.project-type-badge[data-type="blocks"] { color: var(--amber); border-color: var(--amber); }
+
 /* ── Spacer ────────────────────────────────────────────── */
 .spacer { flex: 1; }
 

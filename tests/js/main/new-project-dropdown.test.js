@@ -88,3 +88,19 @@ test('handleNewProject: throws on unknown type', () => {
   const { context } = makeMainEnv({ confirm: true });
   assert.throws(() => context.handleNewProject('word-blocks'), /unknown project type/i);
 });
+
+test('switchMode("python"): updates project-type-badge text and dataset', () => {
+  const { context, elementsById } = makeMainEnv();
+  context.switchMode('python', { persist: false });
+  const badge = elementsById['project-type-badge'];
+  assert.strictEqual(badge.dataset.type, 'python');
+  assert.match(badge.textContent, /python/i);
+});
+
+test('switchMode("blocks"): updates project-type-badge text and dataset', () => {
+  const { context, elementsById } = makeMainEnv();
+  context.switchMode('blocks', { persist: false });
+  const badge = elementsById['project-type-badge'];
+  assert.strictEqual(badge.dataset.type, 'blocks');
+  assert.match(badge.textContent, /blocks/i);
+});

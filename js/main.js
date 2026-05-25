@@ -268,24 +268,24 @@ function initBlocklyWorkspace() {
 function switchMode(mode, options) {
   const m = mode === 'blocks' ? 'blocks' : 'python';
   currentMode = m;
-  const pyTab  = document.getElementById('tab-python');
-  const blkTab = document.getElementById('tab-blocks');
   const pyWrap = document.getElementById('py-editor-wrap');
   const blkDiv = document.getElementById('blockly-div');
+  const badge  = document.getElementById('project-type-badge');
 
   if (m === 'python') {
-    pyTab.classList.add('active');
-    blkTab.classList.remove('active');
     pyWrap.style.display = 'block';
     blkDiv.style.display = 'none';
     if (editor) editor.layout();
   } else {
-    blkTab.classList.add('active');
-    pyTab.classList.remove('active');
     pyWrap.style.display = 'none';
     blkDiv.style.display = 'block';
     initBlocklyWorkspace();
     resizeBlocklyWorkspace();
+  }
+
+  if (badge) {
+    badge.dataset.type = m;
+    badge.textContent  = m === 'python' ? '🐍 Python project' : '🧱 Blocks project';
   }
 
   if (!options || options.persist !== false) setProjectType(m);
@@ -726,8 +726,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initResizeHandle();
   window.addEventListener('resize', resizeBlocklyWorkspace);
 
-  document.getElementById('tab-python').addEventListener('click', () => switchMode('python'));
-  document.getElementById('tab-blocks').addEventListener('click', () => switchMode('blocks'));
   document.getElementById('btn-run').addEventListener('click', handleRun);
   document.getElementById('btn-stop').addEventListener('click', handleStop);
   document.getElementById('btn-reset').addEventListener('click', handleReset);
@@ -762,9 +760,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   appendOutput('[Init] Simulator loaded. Waiting for Python runtime...', 'info');
 
-  // If Blockly isn't available, hide the Blocks tab
+  // If Blockly isn't available, mark the badge
   if (typeof Blockly === 'undefined') {
-    const blkTab = document.getElementById('tab-blocks');
-    if (blkTab) { blkTab.style.opacity = '0.4'; blkTab.title = 'Blockly failed to load'; }
+    const badge = document.getElementById('project-type-badge');
+    if (badge && getProjectType() === 'blocks') {
+      badge.title = 'Blockly failed to load';
+    }
   }
 });
