@@ -32,5 +32,121 @@
     };
   }
 
-  editor.state = { createBlank, newId };
+  const ZONE_COLORS = ['red', 'green', 'blue', 'yellow', 'orange', 'purple'];
+
+  function shortId(prefix) {
+    const alpha = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    let s = '';
+    for (let i = 0; i < 4; i++) s += alpha[Math.floor(Math.random() * alpha.length)];
+    return `${prefix}-${s}`;
+  }
+
+  function clone(state) {
+    return {
+      ...state,
+      field: {
+        robot_start: { ...state.field.robot_start },
+        zones:     state.field.zones.map(z => ({ ...z })),
+        obstacles: state.field.obstacles.map(o => ({ ...o })),
+      },
+      steps:    state.steps.map(s => ({ ...s, condition: deepClone(s.condition), requires: s.requires ? s.requires.slice() : undefined })),
+      scoring:  { ...state.scoring },
+      modifiers: { available: state.modifiers.available.slice(), defaults: { ...state.modifiers.defaults } },
+      selection: state.selection ? { ...state.selection } : null,
+    };
+  }
+
+  function deepClone(obj) {
+    if (obj === null || typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) return obj.map(deepClone);
+    const out = {};
+    for (const k of Object.keys(obj)) out[k] = deepClone(obj[k]);
+    return out;
+  }
+
+  function dirty(state) {
+    const next = clone(state);
+    next.dirty = true;
+    return next;
+  }
+
+  function addObstacle(state, { x, y }) {
+    const next = dirty(state);
+    const id = shortId('o');
+    next.field.obstacles.push({
+      id, shape: 'rect', x, y, w: 100, h: 100, label: id,
+    });
+    return next;
+  }
+
+  function moveObstacle(state, id, { x, y }) {
+    const next = dirty(state);
+    const o = next.field.obstacles.find(o => o.id === id);
+    if (o) { o.x = x; o.y = y; }
+    return next;
+  }
+
+  function resizeObstacle(state, id, { w, h }) {
+    const next = dirty(state);
+    const o = next.field.obstacles.find(o => o.id === id);
+    if (o) { o.w = w; o.h = h; }
+    return next;
+  }
+
+  function deleteObstacle(state, id) {
+    const next = dirty(state);
+    next.field.obstacles = next.field.obstacles.filter(o => o.id !== id);
+    return next;
+  }
+
+  function addZone(state, { x, y }) {
+    const next = dirty(state);
+    const id = shortId('z');
+    const usedColors = new Set(next.field.zones.map(z => z.color));
+    const color = ZONE_COLORS.find(c => !usedColors.has(c)) || ZONE_COLORS[next.field.zones.length % ZONE_COLORS.length];
+    next.field.zones.push({
+      id, shape: 'rect', x, y, w: 200, h: 200, color,
+    });
+    return next;
+  }
+
+  function moveZone(state, id, { x, y }) {
+    const next = dirty(state);
+    const z = next.field.zones.find(z => z.id === id);
+    if (z) { z.x = x; z.y = y; }
+    return next;
+  }
+
+  function resizeZone(state, id, { w, h }) {
+    const next = dirty(state);
+    const z = next.field.zones.find(z => z.id === id);
+    if (z) { z.w = w; z.h = h; }
+    return next;
+  }
+
+  function deleteZone(state, id) {
+    const next = dirty(state);
+    next.field.zones = next.field.zones.filter(z => z.id !== id);
+    return next;
+  }
+
+  function setRobotStart(state, { x, y, heading }) {
+    const next = dirty(state);
+    next.field.robot_start = { x, y, heading };
+    return next;
+  }
+
+  function setSelection(state, sel) {
+    const next = clone(state);
+    next.selection = sel ? { ...sel } : null;
+    return next;
+  }
+
+  editor.state = {
+    createBlank, newId,
+    addObstacle, moveObstacle, resizeObstacle, deleteObstacle,
+    addZone, moveZone, resizeZone, deleteZone,
+    setRobotStart, setSelection,
+    _clone: clone,
+  };
 })(typeof window !== 'undefined' ? window : globalThis);
