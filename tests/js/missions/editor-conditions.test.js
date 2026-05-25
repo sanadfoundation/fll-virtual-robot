@@ -178,3 +178,24 @@ test('dropdowns: obstacle dropdown options reflect placed obstacles', () => {
   const opts = ctx.MISSIONS.editor.conditions._obstacleOptions(app.editorState);
   assert.strictEqual(opts.length, 1);
 });
+
+test('workspace: switching step selection reloads the workspace', () => {
+  const { ctx, app } = setup();
+  app.enterEditor();
+  app.setEditorState(ctx.MISSIONS.editor.state.addZone(app.editorState, { x: 0, y: 0 }));
+  const zid = app.editorState.field.zones[0].id;
+  // Two steps with different conditions.
+  app.setEditorState(ctx.MISSIONS.editor.state.addStep(app.editorState));
+  app.setEditorState(ctx.MISSIONS.editor.state.addStep(app.editorState));
+  const [a, b] = app.editorState.steps;
+  app.setEditorState(ctx.MISSIONS.editor.state.editStep(app.editorState, a.id,
+    { condition: { kind: 'zone', subject: 'robot', zone: zid } }));
+  app.setEditorState(ctx.MISSIONS.editor.state.editStep(app.editorState, b.id,
+    { condition: { kind: 'contact', obstacle: 'none' } }));
+  // Select step a, then b — expect workspace to swap.
+  app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'step', id: a.id }));
+  const ws = ctx.Blockly._lastWorkspace();
+  assert.strictEqual(ws.getTopBlocks()[0].type, 'cond_zone');
+  app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'step', id: b.id }));
+  assert.strictEqual(ws.getTopBlocks()[0].type, 'cond_contact');
+});
