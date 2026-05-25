@@ -1232,6 +1232,12 @@ class RobotSimulator {
         window.appendOutput(cmd.text);
         break;
 
+      case 'var_update':
+        if (typeof window !== 'undefined' && window._watch) {
+          window._watch.set(cmd.name, cmd.value);
+        }
+        return {};
+
       case 'wait':
         await this._sleep(cmd.ms / this.speedMult);
         break;

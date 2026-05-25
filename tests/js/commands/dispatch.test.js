@@ -78,6 +78,23 @@ test('print: does not affect robot position', async () => {
   assert.strictEqual(sim.robot.y, 163);
 });
 
+test('var_update: forwards to window._watch.set and returns empty result', async () => {
+  const watchCalls = [];
+  const sim = createSim({
+    _watch: { set(name, value) { watchCalls.push({ name, value }); } },
+  });
+  const result = await sim._execCmd({ type: 'var_update', name: 'score', value: 42 });
+  assert.deepEqual(watchCalls, [{ name: 'score', value: 42 }]);
+  assert.deepEqual(result, {});
+});
+
+test('var_update: missing window._watch does not throw', async () => {
+  // createSim() does not inject _watch, so window._watch is undefined
+  const sim = createSim();
+  const result = await sim._execCmd({ type: 'var_update', name: 'x', value: 1 });
+  assert.deepEqual(result, {});
+});
+
 // ── move (steering-based) ───────────────────────────────────────────────────
 
 test('move: steering=0 routes equal speeds to _animateTank', async () => {
