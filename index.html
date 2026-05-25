@@ -273,7 +273,18 @@
         <span class="console-spacer"></span>
         <span class="console-toggle-chevron" aria-hidden="true">▾</span>
       </button>
-      <div id="console-output"></div>
+      <div class="console-content-row">
+        <div class="console-output-pane">
+          <div id="console-output"></div>
+        </div>
+        <div class="watch-resize-handle" id="watch-resize-handle" aria-hidden="true"></div>
+        <div class="watch-pane">
+          <div class="watch-pane-head">
+            <span class="watch-pane-label">Variables</span>
+          </div>
+          <div class="watch-pane-list" id="watch-pane-list"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -316,6 +327,9 @@
 <script src="js/myblocks_proccode.js"></script>
 <script src="js/myblocks_blocks.js"></script>
 <script src="js/myblocks_modal.js"></script>
+<!-- Watch panel — must also load before blockly_config.js so generator
+     codegen and main.js's handleRun/handleReset can reference window._watch. -->
+<script src="js/watch_panel.js"></script>
 <script src="js/blockly_config.js"></script>
 <script src="js/monaco_config.js"></script>
 <script src="js/llsp3_assets.js"></script>
