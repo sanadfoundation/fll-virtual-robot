@@ -424,6 +424,7 @@ function handleReset() {
   // so any worker command Python sends before it sees SystemExit still aborts.
   if (wasRunning) sim._stopRequested = true;
   clearOutput();
+  if (window._watch) window._watch.clear();
   appendOutput('[Ready] Simulator reset.', 'info');
 }
 
@@ -627,16 +628,23 @@ function initWatchResizeHandle() {
   if (!handle || !pane) return;
 
   // Apply stored width on boot so the pane doesn't flash to default on first
-  // show. `pane.style.width` overrides the CSS 38% default.
+  // show. `pane.style.width` overrides the CSS 38% default. Clamp against the
+  // current viewport so a stored width from a wider window doesn't overflow
+  // a narrower one.
   const stored = parseInt(lsGet(WATCH_W_KEY), 10);
-  if (Number.isFinite(stored) && stored > 0) pane.style.width = stored + 'px';
+  if (Number.isFinite(stored) && stored > 0) {
+    const wrap = handle.parentElement;
+    const max  = wrap ? wrap.offsetWidth - 200 : stored;
+    pane.style.width = Math.max(160, Math.min(stored, max)) + 'px';
+  }
 
-  let dragging = false, startX = 0, startW = 0;
+  let dragging = false, startX = 0, startW = 0, latestW = 0;
 
   handle.addEventListener('mousedown', e => {
     dragging = true;
     startX = e.clientX;
     startW = pane.offsetWidth;
+    latestW = startW;
     document.body.style.userSelect = 'none';
   });
 
@@ -646,15 +654,16 @@ function initWatchResizeHandle() {
     const min = 160;
     const max = wrap.offsetWidth - 200;          // keep output pane ≥ 200px
     // Dragging the handle left (delta < 0) widens the watch pane.
-    const newW = Math.max(min, Math.min(startW - (e.clientX - startX), max));
-    pane.style.width = newW + 'px';
-    lsSet(WATCH_W_KEY, String(newW));
+    latestW = Math.max(min, Math.min(startW - (e.clientX - startX), max));
+    pane.style.width = latestW + 'px';
   });
 
   document.addEventListener('mouseup', () => {
     if (!dragging) return;
     dragging = false;
     document.body.style.userSelect = '';
+    // Persist once at drag end rather than on every mousemove tick.
+    lsSet(WATCH_W_KEY, String(latestW));
   });
 }
 

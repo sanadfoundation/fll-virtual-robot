@@ -160,3 +160,25 @@ test('clear() removes the .visible class so the pane slides out', () => {
   flushRaf();
   assert.ok(!pane.classList.contains('visible'));
 });
+
+test('content row gets .empty when registry is empty; loses it when non-empty', () => {
+  // The CSS hide rule for the watch pane and its resize handle keys off
+  // .console-content-row.empty, so the renderer must toggle it correctly.
+  const { api, contentRow, flushRaf } = loadWatchPanel();
+  flushRaf();
+  // No declare/set yet — first render isn't even scheduled, so the class
+  // should remain its initial state (no .empty). The first non-trivial
+  // render is what actually does the toggle.
+  api.declare('x', 0);
+  flushRaf();
+  assert.ok(!contentRow.classList.contains('empty'),
+    'registry has one entry — row should not be marked empty');
+  api.clear();
+  flushRaf();
+  assert.ok(contentRow.classList.contains('empty'),
+    'registry empty after clear() — row should be marked empty');
+  api.set('y', 1);
+  flushRaf();
+  assert.ok(!contentRow.classList.contains('empty'),
+    'registry has one entry again — empty marker should clear');
+});

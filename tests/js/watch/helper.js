@@ -60,8 +60,14 @@ function loadWatchPanel() {
     return el;
   }
 
+  // The parent row hosts the .empty class that the renderer toggles to
+  // signal to CSS that the watch pane (and its handle) should be hidden.
+  const contentRow = makeElement('div');
+  contentRow.classList.add('console-content-row');
   const pane = makeElement('div');
   pane.classList.add('watch-pane');
+  pane.parentElement = contentRow;
+  contentRow.appendChild(pane);
   const list = makeElement('div');
   list.id = 'watch-pane-list';
   pane.appendChild(list);
@@ -93,6 +99,7 @@ function loadWatchPanel() {
     api: root._watch,
     pane,
     list,
+    contentRow,
     flushRaf,
     flushTimers,
   };

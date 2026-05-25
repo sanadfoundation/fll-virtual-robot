@@ -1236,7 +1236,7 @@ class RobotSimulator {
         if (typeof window !== 'undefined' && window._watch) {
           window._watch.set(cmd.name, cmd.value);
         }
-        return {};
+        break;
 
       case 'wait':
         await this._sleep(cmd.ms / this.speedMult);

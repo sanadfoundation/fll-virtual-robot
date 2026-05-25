@@ -562,7 +562,7 @@ window.registerSpikeCompletions = function(monaco) {
     },
 
     sim: {
-      doc: 'Simulator-only access for debugging and testing.',
+      doc: 'Simulator-only debug helpers. `sim` is a reserved module name — avoid shadowing with a local variable (e.g. `sim = …`), or `sim.watch(...)` will fail with an AttributeError afterwards.',
       members: {
         watch: {
           sig: 'watch(name, value)',
@@ -578,7 +578,7 @@ window.registerSpikeCompletions = function(monaco) {
   const SPIKE_GLOBALS = [
     'motor', 'motor_pair', 'color_sensor', 'distance_sensor', 'force_sensor',
     'hub', 'color', 'port', 'wait', 'runloop', 'orientation',
-    'device', 'color_matrix', 'app',
+    'device', 'color_matrix', 'app', 'sim',
   ];
 
   const MICROPYTHON_BUILTINS = [

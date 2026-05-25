@@ -88,7 +88,12 @@
       const valueSpan = document.createElement('span');
       valueSpan.classList.add('watch-row-value');
       valueSpan.textContent = formatted;
-      valueSpan.title = String(info.value);
+      // Hover tooltip carries the un-truncated value. Use the same _format()
+      // result for primitives (clean), but JSON.stringify for arrays/objects
+      // so the tooltip stays bracketed even when the rendered cell isn't.
+      valueSpan.title = (typeof info.value === 'object' && info.value !== null)
+        ? JSON.stringify(info.value)
+        : formatted;
       row.appendChild(nameSpan);
       row.appendChild(valueSpan);
       list.appendChild(row);
