@@ -246,3 +246,35 @@ body[data-mode="editor"] .editor-overlay-svg { pointer-events: auto; }
   stroke-dasharray: 8 6;
   filter: drop-shadow(0 0 8px rgba(251,191,36,0.7));
 }
+
+.editor-step-row {
+  display: grid;
+  grid-template-columns: 1fr 60px 1fr 28px;
+  gap: 4px;
+  align-items: center;
+  padding: 6px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.editor-step-row input {
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 4px 7px;
+  border-radius: 4px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  outline: none;
+}
+.editor-step-row input:focus { border-color: var(--blue); }
+.step-points-input { font-family: var(--font-code); text-align: center; }
+.step-delete-btn {
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--text-mid);
+  width: 28px; height: 28px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.step-delete-btn:hover { color: var(--red); border-color: var(--red); }
