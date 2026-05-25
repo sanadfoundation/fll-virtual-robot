@@ -348,14 +348,35 @@
     }
   }
 
+  // Primitive literal block types whose only purpose is to carry a single
+  // field value. When an edit removes the arg they were plugged into, these
+  // are auto-disposed rather than left as free blocks — they're not useful
+  // standalone, and the user can't reconnect them anywhere meaningful.
+  // Variables, expressions, sensor reporters, etc. survive intact.
+  const PRIMITIVE_LITERAL_TYPES = new Set([
+    'math_number', 'math_positive_number', 'math_whole_number',
+    'math_integer', 'math_angle',
+    'text', 'colour_picker',
+  ]);
+
   // Apply an edit (new argspec) to an existing definition: update the def
   // block itself, walk its body to rename or disconnect arg reporters, and
-  // re-init every call site with all ARG-slot connections dropped (value
-  // blocks remain on the workspace as free blocks). Matches LEGO's behavior:
-  // "removes the arg from invocations, leaving any existing block that was
-  // passed into them" (block survives, just no longer plugged in).
+  // re-sync every call site. Connection rule at call sites:
+  //   - slot i unchanged (same argId at same index) → connection preserved
+  //   - slot i removed/moved → previous block disconnected; if it's a
+  //     primitive literal (math_number / text / colour) it's also disposed
+  //     so the workspace doesn't accumulate orphaned literals (LEGO leaves
+  //     real blocks; literals it auto-removes — verified against the
+  //     official editor).
+  // Empty %s slots get a fresh math_number shadow so the call block stays
+  // click-and-type editable.
   function applyEditToDefinition(workspace, def, newArgspec) {
     if (!workspace || !def) return;
+    // Snapshot OLD argspec arg tokens BEFORE we overwrite def.argspec_ in
+    // step 2. Step 3's call-site sync needs the OLD argId-per-slot mapping
+    // to identify what was plugged in where; reading def.argspec_ at that
+    // point would return the NEW spec we just installed.
+    const oldArgTokens = (def.argspec_ || []).filter(t => t.kind === 'arg');
     const newNameByArgId = {};
     const newArgIds = new Set();
     for (const t of newArgspec) {
@@ -392,42 +413,73 @@
     def.argspec_ = JSON.parse(JSON.stringify(newArgspec));
     applyArgspecToDefinition(def);
 
-    // 3. Update each call site. Behavior matches user spec:
-    //    - If the arg at slot index i in the OLD argspec has the same argId
-    //      as the arg at slot i in the NEW argspec (i.e. only renamed) →
-    //      keep whatever block was plugged in there.
-    //    - Otherwise (arg removed, reordered, or new arg added at i) → drop
-    //      the connection. The previously-plugged block remains free on the
-    //      workspace (LEGO behavior: "leave any existing block that was
-    //      passed into them").
-    const oldArgIds = (def.argspec_ || []).filter(t => t.kind === 'arg').map(t => t.argId);
-    const newArgIdsSeq = newArgspec.filter(t => t.kind === 'arg').map(t => t.argId);
+    // 3. Update each call site. Connections are matched by argId (not slot
+    //    index) so:
+    //      - Renamed arg (same id) → value follows. No visible change.
+    //      - Reordered (ids preserved, positions changed) → values follow
+    //        their ids to the new slot. User's work survives.
+    //      - Removed arg (id gone) → orphaned value. Literals are disposed
+    //        (math_number, text, colour_picker etc.); anything else
+    //        (variables, expressions, sensor reporters) remains as a free
+    //        block on the workspace per LEGO's spec.
+    //      - Added arg → new slot gets a math_number shadow as default.
+    // (oldArgTokens was captured at the top of this function before step 2
+    // overwrote def.argspec_; reading it from def here would now return the
+    // NEW spec, breaking the argId match.)
     const calls = workspace.getAllBlocks(false).filter(
       b => b.type === 'myblocks_call' && b.procId_ === def.procId_);
     for (const call of calls) {
-      // Snapshot { slotIdx → connected real block } (non-shadow only).
-      const snapshot = [];
+      // Snapshot real (non-shadow) connected blocks by argId.
+      const snapshotByArgId = {};
       const oldArgInputs = call.inputList.filter(i => i.name && i.name.startsWith('ARG'));
       for (let i = 0; i < oldArgInputs.length; i++) {
         const inp = oldArgInputs[i];
         const target = inp.connection && inp.connection.targetBlock();
-        // Disconnect everything first; reattach only for slots where the
-        // argId at this index is unchanged.
         if (inp.connection && inp.connection.targetConnection) {
           try { inp.connection.disconnect(); } catch (_e) {}
         }
-        snapshot.push(target && !target.isShadow() ? target : null);
+        const argId = oldArgTokens[i] && oldArgTokens[i].argId;
+        if (target && !target.isShadow() && argId) snapshotByArgId[argId] = target;
       }
       call.argspec_ = JSON.parse(JSON.stringify(newArgspec));
       applyArgspecToCall(call);
+
       const newArgInputs = call.inputList.filter(i => i.name && i.name.startsWith('ARG'));
+      const newArgTokens = newArgspec.filter(t => t.kind === 'arg');
+      // Re-attach by argId — match handles rename + reorder identically.
       for (let i = 0; i < newArgInputs.length; i++) {
-        if (oldArgIds[i] && newArgIdsSeq[i] && oldArgIds[i] === newArgIdsSeq[i] && snapshot[i]) {
-          const out = snapshot[i].outputConnection;
-          if (out && newArgInputs[i].connection) {
-            try { newArgInputs[i].connection.connect(out); } catch (_e) {}
-          }
+        const tok = newArgTokens[i];
+        if (!tok || !tok.argId) continue;
+        const saved = snapshotByArgId[tok.argId];
+        if (!saved) continue;
+        const out = saved.outputConnection;
+        if (out && newArgInputs[i].connection) {
+          try { newArgInputs[i].connection.connect(out); } catch (_e) {}
         }
+        delete snapshotByArgId[tok.argId];
+      }
+      // Anything left in snapshotByArgId belonged to a removed arg.
+      // Literal primitives → dispose; everything else → free on workspace.
+      for (const argId of Object.keys(snapshotByArgId)) {
+        const blk = snapshotByArgId[argId];
+        if (PRIMITIVE_LITERAL_TYPES.has(blk.type)) {
+          try { blk.dispose(true, false); } catch (_e) {}
+        }
+      }
+      // Empty %s slots get a math_number shadow (Blockly v10's canonical
+      // way to declare a default value). Boolean slots stay shadowless —
+      // Scratch's model has no boolean literal.
+      for (let i = 0; i < newArgInputs.length; i++) {
+        const inp = newArgInputs[i];
+        if (!inp.connection || inp.connection.targetConnection) continue;
+        const tok = newArgTokens[i];
+        if (!tok || tok.argKind !== 'string_number') continue;
+        try {
+          inp.connection.setShadowState({
+            type: 'math_number',
+            fields: { NUM: String(tok.defaultValue || '0') },
+          });
+        } catch (_e) { /* shadow attach is best-effort */ }
       }
     }
   }
