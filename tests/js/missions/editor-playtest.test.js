@@ -77,3 +77,24 @@ test('playtest: returning from play preserves in-memory edit state', () => {
   assert.strictEqual(app.mode, 'editor');
   assert.strictEqual(app.editorState.title, titleBefore);
 });
+
+test('playtest: clicking exit while a playtest is active calls returnToEditor', () => {
+  const { ctx, doc, app } = setup();
+  app.enterEditor();
+  app.setEditorState(authoredState(ctx));
+  doc.getElementById('btn-editor-playtest')._click();
+  assert.strictEqual(app.mode, 'play');
+  // The existing Exit Mission button (Plan 1) should now trigger return.
+  doc.getElementById('mm-exit')._click();
+  assert.strictEqual(app.mode, 'editor');
+});
+
+test('playtest: mm-exit label changes when entering play from editor', () => {
+  const { ctx, doc, app } = setup();
+  app.enterEditor();
+  app.setEditorState(authoredState(ctx));
+  const exitBefore = doc.getElementById('mm-exit').textContent;
+  doc.getElementById('btn-editor-playtest')._click();
+  assert.notStrictEqual(doc.getElementById('mm-exit').textContent, exitBefore);
+  assert.match(doc.getElementById('mm-exit').textContent, /Back to Editor/);
+});

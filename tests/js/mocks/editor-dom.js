@@ -152,7 +152,7 @@ function makeEditorDoc(idsExtra = []) {
     // conditions
     'editor-cond-section', 'editor-cond-workspace',
     // shared with Plan 1 (sandbox surfaces hidden in editor mode)
-    'mission-map', 'mission-map-title',
+    'mission-map', 'mission-map-title', 'mm-exit',
   ].concat(idsExtra);
   for (const id of ids) {
     const el = doc.createElement('div');

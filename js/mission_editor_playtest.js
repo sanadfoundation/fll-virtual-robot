@@ -25,6 +25,29 @@
       savedStorage.setItem('mission_playtest_temp', JSON.stringify(MISSIONS.editor.state.serializeToMission(savedEditorState)));
     }
     savedApp.enterPlay(result.mission);
+
+    // Re-label the exit button and intercept its click so it returns to editor.
+    if (savedDoc) {
+      const exit = savedDoc.getElementById('mm-exit');
+      if (exit) {
+        exit.textContent = '✕ Back to Editor';
+        // The mm-exit button already has Plan 1's app.exitMission() handler attached.
+        // Add our wrapper that detects the post-exitMission state and restores editor.
+        const handler = () => {
+          exit.removeEventListener('click', handler);
+          exit.textContent = '✕ Exit Mission';
+          if (savedApp.mode === 'sandbox') {
+            // exitMission already ran; restore editor.
+            savedApp.enterEditor();
+            savedApp.setEditorState(savedEditorState);
+            savedEditorState = null;
+          } else {
+            returnToEditor();
+          }
+        };
+        exit.addEventListener('click', handler);
+      }
+    }
   }
 
   function returnToEditor() {
