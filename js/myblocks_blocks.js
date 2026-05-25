@@ -159,10 +159,13 @@
         { fill: PILL_FILL, stroke: 'none' }, this.fieldGroup_);
       super.initView();
       if (this.textElement_) {
-        // Move text to end of children stack and recolor white.
+        // Move text to end of children stack and recolor white. style.cssText
+        // (with !important) is required: the project-wide
+        // .blocklyEditableText > text { fill: ... !important } rule in
+        // style.css beats both the SVG attribute and a plain inline style.
         this.fieldGroup_.appendChild(this.textElement_);
         this.textElement_.setAttribute('fill', PILL_TEXT);
-        this.textElement_.style.fill = PILL_TEXT;
+        this.textElement_.style.setProperty('fill', PILL_TEXT, 'important');
       }
       // Discoverability: 'pointer' cursor + slight brighten on hover so the
       // user sees that the pill responds to clicks. 'pointer' (the click-finger
@@ -180,10 +183,12 @@
 
     applyColour() {
       // Override Blockly's default colour application — we always want
-      // white text on the dark-pink pill, regardless of block colour.
+      // white text on the dark-pink pill, regardless of block colour. The
+      // !important inline style is required to beat style.css's project-wide
+      // .blocklyEditableText > text rule which itself uses !important.
       if (this.textElement_) {
         this.textElement_.setAttribute('fill', PILL_TEXT);
-        this.textElement_.style.fill = PILL_TEXT;
+        this.textElement_.style.setProperty('fill', PILL_TEXT, 'important');
       }
     }
 
@@ -241,6 +246,28 @@
         fields:     { VALUE: desc.name },
         x: wsXY.x, y: wsXY.y,
       }, ws);
+    }
+  }
+
+  // FieldWhiteLabel: a non-editable label that pins its text fill to white.
+  // Used inside the body-side arg reporters so the param name reads white on
+  // the pink reporter block (matching how every other SPIKE word-block label
+  // renders). Without this, Blockly's CSS rule for blocklyNonEditableText
+  // forces the dark fill meant for fields that sit on a white pill, and the
+  // reporter's name comes out black.
+  class FieldWhiteLabel extends Blockly.FieldLabelSerializable {
+    initView() {
+      super.initView();
+      this.applyColour();
+    }
+    applyColour() {
+      // !important is required: style.css's
+      // .blocklyNonEditableText > text { fill: #2a2a3e !important } would
+      // otherwise win over a plain inline style and force the label dark.
+      if (this.textElement_) {
+        this.textElement_.setAttribute('fill', '#ffffff');
+        this.textElement_.style.setProperty('fill', '#ffffff', 'important');
+      }
     }
   }
 
@@ -623,8 +650,9 @@
       // and never refreshes it, so a post-init setValue (which is what
       // domToMutation / drag-from-flyout does) leaves the displayed label
       // blank. FieldLabelSerializable subclasses FieldLabel and properly
-      // updates the DOM on setValue.
-      this.appendDummyInput().appendField(new Blockly.FieldLabelSerializable(''), 'VALUE');
+      // updates the DOM on setValue. FieldWhiteLabel (our subclass) pins the
+      // text fill so the param name reads white on the pink reporter.
+      this.appendDummyInput().appendField(new FieldWhiteLabel(''), 'VALUE');
     },
     saveExtraState() {
       return { argId: this.argId_ || '', name: this.getFieldValue('VALUE') || '' };
@@ -660,8 +688,9 @@
       // and never refreshes it, so a post-init setValue (which is what
       // domToMutation / drag-from-flyout does) leaves the displayed label
       // blank. FieldLabelSerializable subclasses FieldLabel and properly
-      // updates the DOM on setValue.
-      this.appendDummyInput().appendField(new Blockly.FieldLabelSerializable(''), 'VALUE');
+      // updates the DOM on setValue. FieldWhiteLabel (our subclass) pins the
+      // text fill so the param name reads white on the pink reporter.
+      this.appendDummyInput().appendField(new FieldWhiteLabel(''), 'VALUE');
     },
     saveExtraState() {
       return { argId: this.argId_ || '', name: this.getFieldValue('VALUE') || '' };
