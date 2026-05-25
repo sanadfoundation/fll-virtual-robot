@@ -284,9 +284,6 @@ function switchMode(mode, options) {
   if (badge) {
     badge.dataset.type = m;
     badge.textContent  = m === 'python' ? '🐍 Python project' : '🧱 Blocks project';
-  }
-
-  if (badge) {
     badge.title = (m === 'blocks' && typeof Blockly === 'undefined')
       ? 'Blockly failed to load'
       : '';
@@ -512,7 +509,7 @@ function handleDefaults() {
   loadedManifest = null;
   setDirty(false);
 
-  appendOutput('[Defaults] Theme, speed, active tab, project name, and editor contents reset.', 'info');
+  appendOutput('[Defaults] Theme, speed, project type, project name, and editor contents reset.', 'info');
 }
 
 // ── PyScript worker bootstrap ─────────────────────────────────────────────────
