@@ -131,8 +131,9 @@
   // Visual: darker-pink (#d0454d) shape with white text — matching the
   // LEGO editor's hat pill style. Shape redrawn on every render_ so it
   // tracks text-width changes (e.g. after a rename).
-  const PILL_FILL = '#d0454d';
-  const PILL_TEXT = '#ffffff';
+  const PILL_FILL       = '#d0454d';
+  const PILL_FILL_HOVER = '#e75b63';  // ~10% lighter — discoverability cue
+  const PILL_TEXT       = '#ffffff';
   // Horizontal padding inside the pill. Wider than typical Blockly fields
   // because the hex/oval ends visually eat ~height/2 each side, so the
   // *usable* center for short single-letter names ("j", "k") collapses
@@ -163,6 +164,16 @@
         this.textElement_.setAttribute('fill', PILL_TEXT);
         this.textElement_.style.fill = PILL_TEXT;
       }
+      // Discoverability: 'grab' cursor + slight brighten on hover so the user
+      // sees that the pill responds to clicks. (Touch-device users miss this
+      // hover signal — see CLAUDE.md for the trade-off.)
+      this.fieldGroup_.style.cursor = 'grab';
+      this.fieldGroup_.addEventListener('mouseenter', () => {
+        if (this.pillEl_) this.pillEl_.setAttribute('fill', PILL_FILL_HOVER);
+      });
+      this.fieldGroup_.addEventListener('mouseleave', () => {
+        if (this.pillEl_) this.pillEl_.setAttribute('fill', PILL_FILL);
+      });
     }
 
     applyColour() {
@@ -177,6 +188,12 @@
     render_() {
       super.render_();
       if (!this.pillEl_) return;
+      // Cursor re-applied here (and not just in initView) because Blockly
+      // can re-attach / restyle fieldGroup_ across renders, dropping the
+      // inline style we set at init time.
+      if (this.fieldGroup_ && this.fieldGroup_.style.cursor !== 'grab') {
+        this.fieldGroup_.style.cursor = 'grab';
+      }
       // Width tracks the text + padding; height matches Blockly's field height.
       const textWidth = (this.textElement_ && this.textElement_.getComputedTextLength)
         ? this.textElement_.getComputedTextLength()
