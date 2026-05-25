@@ -12,7 +12,8 @@ No build step, no package manager. Dependencies load from CDN.
 
 - **Don't reintroduce SharedArrayBuffer / `Atomics.wait` / COOP-COEP.** That path was tried and abandoned. The current postMessage round-trip is the design.
 - **Python → JS must use `js.bridgeSend(...)`, not `js.postMessage(...)`.** Polyscript intercepts the latter and fires `runEvent` errors on every reply.
-- **Blockly bypasses the worker.** Generators emit JS that calls `window.sim._animateTank` / `_animateSingleMotor` directly via `AsyncFunction`. Set `sim.isRunning = true` before Blockly code runs (`js/main.js:runBlockly`).
+- **Blockly bypasses the worker.** Generators emit JS that calls into `window.sim` directly via `AsyncFunction` (no postMessage round-trip). Pair-based motion (move/steer/startMove/startSteer) routes through `_runPairMotion`; single-motor blocks through `_animateSingleMotor`; stop blocks through `_motorStopAndAwait` / `_pairStopAndAwait`. Set `sim.isRunning = true` before Blockly code runs (`js/main.js:runBlockly`).
+- **Don't call `_animateTank` from Blockly generators — use `_runPairMotion`.** Direct `_animateTank` calls skip `_runMotion`, leaving the sticky `_motionAborted` flag from a prior stop set true and aborting the new motion on iteration zero. They also don't refresh `_activeMotion`, so the off-side wheel's encoder doesn't accumulate. `_runPairMotion(leftPort, rightPort, leftV, rightV, distMM)` wraps `_animateTank` in `_runMotion` with a proper pair descriptor and is the only correct entry point for pair-based Blockly motion. Stop blocks must use `_motorStopAndAwait(port)` / `_pairStopAndAwait()` so the program waits for an in-flight fire-and-forget motion (e.g. "start motor") to fully unwind before the next block runs. Issue #47 was the canonical failure mode.
 - **`light_matrix.write` mirrors to the Console panel — don't add a "print" block.** `_showText()` in `js/simulator.js` calls `window.appendOutput(s)` so Blockly users get a `print`-style debug surface via the existing block. A separate sim-only print block was rejected: every Blockly block must map to a real LEGO/Scratch opcode for LLSP3 round-trip, and there is no LEGO console opcode. Both paths (Python `_execCmd hub_display` and the Blockly generator's direct `sim._showText(...)`) flow through `_showText`, so the mirror covers both with one line.
 - **`port.A..F = 0..5` (int, matches docs).** `_port_id()` in the bridge translates ints or `'A'..'F'` strings to wire letters. The simulator's `pairMap` and `motors` state are keyed on `'A'..'F'` strings; Blockly generators emit those same strings. Don't unify these — the boundary translation is intentional.
 - **Steering: `> 0` is a right turn = left wheel faster.** `lv = spd × (1 + steer)`, `rv = spd × (1 - steer)`. Same convention in `_execCmd('move')`, Blockly generators, and the `motor_pair.move` docstring.
@@ -59,7 +60,7 @@ Source-of-truth numbers for what we simulate. When a Monaco/Python docstring cla
 ## Adding a Blockly block
 
 1. Add a JSON definition to `SPIKE_BLOCKS`.
-2. Add a generator in `registerGenerators()` returning `await window.sim._animateTank(...)` (or `_animateSingleMotor`).
+2. Add a generator in `registerGenerators()`. Pair-based motion: `await window.sim._runPairMotion(_movePairL, _movePairR, leftV, rightV, distMM)`. Single motor: `await window.sim._animateSingleMotor(port, velocity, distMM)`. Stops: `await window.sim._motorStopAndAwait(port)` or `_pairStopAndAwait()`.
 3. Place the block in the appropriate `TOOLBOX_XML` category.
 
 ## My Blocks (Scratch procedures)
