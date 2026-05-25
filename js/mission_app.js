@@ -3,24 +3,45 @@
   const MISSIONS = (global.MISSIONS = global.MISSIONS || {});
 
   function create() {
-    const state = { mode: 'sandbox', mission: null };
+    const state = { mode: 'sandbox', mission: null, editorState: null };
     const subs = new Set();
 
     function emit() {
-      for (const cb of subs) cb({ mode: state.mode, mission: state.mission });
+      for (const cb of subs) cb({ mode: state.mode, mission: state.mission, editorState: state.editorState });
     }
 
     return {
-      get mode()    { return state.mode; },
-      get mission() { return state.mission; },
+      get mode()        { return state.mode; },
+      get mission()     { return state.mission; },
+      get editorState() { return state.editorState; },
       enterPlay(mission) {
         state.mode = 'play';
         state.mission = mission;
+        state.editorState = null;
+        emit();
+      },
+      enterEditor(missionOrNull) {
+        state.mode = 'editor';
+        state.mission = null;
+        state.editorState = missionOrNull
+          ? MISSIONS.editor.state.loadFromMission(missionOrNull)
+          : MISSIONS.editor.state.createBlank();
+        emit();
+      },
+      setEditorState(next) {
+        state.editorState = next;
         emit();
       },
       exitMission() {
         state.mode = 'sandbox';
         state.mission = null;
+        state.editorState = null;
+        emit();
+      },
+      exitEditor() {
+        state.mode = 'sandbox';
+        state.mission = null;
+        state.editorState = null;
         emit();
       },
       onChange(cb) { subs.add(cb); return () => subs.delete(cb); },
