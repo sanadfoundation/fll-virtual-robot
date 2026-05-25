@@ -80,7 +80,38 @@
     }
 
     function syncToState() {
-      // Implemented in Task 19 (generator-to-condition wiring).
+      if (!workspace || !app.editorState) return;
+      const sel = app.editorState.selection;
+      if (!sel || sel.kind !== 'step') return;
+      const stepId = sel.id;
+      const top = workspace.getTopBlocks();
+      const condition = top.length ? blockToCondition(top[0]) : null;
+      if (!condition) return;
+      app.setEditorState(MISSIONS.editor.state.editStep(app.editorState, stepId, { condition }));
+    }
+
+    function blockToCondition(b) {
+      if (!b) return null;
+      switch (b.type) {
+        case 'cond_zone':
+          return { kind: 'zone', subject: 'robot', zone: b.fields.ZONE };
+        case 'cond_sensor': {
+          const raw = b.fields.VALUE;
+          const asNum = Number(raw);
+          return { kind: 'sensor', port: b.fields.PORT, op: b.fields.OP,
+                   value: Number.isNaN(asNum) || raw === '' ? raw : asNum };
+        }
+        case 'cond_contact':
+          return { kind: 'contact', obstacle: b.fields.OBSTACLE };
+        case 'cond_not':
+          return { kind: 'not', of: blockToCondition(b.children.OF) };
+        case 'cond_all_of':
+          return { kind: 'all_of', of: (b.children.OF || []).map(blockToCondition).filter(Boolean) };
+        case 'cond_any_of':
+          return { kind: 'any_of', of: (b.children.OF || []).map(blockToCondition).filter(Boolean) };
+        default:
+          return null;
+      }
     }
 
     function showForStep(step) {

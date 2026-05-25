@@ -61,3 +61,75 @@ test('conditions: attaching defines all six predicate blocks', () => {
     assert.ok(defined[t], `expected block type "${t}" to be defined`);
   }
 });
+
+function makeBlock(type, fields, children, parent) {
+  return {
+    type,
+    fields: fields || {},
+    children: children || {},
+    parent: parent || null,
+    _jsonCondition() {
+      // Test helper — mirror the generator the editor will provide.
+      return ctxCondGenForBlock(this);
+    },
+  };
+}
+
+function ctxCondGenForBlock(b) {
+  if (b.type === 'cond_zone')
+    return { kind: 'zone', subject: 'robot', zone: b.fields.ZONE };
+  if (b.type === 'cond_sensor') {
+    const raw = b.fields.VALUE;
+    const asNum = Number(raw);
+    return { kind: 'sensor', port: b.fields.PORT, op: b.fields.OP,
+             value: Number.isNaN(asNum) ? raw : asNum };
+  }
+  if (b.type === 'cond_contact')
+    return { kind: 'contact', obstacle: b.fields.OBSTACLE };
+  if (b.type === 'cond_not')
+    return { kind: 'not', of: ctxCondGenForBlock(b.children.OF) };
+  if (b.type === 'cond_all_of' || b.type === 'cond_any_of') {
+    const list = (b.children.OF || []).map(ctxCondGenForBlock);
+    return { kind: b.type === 'cond_all_of' ? 'all_of' : 'any_of', of: list };
+  }
+  return null;
+}
+
+test('generator: zone block emits { kind: zone, subject: robot, zone: <id> }', () => {
+  const { ctx, app } = setup();
+  app.enterEditor();
+  // Add a step + select it so workspace is live.
+  app.setEditorState(ctx.MISSIONS.editor.state.addStep(app.editorState));
+  const stepId = app.editorState.steps[0].id;
+  app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'step', id: stepId }));
+  const ws = ctx.Blockly._lastWorkspace();
+  ws._setBlocks([makeBlock('cond_zone', { ZONE: 'red' })]);
+  // The editor should sync the workspace top block to step.condition.
+  assert.deepStrictEqual(app.editorState.steps[0].condition,
+    { kind: 'zone', subject: 'robot', zone: 'red' });
+});
+
+test('generator: sensor block emits numeric value when input parses as number', () => {
+  const { ctx, app } = setup();
+  app.enterEditor();
+  app.setEditorState(ctx.MISSIONS.editor.state.addStep(app.editorState));
+  const id = app.editorState.steps[0].id;
+  app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'step', id }));
+  const ws = ctx.Blockly._lastWorkspace();
+  ws._setBlocks([makeBlock('cond_sensor', { PORT: 'D', OP: '<', VALUE: '100' })]);
+  assert.deepStrictEqual(app.editorState.steps[0].condition,
+    { kind: 'sensor', port: 'D', op: '<', value: 100 });
+});
+
+test('generator: not wraps an inner block', () => {
+  const { ctx, app } = setup();
+  app.enterEditor();
+  app.setEditorState(ctx.MISSIONS.editor.state.addStep(app.editorState));
+  const id = app.editorState.steps[0].id;
+  app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'step', id }));
+  const ws = ctx.Blockly._lastWorkspace();
+  const inner = makeBlock('cond_zone', { ZONE: 'green' });
+  ws._setBlocks([makeBlock('cond_not', {}, { OF: inner })]);
+  assert.deepStrictEqual(app.editorState.steps[0].condition,
+    { kind: 'not', of: { kind: 'zone', subject: 'robot', zone: 'green' } });
+});
