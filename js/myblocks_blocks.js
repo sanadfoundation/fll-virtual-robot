@@ -348,9 +348,94 @@
     }
   }
 
+  // Apply an edit (new argspec) to an existing definition: update the def
+  // block itself, walk its body to rename or disconnect arg reporters, and
+  // re-init every call site with all ARG-slot connections dropped (value
+  // blocks remain on the workspace as free blocks). Matches LEGO's behavior:
+  // "removes the arg from invocations, leaving any existing block that was
+  // passed into them" (block survives, just no longer plugged in).
+  function applyEditToDefinition(workspace, def, newArgspec) {
+    if (!workspace || !def) return;
+    const newNameByArgId = {};
+    const newArgIds = new Set();
+    for (const t of newArgspec) {
+      if (t.kind === 'arg' && t.argId) {
+        newArgIds.add(t.argId);
+        newNameByArgId[t.argId] = t.name || '';
+      }
+    }
+
+    // 1. Walk the def's body — update reporter names for surviving argIds,
+    //    disconnect reporters whose argId no longer exists. Done BEFORE we
+    //    re-init the def block (otherwise getDescendants would be empty
+    //    because removeInput on the def detaches the whole next chain).
+    if (def.getDescendants) {
+      for (const child of def.getDescendants(false)) {
+        if (child.type !== 'myblocks_arg_string_number' &&
+            child.type !== 'myblocks_arg_boolean') continue;
+        const argId = child.argId_;
+        if (argId && newArgIds.has(argId)) {
+          const newName = newNameByArgId[argId];
+          if (newName && child.getFieldValue('VALUE') !== newName) {
+            child.setFieldValue(newName, 'VALUE');
+          }
+        } else {
+          const out = child.outputConnection;
+          if (out && out.targetConnection) {
+            try { out.disconnect(); } catch (_e) {}
+          }
+        }
+      }
+    }
+
+    // 2. Update def block itself — applyArgspecToDefinition rebuilds inputs.
+    def.argspec_ = JSON.parse(JSON.stringify(newArgspec));
+    applyArgspecToDefinition(def);
+
+    // 3. Update each call site. Behavior matches user spec:
+    //    - If the arg at slot index i in the OLD argspec has the same argId
+    //      as the arg at slot i in the NEW argspec (i.e. only renamed) →
+    //      keep whatever block was plugged in there.
+    //    - Otherwise (arg removed, reordered, or new arg added at i) → drop
+    //      the connection. The previously-plugged block remains free on the
+    //      workspace (LEGO behavior: "leave any existing block that was
+    //      passed into them").
+    const oldArgIds = (def.argspec_ || []).filter(t => t.kind === 'arg').map(t => t.argId);
+    const newArgIdsSeq = newArgspec.filter(t => t.kind === 'arg').map(t => t.argId);
+    const calls = workspace.getAllBlocks(false).filter(
+      b => b.type === 'myblocks_call' && b.procId_ === def.procId_);
+    for (const call of calls) {
+      // Snapshot { slotIdx → connected real block } (non-shadow only).
+      const snapshot = [];
+      const oldArgInputs = call.inputList.filter(i => i.name && i.name.startsWith('ARG'));
+      for (let i = 0; i < oldArgInputs.length; i++) {
+        const inp = oldArgInputs[i];
+        const target = inp.connection && inp.connection.targetBlock();
+        // Disconnect everything first; reattach only for slots where the
+        // argId at this index is unchanged.
+        if (inp.connection && inp.connection.targetConnection) {
+          try { inp.connection.disconnect(); } catch (_e) {}
+        }
+        snapshot.push(target && !target.isShadow() ? target : null);
+      }
+      call.argspec_ = JSON.parse(JSON.stringify(newArgspec));
+      applyArgspecToCall(call);
+      const newArgInputs = call.inputList.filter(i => i.name && i.name.startsWith('ARG'));
+      for (let i = 0; i < newArgInputs.length; i++) {
+        if (oldArgIds[i] && newArgIdsSeq[i] && oldArgIds[i] === newArgIdsSeq[i] && snapshot[i]) {
+          const out = snapshot[i].outputConnection;
+          if (out && newArgInputs[i].connection) {
+            try { newArgInputs[i].connection.connect(out); } catch (_e) {}
+          }
+        }
+      }
+    }
+  }
+
   MyBlocks.applyArgspecToDefinition = applyArgspecToDefinition;
   MyBlocks.applyArgspecToCall       = applyArgspecToCall;
   MyBlocks.syncCallsToDefinition    = syncCallsToDefinition;
+  MyBlocks.applyEditToDefinition    = applyEditToDefinition;
 
   Blockly.Blocks['myblocks_definition'] = {
     init() {
@@ -372,6 +457,32 @@
       this.procId_  = (state && state.procId)  || this.procId_ || genId();
       this.argspec_ = (state && state.argspec) || [];
       applyArgspecToDefinition(this);
+    },
+    customContextMenu(options) {
+      // Prepend "Edit My Block…" so users can re-open the modal pre-filled
+      // with this definition's current argspec. Save propagates changes
+      // through every call site + body reporter (see applyEditToDefinition
+      // above for the policy: matches LEGO — value blocks at removed slots
+      // remain free on the workspace, not trashed).
+      const def = this;
+      if (!MyBlocks.openMyBlocksModal) return;
+      options.unshift({
+        text: 'Edit My Block…',
+        enabled: true,
+        callback: () => {
+          MyBlocks.openMyBlocksModal(Blockly, {
+            initialState: {
+              procId: def.procId_,
+              argspec: def.argspec_ || [],
+            },
+          }).then((result) => {
+            if (!result) return;
+            applyEditToDefinition(def.workspace, def, result.argspec);
+            const tb = def.workspace.getToolbox && def.workspace.getToolbox();
+            if (tb && tb.refreshSelection) tb.refreshSelection();
+          });
+        },
+      });
     },
     // Blockly's flyout still drives drag via XML, and its XML→state bridge
     // doesn't convert lowercase mutation attributes to our camelCase keys

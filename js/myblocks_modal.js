@@ -17,9 +17,15 @@
 (function (global) {
   const MyBlocks = (global.MyBlocks = global.MyBlocks || {});
 
-  function createModalState() {
-    const procId = MyBlocks.genId ? MyBlocks.genId() : 'pid';
-    let argspec = MyBlocks.seedArgspec ? MyBlocks.seedArgspec() : [{ kind: 'label', text: 'block name' }];
+  // initialState (optional) lets Edit mode pre-fill the modal:
+  //   { procId, argspec }  → pre-seeded; modal returns same procId on save
+  // When omitted (Create mode) the modal mints a fresh procId + seed argspec.
+  function createModalState(initialState) {
+    const procId = (initialState && initialState.procId)
+      || (MyBlocks.genId ? MyBlocks.genId() : 'pid');
+    let argspec = (initialState && Array.isArray(initialState.argspec) && initialState.argspec.length)
+      ? initialState.argspec.map(t => Object.assign({}, t))
+      : (MyBlocks.seedArgspec ? MyBlocks.seedArgspec() : [{ kind: 'label', text: 'block name' }]);
     const listeners = new Set();
     const fire = () => { for (const l of listeners) try { l(argspec); } catch (_e) {} };
     return {
@@ -76,9 +82,12 @@
     label:   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 57 49"><rect x="0.5" y="0.5" width="56" height="48" rx="4" ry="4" fill="#ff6680" stroke="#f35"/><text x="28.5" y="31" text-anchor="middle" font-size="12" font-weight="700" fill="#fff" font-family="Helvetica Neue, Helvetica, sans-serif">text</text></svg>',
   };
 
-  function openMyBlocksModal(Blockly) {
+  // opts.initialState (optional): { procId, argspec } — opens in Edit mode
+  // with the modal pre-filled. The resolved promise carries the SAME procId
+  // so the caller can find and update the existing definition.
+  function openMyBlocksModal(Blockly, opts) {
     return new Promise((resolve) => {
-      const state = createModalState();
+      const state = createModalState(opts && opts.initialState);
 
       // ── DOM scaffold (matches captured `.my-blocks` structure) ──────────
       const previewDiv = el('div', { cls: 'my-blocks__content__workspace' });

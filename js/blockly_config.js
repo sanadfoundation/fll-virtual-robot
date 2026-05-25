@@ -3285,6 +3285,23 @@ function _registerColorStripField(Blockly) {
 
 // Registered once on first initBlockly() call.
 let _compactRendererRegistered = false;
+// Hide Blockly's default right-click items that LEGO SPIKE doesn't expose
+// (collapse/expand block, disable/enable block, inline/external inputs).
+// Idempotent — guarded by a module flag — and safe if a future Blockly
+// renames an entry: unregister wraps a try/catch.
+let _contextMenuPruned = false;
+function _pruneContextMenu(Blockly) {
+  if (_contextMenuPruned) return;
+  const reg = Blockly.ContextMenuRegistry && Blockly.ContextMenuRegistry.registry;
+  if (!reg || !reg.unregister) return;
+  const toHide = [
+    'blockDisable', 'blockCollapseExpand', 'collapseWorkspace', 'expandWorkspace',
+    'blockInline',
+  ];
+  for (const id of toHide) { try { reg.unregister(id); } catch (_e) { /* not registered */ } }
+  _contextMenuPruned = true;
+}
+
 function _registerCompactRenderer(Blockly) {
   if (_compactRendererRegistered) return;
   if (!(Blockly.zelos && Blockly.zelos.Renderer && Blockly.zelos.ConstantProvider)) return;
@@ -3409,6 +3426,7 @@ function initBlockly(divId, themeName, initialXml) {
   Blockly.defineBlocksWithJsonArray(SPIKE_BLOCKS.map(_withEmblem));
   registerGenerators(Blockly);
   _registerCompactRenderer(Blockly);
+  _pruneContextMenu(Blockly);
 
   // Zelos = Google's Scratch-style renderer (rounded blocks, hat events,
   // hexagonal booleans, pill reporters, drop shadows). startHats: true puts
