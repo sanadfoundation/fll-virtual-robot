@@ -3448,7 +3448,7 @@ function initBlockly(divId, themeName, initialXml) {
     toolbox:  _buildToolboxXml(extensionsVisible),
     grid:     { spacing: 40, length: 2, colour: palette.gridColour, snap: true },
     zoom:     { controls: true, wheel: true, startScale: 0.75, minScale: 0.3, maxScale: 2 },
-    trashcan: true,
+    trashcan: false,
     theme: Blockly.Theme.defineTheme(themeId, {
       base: Blockly.Themes.Zelos,
       name: themeId,
