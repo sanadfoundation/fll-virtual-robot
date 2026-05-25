@@ -127,6 +127,9 @@ function makeDoc() {
       });
       return el;
     },
+    createElementNS(_ns, tag) {
+      return doc.createElement(tag);
+    },
     addEventListener() {},
     removeEventListener() {},
     querySelector(sel)    { return _findFirst(doc.body, sel); },

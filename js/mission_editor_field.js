@@ -171,9 +171,12 @@
     }
 
     function createSvg(tag) {
-      const el = doc.createElement(tag);
-      el.setAttribute('xmlns', NS);
-      return el;
+      // Must use createElementNS so browsers render the elements as SVG.
+      // The test mock aliases createElementNS to createElement.
+      if (typeof doc.createElementNS === 'function') {
+        return doc.createElementNS(NS, tag);
+      }
+      return doc.createElement(tag);
     }
 
     function render(state) {
