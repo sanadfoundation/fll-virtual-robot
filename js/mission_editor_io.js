@@ -28,5 +28,57 @@
     return out;
   }
 
-  editor.io = { writeBundle, readBundle };
+  function slugify(s) {
+    return (s || 'mission')
+      .toString()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 64) || 'mission';
+  }
+
+  function attach(app, doc, opts = {}) {
+    const downloadFile = opts.downloadFile || _browserDownload;
+    const btnSave = doc.getElementById('btn-editor-save');
+    if (btnSave) {
+      btnSave.addEventListener('click', async () => {
+        if (app.mode !== 'editor' || !app.editorState) return;
+        const r = MISSIONS.editor.state.validate(app.editorState);
+        if (!r.ok) {
+          _showError(doc, r.error);
+          return;
+        }
+        const bytes = await writeBundle(r.mission);
+        const filename = `${slugify(app.editorState.title)}.llmission`;
+        downloadFile(filename, bytes);
+      });
+    }
+  }
+
+  function _showError(doc, msg) {
+    const toolbar = doc.getElementById('editor-toolbar');
+    if (!toolbar) return;
+    let tag = toolbar.querySelector('.editor-error');
+    if (!tag) {
+      tag = doc.createElement('span');
+      tag.classList.add('editor-error');
+      toolbar.appendChild(tag);
+    }
+    tag.textContent = `⚠ ${msg}`;
+  }
+
+  function _browserDownload(filename, bytes) {
+    if (!global.URL || !global.URL.createObjectURL) return;
+    const blob = new global.Blob([bytes], { type: 'application/zip' });
+    const url = global.URL.createObjectURL(blob);
+    const a = global.document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    global.document.body.appendChild(a);
+    a.click();
+    global.document.body.removeChild(a);
+    setTimeout(() => global.URL.revokeObjectURL(url), 0);
+  }
+
+  editor.io = { writeBundle, readBundle, attach };
 })(typeof window !== 'undefined' ? window : globalThis);

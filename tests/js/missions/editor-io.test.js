@@ -9,7 +9,8 @@ function env() {
   // llsp3 env loader (it already loads JSZip).
   const { ctx } = makeLlsp3Env([
     'mission_schema', 'mission_loader', 'mission_conditions',
-    'mission_engine', 'mission_editor_state', 'mission_editor_io',
+    'mission_engine', 'mission_editor_state', 'mission_app', 'mission_editor_app',
+    'mission_editor_io',
   ]);
   return ctx;
 }
@@ -53,4 +54,28 @@ test('writeBundle: includes README.md when provided', async () => {
   assert.ok(zip.file('README.md'));
   const txt = await zip.file('README.md').async('string');
   assert.strictEqual(txt, '# Hello');
+});
+
+test('attach: clicking the Save button triggers a download with the title as filename', async () => {
+  const ctx = env();
+  const doc = require('../mocks/editor-dom').makeEditorDoc();
+  ctx.document = doc;
+  const app = ctx.MISSIONS.app.create();
+  // Provide minimal editor state via direct injection.
+  app.enterEditor();
+  let s = app.editorState;
+  s = ctx.MISSIONS.editor.state.addZone(s, { x: 0, y: 0 });
+  s.steps.push({ id: 'a', title: 'a', points: 1,
+    condition: { kind: 'zone', subject: 'robot', zone: s.field.zones[0].id } });
+  s.title = 'My Mission';
+  app.setEditorState(s);
+  const downloads = [];
+  ctx.MISSIONS.editor.io.attach(app, doc, {
+    downloadFile: (filename, bytes) => downloads.push({ filename, size: bytes.length }),
+  });
+  doc.getElementById('btn-editor-save')._click();
+  // The save flow is async — wait for JSZip's internal async to complete.
+  await new Promise(r => setTimeout(r, 100));
+  assert.strictEqual(downloads.length, 1);
+  assert.match(downloads[0].filename, /^my-mission(.*)\.llmission$/i);
 });

@@ -78,6 +78,9 @@
     if (MISSIONS.editor && MISSIONS.editor.playtest && MISSIONS.editor.playtest.attach) {
       MISSIONS.editor.playtest.attach(app, doc, storage);
     }
+    if (MISSIONS.editor && MISSIONS.editor.io && MISSIONS.editor.io.attach) {
+      MISSIONS.editor.io.attach(app, doc, {});
+    }
 
     // Wire the header 🎯 button: open a blank editor on click.
     const missionsBtn = doc.getElementById('btn-missions');
