@@ -307,6 +307,7 @@ async function handleRun() {
   const runBtn = document.getElementById('btn-run');
   if (runBtn && runBtn.disabled) return;
   clearOutput();
+  if (window._watch) window._watch.clear();
 
   if (currentMode === 'python') {
     await runPython();
