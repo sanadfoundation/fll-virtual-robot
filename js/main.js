@@ -84,7 +84,7 @@ function setDirty(v) {
   dirty = !!v;
   if (dirty) lsSet(DIRTY_KEY, '1'); else lsRemove(DIRTY_KEY);
 }
-function isDirty() { return dirty; }
+function isDirty() { return dirty || lsGet(DIRTY_KEY) === '1'; }
 function getProjectName() { return projectName; }
 function setProjectName(name) {
   projectName = name || DEFAULT_NAME;
@@ -370,30 +370,37 @@ function handleStop() {
   appendOutput('[Stopped]', 'warn');
 }
 
-// "New" — wipe the editor and Blockly workspace, reset the project name,
-// and clear the dirty flag. Confirms first if there are unsaved changes so
-// a stray click in the header can't blow away work. The Open/Save handlers
-// are still in llsp3_ui.js; this one lives here because it touches the
-// editor + Blockly directly and reuses DEFAULT_PYTHON_CODE.
-function handleNewProject() {
+// "New" — start a fresh project of the given type. Only the buffer for
+// `type` is cleared; the other buffer is left alone (it belongs to a
+// different project type and clearing it would surprise a user who flips
+// between projects). Confirms first if there are unsaved changes.
+function handleNewProject(type) {
+  if (type === undefined) throw new Error('project type required');
+  if (!VALID_PROJECT_TYPES.includes(type)) {
+    throw new Error('unknown project type: ' + type);
+  }
   if (isDirty()) {
     const ok = window.confirm('Discard the current project and start a new one?');
     if (!ok) return;
   }
-  if (editor) editor.setValue(DEFAULT_PYTHON_CODE);
-  lsRemove(PYCODE_KEY);
-  if (blocklyWs && typeof Blockly !== 'undefined') {
-    blocklyWs.clear();
-    lsRemove(BLOCKLY_KEY);
+
+  if (type === 'python') {
+    if (editor) editor.setValue(DEFAULT_PYTHON_CODE);
+    lsRemove(PYCODE_KEY);
   } else {
+    if (blocklyWs && typeof Blockly !== 'undefined') blocklyWs.clear();
     lsRemove(BLOCKLY_KEY);
   }
+
   setProjectName(DEFAULT_NAME);
   const nameInput = document.getElementById('project-name');
   if (nameInput) nameInput.value = DEFAULT_NAME;
   setLoadedManifest(null);
   setDirty(false);
-  appendOutput(`[new] Started a fresh project.`, 'info');
+
+  switchMode(type);
+
+  appendOutput(`[new] Started a fresh ${type === 'python' ? 'Python' : 'Blocks'} project.`, 'info');
 }
 
 function handleReset() {
