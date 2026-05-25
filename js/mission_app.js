@@ -59,6 +59,23 @@
     const engine = new MISSIONS.engine.ChallengeEngine();
     const ui     = MISSIONS.ui.mount(doc);
 
+    // Attach the editor mode lifecycle (no-op if editor modules aren't loaded).
+    if (MISSIONS.editor && MISSIONS.editor.app && MISSIONS.editor.app.attach) {
+      MISSIONS.editor.app.attach(app, doc);
+    }
+
+    // Wire the header 🎯 button: open a blank editor on click.
+    const missionsBtn = doc.getElementById('btn-missions');
+    if (missionsBtn) {
+      missionsBtn.addEventListener('click', () => {
+        if (app.mode === 'editor') {
+          app.exitEditor();
+        } else {
+          app.enterEditor();
+        }
+      });
+    }
+
     // Initialise: ensure the panel is hidden until a mission is entered.
     ui.render(null, null);
 

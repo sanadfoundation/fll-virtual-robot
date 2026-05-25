@@ -8,7 +8,9 @@ const { makeEditorDoc } = require('../mocks/editor-dom');
 function env() {
   return makeMissionsEnv([
     'mission_schema', 'mission_loader', 'mission_conditions',
-    'mission_engine', 'mission_editor_state', 'mission_app', 'mission_editor_app',
+    'mission_engine', 'mission_persistence', 'mission_library',
+    'mission_ui', 'mission_editor_state',
+    'mission_app', 'mission_editor_app',
   ]).ctx;
 }
 
@@ -87,4 +89,42 @@ test('editor-app.attach: title input mirrors editor state', () => {
   input._fire('input', { target: input });
   assert.strictEqual(app.editorState.title, 'New name');
   assert.strictEqual(app.editorState.dirty, true);
+});
+
+test('boot: attaches the editor when MISSIONS.editor.app is present', async () => {
+  const ctx = env();
+  const doc = makeEditorDoc();
+  ctx.document = doc;
+  const sim = {
+    placeRobot() {}, onObstacleContact() { return () => {}; },
+    getStateSnapshot() { return { robot: { x: 0, y: 0, heading: 0 }, obstacles: {}, sensors: {} }; },
+  };
+  const app = await ctx.MISSIONS.boot({
+    sim, doc, location: { hash: '' },
+    fetch: async () => ({ ok: true, json: async () => ({}) }),
+    storage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
+  });
+  // Editor surfaces start hidden.
+  assert.strictEqual(doc.getElementById('editor-toolbar').hidden, true);
+  // Enter editor — surfaces unhide via the onChange handler.
+  app.enterEditor();
+  assert.strictEqual(doc.getElementById('editor-toolbar').hidden, false);
+});
+
+test('boot: clicking #btn-missions enters the editor with a blank mission', async () => {
+  const ctx = env();
+  const doc = makeEditorDoc(['btn-missions']);
+  ctx.document = doc;
+  const sim = {
+    placeRobot() {}, onObstacleContact() { return () => {}; },
+    getStateSnapshot() { return { robot: { x: 0, y: 0, heading: 0 }, obstacles: {}, sensors: {} }; },
+  };
+  const app = await ctx.MISSIONS.boot({
+    sim, doc, location: { hash: '' },
+    fetch: async () => ({ ok: true, json: async () => ({}) }),
+    storage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
+  });
+  doc.getElementById('btn-missions')._click();
+  assert.strictEqual(app.mode, 'editor');
+  assert.ok(app.editorState);
 });
