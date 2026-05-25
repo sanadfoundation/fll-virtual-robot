@@ -75,8 +75,27 @@
         argumentids.push(token.argId || '');
       }
     }
+
+    // SPIKE's procedure-block renderer splits proccode on whitespace and only
+    // recognises an `%s`/`%b` token as an argument slot when it's space-bounded.
+    // Without that, a modal-created argspec like
+    //   [{label "myblock"}, {arg}, {arg}, {arg}]
+    // would emit `"myblock%s%b%s"`, which SPIKE renders as garbled text.
+    // Insert a single space at any boundary where neither side already has
+    // whitespace. Idempotent for SPIKE-imported argspecs whose labels already
+    // carry their boundary spaces (e.g. `[{label "rotate "}, {arg}, {label " "}, …]`).
+    let proccode = '';
+    for (const piece of parts) {
+      if (piece === '') continue;
+      if (proccode === '' || /\s$/.test(proccode) || /^\s/.test(piece)) {
+        proccode += piece;
+      } else {
+        proccode += ' ' + piece;
+      }
+    }
+
     return {
-      proccode: parts.join(''),
+      proccode,
       argumentnames, argumentdefaults, argumentids,
     };
   }

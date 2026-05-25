@@ -169,13 +169,30 @@ test('emitProccode: escapes literal % in label text as %%', () => {
   assert.strictEqual(out.proccode, '100%% of %s');
 });
 
-test('emitProccode: argspec with no labels produces "%s%b" concat', () => {
+test('emitProccode: argspec with no labels produces "%s %b" (space-separated)', () => {
+  // SPIKE's procedure-block renderer requires whitespace between markers, so
+  // adjacent args without a separator label still emit with a single space.
   const { emitProccode } = loadModule();
   const out = emitProccode([
     { kind: 'arg', argKind: 'string_number', name: 'a', argId: 'id-A', defaultValue: '' },
     { kind: 'arg', argKind: 'boolean', name: 'b', argId: 'id-B', defaultValue: 'false' },
   ]);
-  assert.strictEqual(out.proccode, '%s%b');
+  assert.strictEqual(out.proccode, '%s %b');
+});
+
+test('emitProccode: modal-created argspec (no trailing space on label) gets a separator inserted', () => {
+  // Regression: the modal seeds an argspec like `[{label "myblock"}, {arg}, ...]`
+  // with no trailing space on the label. Without separator insertion, the
+  // emitted proccode would be `"myblock%s%b%s"` and SPIKE's editor renders it
+  // as a single garbled label rather than `myblock` + 3 input slots.
+  const { emitProccode } = loadModule();
+  const out = emitProccode([
+    { kind: 'label', text: 'myblock' },
+    { kind: 'arg', argKind: 'string_number', name: 'a', argId: 'id-A', defaultValue: '' },
+    { kind: 'arg', argKind: 'boolean',       name: 'b', argId: 'id-B', defaultValue: 'false' },
+    { kind: 'arg', argKind: 'string_number', name: 'c', argId: 'id-C', defaultValue: '' },
+  ]);
+  assert.strictEqual(out.proccode, 'myblock %s %b %s');
 });
 
 // ── parse → emit round-trip ──────────────────────────────────────────────────
@@ -204,7 +221,10 @@ test('round-trip: %% escape survives parse + emit', () => {
   assert.deepStrictEqual(out, orig);
 });
 
-test('round-trip: adjacent args survive parse + emit', () => {
+test('round-trip: adjacent args survive parse + emit (with separator normalization)', () => {
+  // Parsing the malformed `"%s%b"` form is lenient — we still recover both
+  // args — but emitting normalises to the SPIKE-required `"%s %b"` (with
+  // separator). The proccode is not byte-identical, only the arg metadata is.
   const { parseProccode, emitProccode } = loadModule();
   const orig = {
     proccode: '%s%b',
@@ -213,5 +233,8 @@ test('round-trip: adjacent args survive parse + emit', () => {
     argumentids: ['id-A', 'id-B'],
   };
   const out = emitProccode(parseProccode(orig));
-  assert.deepStrictEqual(out, orig);
+  assert.strictEqual(out.proccode, '%s %b');
+  assert.deepStrictEqual(out.argumentnames,    orig.argumentnames);
+  assert.deepStrictEqual(out.argumentdefaults, orig.argumentdefaults);
+  assert.deepStrictEqual(out.argumentids,      orig.argumentids);
 });
