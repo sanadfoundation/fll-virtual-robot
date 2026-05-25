@@ -122,20 +122,79 @@
   // here as a literal so this module is loadable independently.
   const C_MYBLOCKS = '#ff5d64';
 
-  // FieldArgPillSpawn: clickable arg-name pill on the definition hat. On
-  // click, mints a fresh body reporter for this arg and places it at the
-  // user's click coordinate. Mimics SPIKE's drag-from-hat gesture as a
-  // click-to-spawn — same destination, one click instead of one continuous
-  // drag. We avoid Blockly.Gesture internals (not a stable public surface)
-  // by handing the new block off to the user as a workspace-resident block
-  // they can then drag normally.
+  // FieldArgPillSpawn: clickable arg-name pill on the definition hat,
+  // drawn with the SPIKE-style oval (string_number) or hexagon (boolean)
+  // background. On click, mints a fresh body reporter for this arg at the
+  // user's click coordinate (drag-from-hat replacement — same destination,
+  // one click instead of one continuous gesture).
+  //
+  // Visual: darker-pink (#d0454d) shape with white text — matching the
+  // LEGO editor's hat pill style. Shape redrawn on every render_ so it
+  // tracks text-width changes (e.g. after a rename).
+  const PILL_FILL = '#d0454d';
+  const PILL_TEXT = '#ffffff';
+  const PILL_PAD_X = 8;
+
   class FieldArgPillSpawn extends Blockly.FieldLabelSerializable {
-    constructor(text, slotIdx) {
+    constructor(text, slotIdx, argKind) {
       super(text);
       this.slotIdx_ = slotIdx;
+      this.argKind_ = argKind || 'string_number';
       this.EDITABLE = true;       // so Blockly registers a click handler
       this.SERIALIZABLE = true;   // we want the displayed name persisted
+      this.pillEl_ = null;
     }
+
+    initView() {
+      // Prepend a <path> for the pill background so it sits BEHIND the text.
+      this.pillEl_ = Blockly.utils.dom.createSvgElement('path',
+        { fill: PILL_FILL, stroke: 'none' }, this.fieldGroup_);
+      super.initView();
+      if (this.textElement_) {
+        // Move text to end of children stack and recolor white.
+        this.fieldGroup_.appendChild(this.textElement_);
+        this.textElement_.setAttribute('fill', PILL_TEXT);
+        this.textElement_.style.fill = PILL_TEXT;
+      }
+    }
+
+    applyColour() {
+      // Override Blockly's default colour application — we always want
+      // white text on the dark-pink pill, regardless of block colour.
+      if (this.textElement_) {
+        this.textElement_.setAttribute('fill', PILL_TEXT);
+        this.textElement_.style.fill = PILL_TEXT;
+      }
+    }
+
+    render_() {
+      super.render_();
+      if (!this.pillEl_) return;
+      // Width tracks the text + padding; height matches Blockly's field height.
+      const textWidth = (this.textElement_ && this.textElement_.getComputedTextLength)
+        ? this.textElement_.getComputedTextLength()
+        : Math.max((this.getDisplayText_() || '').length * 7, 20);
+      const height = (this.constants_ && this.constants_.FIELD_TEXT_HEIGHT) || 14;
+      const w = Math.max(textWidth + PILL_PAD_X * 2, height + 4);
+      if (this.argKind_ === 'boolean') {
+        // Hexagon (flat-top): chevron points at the left/right midpoints.
+        const slant = height / 2;
+        this.pillEl_.setAttribute('d',
+          `M 0 ${height/2} L ${slant} 0 H ${w - slant} L ${w} ${height/2} L ${w - slant} ${height} H ${slant} Z`);
+      } else {
+        // Round-rect (oval cap): rounded ends of radius height/2.
+        const r = height / 2;
+        this.pillEl_.setAttribute('d',
+          `M ${r} 0 H ${w - r} A ${r} ${r} 0 0 1 ${w - r} ${height} H ${r} A ${r} ${r} 0 0 1 ${r} 0 Z`);
+      }
+      if (this.textElement_) {
+        this.textElement_.setAttribute('x', String(w / 2));
+        this.textElement_.setAttribute('text-anchor', 'middle');
+      }
+      // Tell Blockly's layout engine our real width so it reserves the right space.
+      this.size_.width = w;
+    }
+
     showEditor_(opt_e) {
       const parent = this.sourceBlock_;
       if (!parent || parent.type !== 'myblocks_definition') return;
@@ -192,7 +251,8 @@
         // Click an arg pill to spawn a fresh body reporter for that arg at
         // the cursor — the drag-from-hat replacement (see CLAUDE.md). The
         // slot index counts only arg tokens, matching spawnDescriptorForArg.
-        input.appendField(new FieldArgPillSpawn(tok.name || '', argIdx), 'ARG' + argIdx);
+        // The argKind drives shape: string_number → oval, boolean → hexagon.
+        input.appendField(new FieldArgPillSpawn(tok.name || '', argIdx, tok.argKind), 'ARG' + argIdx);
         argIdx++;
       }
       added = true;
