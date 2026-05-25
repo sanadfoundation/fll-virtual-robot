@@ -1,0 +1,101 @@
+'use strict';
+
+const vm   = require('vm');
+const fs   = require('fs');
+const path = require('path');
+
+const SRC = fs.readFileSync(
+  path.resolve(__dirname, '../../../js/watch_panel.js'),
+  'utf8',
+);
+
+// Returns a sandbox with mocked DOM. The sandbox's `window._watch` is the
+// installed API. The sandbox records DOM mutations on `__domLog` so tests
+// can assert on what the renderer did.
+function loadWatchPanel(opts = {}) {
+  const rafQueue = [];
+  const flushRaf = () => {
+    while (rafQueue.length) {
+      const cb = rafQueue.shift();
+      cb(performance.now());
+    }
+  };
+  const setTimeouts = [];
+  const flushTimers = () => {
+    while (setTimeouts.length) {
+      const { fn } = setTimeouts.shift();
+      fn();
+    }
+  };
+
+  function makeElement(tag) {
+    const el = {
+      tagName: tag.toUpperCase(),
+      children: [],
+      classList: {
+        _set: new Set(),
+        add(c)    { this._set.add(c); },
+        remove(c) { this._set.delete(c); },
+        contains(c) { return this._set.has(c); },
+        toggle(c, on) {
+          if (on === undefined) on = !this._set.has(c);
+          on ? this._set.add(c) : this._set.delete(c);
+          return on;
+        },
+      },
+      dataset: {},
+      style: {},
+      textContent: '',
+      title: '',
+      id: '',
+      _eventListeners: {},
+      get innerHTML() { return ''; },
+      set innerHTML(v) { this.children = []; },
+      appendChild(child) { this.children.push(child); return child; },
+      querySelector() { return null; },
+      addEventListener(name, fn) {
+        (this._eventListeners[name] = this._eventListeners[name] || []).push(fn);
+      },
+    };
+    return el;
+  }
+
+  const pane = makeElement('div');
+  pane.classList.add('watch-pane');
+  const list = makeElement('div');
+  list.id = 'watch-pane-list';
+  pane.appendChild(list);
+
+  const elementsById = { 'watch-pane-list': list };
+  const elementsBySelector = { '.watch-pane': pane };
+
+  const documentStub = {
+    readyState: 'complete',
+    addEventListener(name, fn) { /* no DOMContentLoaded needed since readyState complete */ },
+    getElementById(id) { return elementsById[id] || null; },
+    querySelector(sel) { return elementsBySelector[sel] || null; },
+    createElement: makeElement,
+  };
+
+  const root = {};
+  const context = vm.createContext({
+    window: root,
+    globalThis: root,
+    document: documentStub,
+    requestAnimationFrame(cb) { rafQueue.push(cb); return rafQueue.length; },
+    setTimeout(fn, ms) { setTimeouts.push({ fn, ms }); return setTimeouts.length; },
+    performance: { now: () => Date.now() },
+    console,
+  });
+  vm.runInContext(SRC, context);
+
+  return {
+    api: root._watch,
+    pane,
+    list,
+    flushRaf,
+    flushTimers,
+  };
+}
+
+module.exports = { loadWatchPanel };
