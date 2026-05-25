@@ -92,8 +92,23 @@
       }
     }
 
+    function handleElementClick(ev, kind, id) {
+      if (activeTool !== 'select') return;  // tool palette governs add-modes
+      // Suppress the SVG-level click handler (which would clear selection).
+      if (ev && typeof ev.stopPropagation === 'function') ev.stopPropagation();
+      ev._handled = true;
+      app.setEditorState(MISSIONS.editor.state.setSelection(app.editorState, { kind, id }));
+    }
+
     function handleSvgClick(ev) {
-      const point = ev._fieldPoint;  // Production wiring converts pageX/pageY via SVG CTM.
+      if (ev._handled) return;
+      if (activeTool === 'select') {
+        if (app.editorState && app.editorState.selection) {
+          app.setEditorState(MISSIONS.editor.state.setSelection(app.editorState, null));
+        }
+        return;
+      }
+      const point = ev._fieldPoint;
       if (!point) return;
       if (activeTool === 'obstacle') {
         app.setEditorState(MISSIONS.editor.state.addObstacle(app.editorState, point));
@@ -108,7 +123,6 @@
         app.setEditorState(next);
         setTool('select');
       }
-      // 'select' is a no-op here (selection logic comes in Task 9).
     }
 
     function clearOverlay() {
@@ -139,6 +153,10 @@
         rect.setAttribute('data-id', z.id);
         rect.setAttribute('data-kind', 'zone');
         rect.setAttribute('data-color', z.color);
+        if (state.selection && state.selection.kind === 'zone' && state.selection.id === z.id) {
+          rect.classList.add('selected');
+        }
+        rect.addEventListener('click', (ev) => handleElementClick(ev, 'zone', z.id));
         zonesGroup.appendChild(rect);
       }
       // Obstacles
@@ -154,6 +172,10 @@
         rect.classList.add('editor-obstacle');
         rect.setAttribute('data-id', o.id);
         rect.setAttribute('data-kind', 'obstacle');
+        if (state.selection && state.selection.kind === 'obstacle' && state.selection.id === o.id) {
+          rect.classList.add('selected');
+        }
+        rect.addEventListener('click', (ev) => handleElementClick(ev, 'obstacle', o.id));
         obstaclesGroup.appendChild(rect);
       }
       // Robot start
@@ -165,6 +187,10 @@
       handle.setAttribute('r', 16);
       handle.classList.add('editor-robot-start');
       handle.setAttribute('data-kind', 'robot-start');
+      if (state.selection && state.selection.kind === 'start') {
+        handle.classList.add('selected');
+      }
+      handle.addEventListener('click', (ev) => handleElementClick(ev, 'start', null));
       startGroup.appendChild(handle);
     }
 

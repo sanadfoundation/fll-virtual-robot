@@ -104,3 +104,35 @@ test('palette: after placing an obstacle the active tool reverts to "select"', (
   assert.ok(palette.querySelector('.editor-tool-select').classList.contains('active'));
   assert.ok(!palette.querySelector('.editor-tool-obstacle').classList.contains('active'));
 });
+
+test('selection: click on a zone in select mode selects it', () => {
+  const { ctx, doc, app } = setup();
+  app.enterEditor();
+  app.setEditorState(ctx.MISSIONS.editor.state.addZone(app.editorState, { x: 100, y: 100 }));
+  const id = app.editorState.field.zones[0].id;
+  const zoneEl = doc.getElementById('editor-canvas-overlay').querySelector('.editor-zone');
+  zoneEl._fire('click', { _fieldElement: true });
+  assert.deepStrictEqual(app.editorState.selection, { kind: 'zone', id });
+});
+
+test('selection: selected element gets .selected class', () => {
+  const { ctx, doc, app } = setup();
+  app.enterEditor();
+  app.setEditorState(ctx.MISSIONS.editor.state.addObstacle(app.editorState, { x: 100, y: 100 }));
+  const id = app.editorState.field.obstacles[0].id;
+  app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'obstacle', id }));
+  const obstEl = doc.getElementById('editor-canvas-overlay').querySelector('.editor-obstacle');
+  assert.ok(obstEl.classList.contains('selected'));
+});
+
+test('selection: clicking empty canvas clears selection', () => {
+  const { ctx, doc, app } = setup();
+  app.enterEditor();
+  app.setEditorState(ctx.MISSIONS.editor.state.addZone(app.editorState, { x: 100, y: 100 }));
+  const id = app.editorState.field.zones[0].id;
+  app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'zone', id }));
+  // Click the SVG root (not a zone child) — should clear.
+  const svg = doc.getElementById('editor-canvas-overlay').querySelector('.editor-overlay-svg');
+  svg._fire('click', { _fieldPoint: { x: 1500, y: 700 } });  // empty area
+  assert.strictEqual(app.editorState.selection, null);
+});

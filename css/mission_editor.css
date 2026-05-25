@@ -237,3 +237,12 @@ body[data-mode="editor"] .editor-overlay-svg { pointer-events: auto; }
   border-color: var(--amber);
   background: rgba(251,191,36,0.08);
 }
+
+.editor-zone.selected,
+.editor-obstacle.selected,
+.editor-robot-start.selected {
+  stroke: var(--amber);
+  stroke-width: 5;
+  stroke-dasharray: 8 6;
+  filter: drop-shadow(0 0 8px rgba(251,191,36,0.7));
+}
