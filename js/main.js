@@ -49,21 +49,22 @@ window.appendOutput = appendOutput;
 
 // ── Persistence ──────────────────────────────────────────────────────────────
 
-const THEME_KEY   = 'fll-vr-theme';
-const SPEED_KEY   = 'fll-vr-speed';
-const UNITS_KEY   = 'fll-vr-units';
-const PYCODE_KEY  = 'fll-vr-python-code';
-const BLOCKLY_KEY = 'fll-vr-blockly-xml';
-const TAB_KEY     = 'fll-vr-tab';
-const NAME_KEY    = 'fll-vr-project-name';
-const DIRTY_KEY   = 'fll-vr-dirty';
+const THEME_KEY          = 'fll-vr-theme';
+const SPEED_KEY          = 'fll-vr-speed';
+const UNITS_KEY          = 'fll-vr-units';
+const PYCODE_KEY         = 'fll-vr-python-code';
+const BLOCKLY_KEY        = 'fll-vr-blockly-xml';
+const NAME_KEY           = 'fll-vr-project-name';
+const DIRTY_KEY          = 'fll-vr-dirty';
+const PROJECT_TYPE_KEY   = 'fll-vr-project-type';
 
-const DEFAULT_THEME = 'light';
-const DEFAULT_SPEED = 1;
-const DEFAULT_UNITS = 'cm';
-const VALID_UNITS   = ['cm', 'mm', 'in'];
-const DEFAULT_TAB   = 'blocks';
-const DEFAULT_NAME  = 'Untitled-Project';
+const DEFAULT_THEME        = 'light';
+const DEFAULT_SPEED        = 1;
+const DEFAULT_UNITS        = 'cm';
+const VALID_UNITS          = ['cm', 'mm', 'in'];
+const DEFAULT_NAME         = 'Untitled-Project';
+const DEFAULT_PROJECT_TYPE = 'blocks';
+const VALID_PROJECT_TYPES  = ['python', 'blocks'];
 
 function lsGet(key) {
   try { return localStorage.getItem(key); } catch (e) { return null; }
@@ -81,13 +82,33 @@ function setDirty(v) {
   dirty = !!v;
   if (dirty) lsSet(DIRTY_KEY, '1'); else lsRemove(DIRTY_KEY);
 }
-function isDirty() { return dirty; }
+function isDirty() { return dirty || lsGet(DIRTY_KEY) === '1'; }
 function getProjectName() { return projectName; }
 function setProjectName(name) {
   projectName = name || DEFAULT_NAME;
   lsSet(NAME_KEY, projectName);
 }
 function setLoadedManifest(m) { loadedManifest = m; }
+
+function getProjectType() {
+  const stored = lsGet(PROJECT_TYPE_KEY);
+  return VALID_PROJECT_TYPES.includes(stored) ? stored : DEFAULT_PROJECT_TYPE;
+}
+
+function setProjectType(type) {
+  if (!VALID_PROJECT_TYPES.includes(type)) {
+    throw new Error('unknown project type: ' + type);
+  }
+  lsSet(PROJECT_TYPE_KEY, type);
+}
+
+function migrateLegacyTabKey() {
+  if (lsGet(PROJECT_TYPE_KEY)) return;          // already migrated
+  const legacy = lsGet('fll-vr-tab');           // legacy TAB_KEY, retired
+  const type = VALID_PROJECT_TYPES.includes(legacy) ? legacy : DEFAULT_PROJECT_TYPE;
+  lsSet(PROJECT_TYPE_KEY, type);
+  if (legacy !== null) lsRemove('fll-vr-tab');
+}
 
 // ── Theme ────────────────────────────────────────────────────────────────────
 
@@ -245,33 +266,34 @@ function initBlocklyWorkspace() {
 function switchMode(mode, options) {
   const m = mode === 'blocks' ? 'blocks' : 'python';
   currentMode = m;
-  const pyTab  = document.getElementById('tab-python');
-  const blkTab = document.getElementById('tab-blocks');
   const pyWrap = document.getElementById('py-editor-wrap');
   const blkDiv = document.getElementById('blockly-div');
+  const badge  = document.getElementById('project-type-badge');
 
   if (m === 'python') {
-    pyTab.classList.add('active');
-    blkTab.classList.remove('active');
     pyWrap.style.display = 'block';
     blkDiv.style.display = 'none';
     if (editor) editor.layout();
   } else {
-    blkTab.classList.add('active');
-    pyTab.classList.remove('active');
     pyWrap.style.display = 'none';
     blkDiv.style.display = 'block';
     initBlocklyWorkspace();
     resizeBlocklyWorkspace();
   }
 
-  if (!options || options.persist !== false) lsSet(TAB_KEY, m);
+  if (badge) {
+    badge.dataset.type = m;
+    badge.textContent  = m === 'python' ? '🐍' : '🧱';
+    badge.title = (m === 'blocks' && typeof Blockly === 'undefined')
+      ? 'Blockly failed to load'
+      : (m === 'python' ? 'Python project' : 'Blocks project');
+  }
+
+  if (!options || options.persist !== false) setProjectType(m);
 }
 
-function applyStoredTab() {
-  const stored = lsGet(TAB_KEY);
-  const tab = (stored === 'python' || stored === 'blocks') ? stored : DEFAULT_TAB;
-  switchMode(tab, { persist: false });
+function applyStoredProjectType() {
+  switchMode(getProjectType(), { persist: false });
 }
 
 // ── Run / Stop ────────────────────────────────────────────────────────────────
@@ -349,30 +371,46 @@ function handleStop() {
   appendOutput('[Stopped]', 'warn');
 }
 
-// "New" — wipe the editor and Blockly workspace, reset the project name,
-// and clear the dirty flag. Confirms first if there are unsaved changes so
-// a stray click in the header can't blow away work. The Open/Save handlers
-// are still in llsp3_ui.js; this one lives here because it touches the
-// editor + Blockly directly and reuses DEFAULT_PYTHON_CODE.
-function handleNewProject() {
+// "New" — start a fresh project of the given type. Only the buffer for
+// `type` is cleared; the other buffer is left alone (it belongs to a
+// different project type and clearing it would surprise a user who flips
+// between projects). Confirms first if there are unsaved changes.
+function handleNewProject(type) {
+  if (type == null) throw new Error('project type required');
+  if (!VALID_PROJECT_TYPES.includes(type)) {
+    throw new Error('unknown project type: ' + type);
+  }
   if (isDirty()) {
     const ok = window.confirm('Discard the current project and start a new one?');
     if (!ok) return;
   }
-  if (editor) editor.setValue(DEFAULT_PYTHON_CODE);
-  lsRemove(PYCODE_KEY);
-  if (blocklyWs && typeof Blockly !== 'undefined') {
-    blocklyWs.clear();
-    lsRemove(BLOCKLY_KEY);
+
+  if (type === 'python') {
+    if (editor) editor.setValue(DEFAULT_PYTHON_CODE);
+    lsRemove(PYCODE_KEY);
   } else {
+    if (blocklyWs && typeof Blockly !== 'undefined') {
+      blocklyWs.clear();
+      // Wipe undo and the trashcan flyout too — "New project" should leave no
+      // trace of the prior program, including blocks the user could resurrect
+      // via undo or by clicking the trash can icon.
+      blocklyWs.clearUndo();
+      if (blocklyWs.trashcan && typeof blocklyWs.trashcan.emptyContents === 'function') {
+        blocklyWs.trashcan.emptyContents();
+      }
+    }
     lsRemove(BLOCKLY_KEY);
   }
+
   setProjectName(DEFAULT_NAME);
   const nameInput = document.getElementById('project-name');
   if (nameInput) nameInput.value = DEFAULT_NAME;
   setLoadedManifest(null);
   setDirty(false);
-  appendOutput(`[new] Started a fresh project.`, 'info');
+
+  switchMode(type);
+
+  appendOutput(`[new] Started a fresh ${type === 'python' ? 'Python' : 'Blocks'} project.`, 'info');
 }
 
 function handleReset() {
@@ -471,8 +509,8 @@ function handleDefaults() {
   }
   if (defaultXml) lsSet(BLOCKLY_KEY, defaultXml);
 
-  // Active tab
-  switchMode(DEFAULT_TAB);
+  // Active project type
+  switchMode(DEFAULT_PROJECT_TYPE);
 
   setProjectName(DEFAULT_NAME);
   const nameInput = document.getElementById('project-name');
@@ -480,7 +518,7 @@ function handleDefaults() {
   loadedManifest = null;
   setDirty(false);
 
-  appendOutput('[Defaults] Theme, speed, active tab, project name, and editor contents reset.', 'info');
+  appendOutput('[Defaults] Theme, speed, project type, project name, and editor contents reset.', 'info');
 }
 
 // ── PyScript worker bootstrap ─────────────────────────────────────────────────
@@ -624,41 +662,29 @@ function initCollapseToggle(left) {
 
 // ── Default Python code ───────────────────────────────────────────────────────
 
-const DEFAULT_PYTHON_CODE = `# FLL Virtual Robot — Mission: hit obstacle '1' on green, then obstacle '2' on red.
-# Port layout: A/B light motors (drive), C color, D distance, E force, F empty.
-from hub import port
-import motor_pair, color_sensor, distance_sensor, force_sensor, runloop
+const DEFAULT_PYTHON_CODE = `# FLL Virtual Robot — write your code inside main().
+#
+# Uncomment the imports you need:
+#   from hub import port               # port.A..F constants
+#   import motor_pair                  # pair() + move_for_degrees() + move_tank_for_time()
+#   import color_sensor                # color_sensor.color(port.C)
+#   import distance_sensor             # distance_sensor.distance(port.D)
+#   import force_sensor                # force_sensor.force(port.E)
+import runloop
+
 
 async def main():
-    # Pair the drive motors (left = port.A, right = port.B).
-    motor_pair.pair(motor_pair.PAIR_1, port.A, port.B)
+    # Example: pair the drive motors and move forward ~50 cm.
+    #   motor_pair.pair(motor_pair.PAIR_1, port.A, port.B)
+    #   await motor_pair.move_for_degrees(motor_pair.PAIR_1, 1000, 0, velocity=720)
+    #
+    # Example: pivot turn right 90°.
+    #   await motor_pair.move_tank_for_time(motor_pair.PAIR_1, 360, -360, 500)
+    #
+    # Example: read a sensor.
+    #   print('Color:', color_sensor.color(port.C))
+    pass
 
-    # From spawn (350, 163), drive 780 mm north to the row of upper boxes (y≈943).
-    await motor_pair.move_for_degrees(motor_pair.PAIR_1, 1596, 0, velocity=720)
-    print('Color under robot:', color_sensor.color(port.C))
-
-    # Turn right 90° (now heading east).
-    await motor_pair.move_tank_for_time(motor_pair.PAIR_1, 360, -360, 500)
-
-    # Drive 1350 mm east — through yellow (x≈1000), slams obstacle '1' on green (x≈1700).
-    await motor_pair.move_for_degrees(motor_pair.PAIR_1, 2762, 0, velocity=720)
-    print('Bumper force after hit:', force_sensor.force(port.E), 'N')
-    print('Distance ahead:', distance_sensor.distance(port.D), 'mm')
-
-    # Turn right 90° (now heading south).
-    await motor_pair.move_tank_for_time(motor_pair.PAIR_1, 360, -360, 500)
-
-    # Drive 600 mm south — line up with the red mission row (y≈343).
-    await motor_pair.move_for_degrees(motor_pair.PAIR_1, 1228, 0, velocity=720)
-
-    # Turn left 90° (now heading east).
-    await motor_pair.move_tank_for_time(motor_pair.PAIR_1, -360, 360, 500)
-
-    # Drive 300 mm east — slams obstacle '2' on red (x≈2000).
-    await motor_pair.move_for_degrees(motor_pair.PAIR_1, 614, 0, velocity=720)
-    print('Bumper force after hit:', force_sensor.force(port.E), 'N')
-
-    print('Mission complete!')
 
 runloop.run(main())
 `;
@@ -688,6 +714,7 @@ function setBlocklyState(state) {
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
+  migrateLegacyTabKey();
   projectName = lsGet(NAME_KEY) || DEFAULT_NAME;
   dirty       = lsGet(DIRTY_KEY) === '1';
 
@@ -697,16 +724,16 @@ document.addEventListener('DOMContentLoaded', () => {
   initResizeHandle();
   window.addEventListener('resize', resizeBlocklyWorkspace);
 
-  document.getElementById('tab-python').addEventListener('click', () => switchMode('python'));
-  document.getElementById('tab-blocks').addEventListener('click', () => switchMode('blocks'));
   document.getElementById('btn-run').addEventListener('click', handleRun);
   document.getElementById('btn-stop').addEventListener('click', handleStop);
   document.getElementById('btn-reset').addEventListener('click', handleReset);
   document.getElementById('btn-defaults').addEventListener('click', handleDefaults);
   document.getElementById('btn-theme').addEventListener('click', toggleTheme);
 
-  const newBtn = document.getElementById('btn-new');
-  if (newBtn) newBtn.addEventListener('click', handleNewProject);
+  const newPyBtn  = document.getElementById('btn-new-python');
+  const newBlkBtn = document.getElementById('btn-new-blocks');
+  if (newPyBtn)  newPyBtn.addEventListener('click', () => handleNewProject('python'));
+  if (newBlkBtn) newBlkBtn.addEventListener('click', () => handleNewProject('blocks'));
 
   const speedSlider = document.getElementById('speed-slider');
   if (speedSlider) speedSlider.addEventListener('input', e => updateSpeed(e.target.value));
@@ -716,7 +743,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   applyStoredSpeed();
   applyStoredUnits();
-  applyStoredTab();
+  applyStoredProjectType();
 
   if (window.LLSP3 && window.LLSP3.ui && typeof window.LLSP3.ui.init === 'function') {
     window.LLSP3.ui.init({
@@ -736,9 +763,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
   appendOutput('[Init] Simulator loaded. Waiting for Python runtime...', 'info');
 
-  // If Blockly isn't available, hide the Blocks tab
-  if (typeof Blockly === 'undefined') {
-    const blkTab = document.getElementById('tab-blocks');
-    if (blkTab) { blkTab.style.opacity = '0.4'; blkTab.title = 'Blockly failed to load'; }
-  }
 });

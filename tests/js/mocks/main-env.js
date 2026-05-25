@@ -18,7 +18,16 @@ function makeEl(initial) {
     children: [],
     appendChild(child) { this.children.push(child); },
     removeChild() {},
-    addEventListener: () => {},
+    addEventListener(evt, handler) {
+      if (evt === 'click') {
+        if (this._clickHandler !== null) {
+          throw new Error("makeEl: second 'click' listener registered — extend the mock to use an array");
+        }
+        this._clickHandler = handler;
+      }
+      // Other events are dropped on the floor; tests that need them can
+      // extend this later.
+    },
     removeEventListener: () => {},
     setAttribute: () => {},
     getAttribute: () => null,
@@ -32,6 +41,7 @@ function makeEl(initial) {
     offsetWidth: 0,
     scrollHeight: 0,
     scrollTop: 0,
+    _clickHandler: null,
   };
   return Object.assign(el, initial || {});
 }
@@ -50,30 +60,35 @@ function makeMainEnv(opts = {}) {
 
   // ── document ──
   const elementsById = {
-    'speed-slider':   makeEl({ value: '1' }),
-    'speed-label':    makeEl(),
-    'btn-run':        makeEl(),
-    'btn-stop':       makeEl(),
-    'btn-reset':      makeEl(),
-    'btn-defaults':   makeEl(),
-    'btn-theme':      makeEl(),
-    'tab-python':     makeEl(),
-    'tab-blocks':     makeEl(),
-    'console-output': makeEl(),
-    'py-editor':      makeEl(),
-    'py-editor-wrap': makeEl(),
-    'blockly-div':    makeEl(),
-    'resize-handle':  makeEl(),
-    'py-loading':     makeEl(),
-    'status-dot':     makeEl(),
-    'status-label':   makeEl(),
+    'speed-slider':       makeEl({ value: '1' }),
+    'speed-label':        makeEl(),
+    'btn-run':            makeEl(),
+    'btn-stop':           makeEl(),
+    'btn-reset':          makeEl(),
+    'btn-defaults':       makeEl(),
+    'btn-theme':          makeEl(),
+    'console-output':     makeEl(),
+    'py-editor':          makeEl(),
+    'py-editor-wrap':     makeEl(),
+    'blockly-div':        makeEl(),
+    'resize-handle':      makeEl(),
+    'py-loading':         makeEl(),
+    'status-dot':         makeEl(),
+    'status-label':       makeEl(),
+    'project-type-badge': makeEl({ dataset: {} }),
+    'btn-new-python':     makeEl(),
+    'btn-new-blocks':     makeEl(),
+    'new-menu-pop':       makeEl(),
   };
 
   const documentEl = makeEl();
+  const docListeners = {};
   const document = {
     documentElement: documentEl,
     body: makeEl(),
-    addEventListener: () => {},
+    addEventListener: (evt, handler) => {
+      (docListeners[evt] = docListeners[evt] || []).push(handler);
+    },
     querySelector: () => null,
     querySelectorAll: () => [],
     getElementById: (id) => {
@@ -98,7 +113,9 @@ function makeMainEnv(opts = {}) {
     sim: null,
     appendOutput: () => {},
     _pyWorker: null,
-    RobotSimulator: function () { return { speedMult: 1, reset: () => {}, _setStatus: () => {} }; },
+    RobotSimulator: function () {
+      return { speedMult: 1, reset: () => {}, _setStatus: () => {}, setUnits: () => {} };
+    },
   };
 
   // RequireJS stub — main.js calls require.config() then require([...], cb).
@@ -128,7 +145,12 @@ function makeMainEnv(opts = {}) {
   );
   vm.runInContext(MAIN_CODE, context, { filename: 'js/main.js' });
 
-  return { context, window, document, storage, elementsById };
+  if (opts.fireDOMContentLoaded) {
+    const handlers = docListeners['DOMContentLoaded'] || [];
+    for (const h of handlers) h();
+  }
+
+  return { context, window, document, storage, elementsById, documentEl };
 }
 
 module.exports = { makeMainEnv };

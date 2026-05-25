@@ -131,40 +131,35 @@ header h1 .fll  { color: var(--amber); }
 header h1 .sep  { color: var(--border2); margin: 0 4px; font-weight: 400; }
 header h1 .sub  { color: var(--text-mid); font-weight: 600; }
 
-/* ── Tab group ─────────────────────────────────────────── */
-.tab-group {
-  display: flex;
-  gap: 2px;
-  background: var(--bg);
+/* ── Project name field (icon adornment + input) ──────────
+   The project-type badge is rendered as a left-side icon inside the
+   project-name field rather than a separate header element. switchMode
+   writes the emoji into #project-type-badge and the type name into
+   its title attribute. */
+.project-name-field {
+  display: inline-flex;
+  align-items: stretch;
+  background: var(--surface2);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 3px;
-}
-
-.tab-btn {
-  padding: 4px 16px;
-  border: none;
   border-radius: 6px;
+  overflow: hidden;
+}
+.project-name-field:focus-within { border-color: var(--blue); }
+
+.project-type-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  font-size: 14px;
+  line-height: 1;
+  border-right: 1px solid var(--border);
   background: transparent;
-  color: var(--text-dim);
-  font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  transition: color 0.15s, background 0.15s;
+  color: var(--text-mid);
+  user-select: none;
 }
-
-/* Active tab uses var(--text) (black in light, near-white in dark) instead of
-   amber. The amber-on-dark-blue had a ~3:1 contrast ratio that failed WCAG AA;
-   var(--text) reads cleanly on both surface3 backgrounds. */
-.tab-btn.active {
-  background: var(--surface3);
-  color: var(--text);
-  box-shadow: inset 0 0 0 1px var(--border2);
-}
-
-.tab-btn:not(.active):hover { color: var(--text-mid); }
+.project-type-badge[data-type="python"] { color: var(--cyan); }
+.project-type-badge[data-type="blocks"] { color: var(--amber); }
 
 /* ── Spacer ────────────────────────────────────────────── */
 .spacer { flex: 1; }
@@ -260,9 +255,8 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
   opacity: 0.7;
 }
 .project-name-input {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  background: transparent;
+  border: none;
   padding: 4px 10px;
   font-size: 13px;
   color: var(--text);
@@ -272,7 +266,6 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
 }
 .project-name-input:focus {
   outline: none;
-  border-color: var(--blue);
 }
 
 /* ── File-controls cluster (Open + Save) ───────────────────────────────── */
@@ -1710,21 +1703,6 @@ header h1 {
   min-width: 180px;
 }
 
-/* Tab pill — Blocks / Python */
-.tab-group {
-  padding: 4px;
-  border-radius: 12px;
-}
-.tab-btn {
-  padding: 0 22px;
-  font-size: 13px;
-  min-height: 34px;
-  border-radius: 9px;
-  gap: 6px;
-  display: flex;
-  align-items: center;
-}
-
 /* Base .btn override applies to GitHub link, Reset; Run/Stop tighten below */
 .btn {
   min-height: 40px;
@@ -2157,6 +2135,53 @@ header h1 {
   box-shadow: 0 20px 40px rgba(15,23,42,0.18), 0 4px 10px rgba(15,23,42,0.10);
 }
 .settings-pop.open { display: block; }
+
+/* ── New-project split-button + popover menu ─────────────────────────────
+   Modelled on .settings-pop. Floats below the New (📄) button, closes on
+   outside-click and Escape, and offers explicit per-type project creation.
+   The legacy single-click behaviour (clearing both buffers) is replaced
+   by per-type clears in handleNewProject(type). */
+.new-menu { position: relative; display: inline-flex; }
+
+.new-menu-pop {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 220px;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 24px 48px rgba(0,0,0,0.45), 0 4px 12px rgba(0,0,0,0.25);
+  z-index: 60;
+  animation: settings-pop-in 0.18s ease-out;
+}
+:root[data-theme="light"] .new-menu-pop {
+  box-shadow: 0 20px 40px rgba(15,23,42,0.18), 0 4px 10px rgba(15,23,42,0.10);
+}
+.new-menu-pop.open { display: block; }
+
+.new-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  font: 600 13px var(--font-ui);
+  color: var(--text-mid);
+  text-align: left;
+  cursor: pointer;
+}
+.new-menu-item:hover,
+.new-menu-item:focus-visible {
+  background: var(--surface2);
+  color: var(--text);
+  outline: none;
+}
 
 @keyframes settings-pop-in {
   from { opacity: 0; transform: translateY(-6px); }

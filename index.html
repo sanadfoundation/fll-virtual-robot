@@ -47,16 +47,26 @@
        always visible. file-open-input is the hidden <input type=file> the
        Open button trips. IDs are preserved so llsp3_ui.js wiring is intact. -->
   <div class="file-actions" id="file-actions">
-    <input type="text" id="project-name" class="project-name-input" placeholder="Untitled-Project" maxlength="64" title="Project name">
+    <div class="project-name-field">
+      <span class="project-type-badge" id="project-type-badge" data-type="blocks" aria-live="polite" title="Blocks project">🧱</span>
+      <input type="text" id="project-name" class="project-name-input" placeholder="Untitled-Project" maxlength="64" aria-label="Project name">
+    </div>
     <input type="file" id="file-open-input" accept=".llsp3" style="display:none">
-    <button class="btn btn-icon-file" id="btn-new"  type="button" title="New project" aria-label="New project">📄</button>
+    <div class="new-menu" id="new-menu">
+      <button class="btn btn-icon-file" id="btn-new" type="button"
+              aria-haspopup="true" aria-expanded="false"
+              title="New project" aria-label="New project">📄</button>
+      <div class="new-menu-pop" id="new-menu-pop" role="menu" aria-labelledby="btn-new">
+        <button class="new-menu-item" id="btn-new-python" role="menuitem" type="button">
+          <span aria-hidden="true">🐍</span> New Python project
+        </button>
+        <button class="new-menu-item" id="btn-new-blocks" role="menuitem" type="button">
+          <span aria-hidden="true">🧱</span> New Blocks project
+        </button>
+      </div>
+    </div>
     <button class="btn btn-icon-file" id="btn-open" type="button" title="Open .llsp3 file" aria-label="Open project">📂</button>
     <button class="btn btn-icon-file" id="btn-save" type="button" title="Save project" aria-label="Save project">💾</button>
-  </div>
-
-  <div class="tab-group">
-    <button class="tab-btn active" id="tab-blocks">🧱 Blocks</button>
-    <button class="tab-btn"        id="tab-python">🐍 Python</button>
   </div>
 
   <div class="spacer"></div>
@@ -338,7 +348,47 @@
     if (e.key === 'Escape' && pop.classList.contains('open')) close();
   });
 })();
+</script>
 
+<script>
+// New-project menu — split button next to the file actions. Click 📄 to
+// toggle the popover; click an item to dispatch handleNewProject(type)
+// (wired from main.js). Outside-click and Escape close it, mirroring the
+// settings popover behaviour right above this block.
+(function () {
+  const trigger = document.getElementById('btn-new');
+  const pop     = document.getElementById('new-menu-pop');
+  if (!trigger || !pop) return;
+  function close() {
+    pop.classList.remove('open');
+    trigger.setAttribute('aria-expanded', 'false');
+  }
+  function open() {
+    pop.classList.add('open');
+    trigger.setAttribute('aria-expanded', 'true');
+  }
+  trigger.addEventListener('click', e => {
+    e.stopPropagation();
+    pop.classList.contains('open') ? close() : open();
+  });
+  pop.addEventListener('click', e => {
+    // Any click on an item closes the menu; the item's own listener (wired
+    // in main.js) actually dispatches handleNewProject.
+    if (e.target.closest('.new-menu-item')) close();
+  });
+  document.addEventListener('click', e => {
+    if (!pop.contains(e.target) && e.target !== trigger && !trigger.contains(e.target)) close();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && pop.classList.contains('open')) {
+      close();
+      trigger.focus();
+    }
+  });
+})();
+</script>
+
+<script>
 // Console collapse — click the header to fold/unfold the output panel.
 // State persists across reloads via localStorage so kids who like a tall
 // canvas keep their preference.
