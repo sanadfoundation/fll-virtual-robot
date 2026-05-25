@@ -19,6 +19,7 @@ No build step, no package manager. Dependencies load from CDN.
 - **Internal coords are math y-up.** Origin bottom-left, y increases upward, headings are math (CCW positive). Canvas rendering converts math → canvas at the boundary in `_drawField`, `_drawRobot`, `_drawTrail` family, `_drawRuler`, `_handleHover` (`canvasY = FIELD_H_MM - mathY` for points/lines/circles; `(FIELD_H_MM - y - h)` for rectangle top-left). `_animateTank` and `_sensorPosition` are convention-agnostic — don't introduce flips there.
 - **Blockly 10 API:** `Blockly.utils.xml.textToDom` (the old `Blockly.Xml.textToDom` was removed).
 - **MicroPython has no `traceback` module.** Errors surface as `ExcType: message`.
+- **A project is single-mode (Python or Blocks), chosen at creation and never switched.** `localStorage.fll-vr-project-type` is the source of truth; `switchMode(mode)` is a view-update + persist helper, not a user-facing toggle. The header carries a static `#project-type-badge`, not the old Blocks/Python tabs. Creating a Python project clears only `fll-vr-python-code`; creating a Blocks project clears only `fll-vr-blockly-xml`. The 📄 New button is a split-button dropdown — the popover is wired in `index.html` (open/close IIFE) and each menu item is wired in `js/main.js` to `handleNewProject(type)`. Legacy `fll-vr-tab` is migrated once at bootstrap via `migrateLegacyTabKey()` and then deleted.
 
 ## Field
 
