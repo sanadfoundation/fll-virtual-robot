@@ -57,8 +57,6 @@ function makeMainEnv(opts = {}) {
     'btn-reset':          makeEl(),
     'btn-defaults':       makeEl(),
     'btn-theme':          makeEl(),
-    'tab-python':         makeEl(),
-    'tab-blocks':         makeEl(),
     'console-output':     makeEl(),
     'py-editor':          makeEl(),
     'py-editor-wrap':     makeEl(),

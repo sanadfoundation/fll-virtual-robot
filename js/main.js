@@ -288,6 +288,12 @@ function switchMode(mode, options) {
     badge.textContent  = m === 'python' ? '🐍 Python project' : '🧱 Blocks project';
   }
 
+  if (badge) {
+    badge.title = (m === 'blocks' && typeof Blockly === 'undefined')
+      ? 'Blockly failed to load'
+      : '';
+  }
+
   if (!options || options.persist !== false) setProjectType(m);
 }
 
@@ -760,11 +766,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
   appendOutput('[Init] Simulator loaded. Waiting for Python runtime...', 'info');
 
-  // If Blockly isn't available, mark the badge
-  if (typeof Blockly === 'undefined') {
-    const badge = document.getElementById('project-type-badge');
-    if (badge && getProjectType() === 'blocks') {
-      badge.title = 'Blockly failed to load';
-    }
-  }
 });
