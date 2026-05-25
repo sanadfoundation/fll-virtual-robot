@@ -130,3 +130,25 @@ test('DOMContentLoaded: btn-new-blocks click → handleNewProject("blocks")', ()
   assert.strictEqual(storage.has('fll-vr-blockly-xml'), false);
   assert.strictEqual(storage.get('fll-vr-project-type'), 'blocks');
 });
+
+test('handleNewProject("blocks"): empties Blockly trashcan and undo history, not just blocks', () => {
+  const calls = { clear: 0, clearUndo: 0, emptyContents: 0 };
+  const stubWs = {
+    clear:          () => { calls.clear++; },
+    clearUndo:      () => { calls.clearUndo++; },
+    trashcan:       { emptyContents: () => { calls.emptyContents++; } },
+    addChangeListener: () => {},
+  };
+  const { context } = makeMainEnv({
+    initBlockly: () => stubWs,
+    confirm: true,
+  });
+  // The clear branch checks `typeof Blockly !== 'undefined'`. Inject a minimal
+  // Blockly global into the vm so the branch fires.
+  context.Blockly = { Xml: { domToText: () => '', workspaceToDom: () => null }, svgResize: () => {} };
+  context.initBlocklyWorkspace();
+  context.handleNewProject('blocks');
+  assert.strictEqual(calls.clear, 1, 'clear() runs');
+  assert.strictEqual(calls.clearUndo, 1, 'clearUndo() runs (undo history must not survive a New project)');
+  assert.strictEqual(calls.emptyContents, 1, 'trashcan.emptyContents() runs (trash bin must be empty)');
+});

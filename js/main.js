@@ -389,7 +389,16 @@ function handleNewProject(type) {
     if (editor) editor.setValue(DEFAULT_PYTHON_CODE);
     lsRemove(PYCODE_KEY);
   } else {
-    if (blocklyWs && typeof Blockly !== 'undefined') blocklyWs.clear();
+    if (blocklyWs && typeof Blockly !== 'undefined') {
+      blocklyWs.clear();
+      // Wipe undo and the trashcan flyout too — "New project" should leave no
+      // trace of the prior program, including blocks the user could resurrect
+      // via undo or by clicking the trash can icon.
+      blocklyWs.clearUndo();
+      if (blocklyWs.trashcan && typeof blocklyWs.trashcan.emptyContents === 'function') {
+        blocklyWs.trashcan.emptyContents();
+      }
+    }
     lsRemove(BLOCKLY_KEY);
   }
 
