@@ -57,6 +57,7 @@ const BLOCKLY_KEY        = 'fll-vr-blockly-xml';
 const NAME_KEY           = 'fll-vr-project-name';
 const DIRTY_KEY          = 'fll-vr-dirty';
 const PROJECT_TYPE_KEY   = 'fll-vr-project-type';
+const WATCH_W_KEY        = 'fll-vr-watch-width';
 
 const DEFAULT_THEME        = 'light';
 const DEFAULT_SPEED        = 1;
@@ -620,6 +621,43 @@ function initResizeHandle() {
   initCollapseToggle(left);
 }
 
+function initWatchResizeHandle() {
+  const handle = document.getElementById('watch-resize-handle');
+  const pane   = document.querySelector('.watch-pane');
+  if (!handle || !pane) return;
+
+  // Apply stored width on boot so the pane doesn't flash to default on first
+  // show. `pane.style.width` overrides the CSS 38% default.
+  const stored = parseInt(lsGet(WATCH_W_KEY), 10);
+  if (Number.isFinite(stored) && stored > 0) pane.style.width = stored + 'px';
+
+  let dragging = false, startX = 0, startW = 0;
+
+  handle.addEventListener('mousedown', e => {
+    dragging = true;
+    startX = e.clientX;
+    startW = pane.offsetWidth;
+    document.body.style.userSelect = 'none';
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const wrap = handle.parentElement;
+    const min = 160;
+    const max = wrap.offsetWidth - 200;          // keep output pane ≥ 200px
+    // Dragging the handle left (delta < 0) widens the watch pane.
+    const newW = Math.max(min, Math.min(startW - (e.clientX - startX), max));
+    pane.style.width = newW + 'px';
+    lsSet(WATCH_W_KEY, String(newW));
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    document.body.style.userSelect = '';
+  });
+}
+
 // ── Editor-panel collapse/expand ─────────────────────────────────────────────
 // A button centred on the resize handle folds .panel-left away so the canvas
 // can run full-width — useful on small laptops or when watching the field
@@ -723,6 +761,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initSim();
   _pollForWorker();
   initResizeHandle();
+  initWatchResizeHandle();
   window.addEventListener('resize', resizeBlocklyWorkspace);
 
   document.getElementById('btn-run').addEventListener('click', handleRun);
