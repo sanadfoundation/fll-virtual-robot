@@ -56,6 +56,26 @@
         const py = FIELD_H_MM - pyTop;
         handleSvgClick({ _fieldPoint: { x: px, y: py } });
       });
+      let dragging = false;
+      svg.addEventListener('pointerdown', (ev) => {
+        if (activeTool !== 'select') return;
+        if (!app.editorState || !app.editorState.selection) return;
+        dragging = true;
+        if (svg.setPointerCapture && ev.pointerId !== undefined) {
+          try { svg.setPointerCapture(ev.pointerId); } catch (_e) {}
+        }
+      });
+      svg.addEventListener('pointermove', (ev) => {
+        if (!dragging) return;
+        if (typeof svg.getBoundingClientRect !== 'function') return;
+        const rect = svg.getBoundingClientRect();
+        if (!rect.width) return;
+        const px = (ev.clientX - rect.left) * (FIELD_W_MM / rect.width);
+        const pyTop = (ev.clientY - rect.top)  * (FIELD_H_MM / rect.height);
+        dragMoveToPoint({ x: px, y: FIELD_H_MM - pyTop });
+      });
+      svg.addEventListener('pointerup', () => { dragging = false; });
+      svg.addEventListener('pointercancel', () => { dragging = false; });
     }
 
     function ensurePalette() {
@@ -90,6 +110,24 @@
       for (const b of buttons) {
         b.classList.toggle('active', b.classList.contains(`editor-tool-${tool}`));
       }
+    }
+
+    function dragMoveToPoint(point) {
+      const sel = app.editorState && app.editorState.selection;
+      if (!sel) return;
+      let next = app.editorState;
+      if (sel.kind === 'obstacle') {
+        next = MISSIONS.editor.state.moveObstacle(next, sel.id, point);
+      } else if (sel.kind === 'zone') {
+        next = MISSIONS.editor.state.moveZone(next, sel.id, point);
+      } else if (sel.kind === 'start') {
+        next = MISSIONS.editor.state.setRobotStart(next, {
+          x: point.x, y: point.y, heading: next.field.robot_start.heading,
+        });
+      } else {
+        return;
+      }
+      app.setEditorState(next);
     }
 
     function handleElementClick(ev, kind, id) {
@@ -209,7 +247,9 @@
         activeTool = 'select';
       }
     });
+
+    editor.field._test_dragMove = dragMoveToPoint;
   }
 
-  editor.field = { attach };
+  editor.field = { attach, _test_dragMove: null };
 })(typeof window !== 'undefined' ? window : globalThis);

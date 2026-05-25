@@ -136,3 +136,32 @@ test('selection: clicking empty canvas clears selection', () => {
   svg._fire('click', { _fieldPoint: { x: 1500, y: 700 } });  // empty area
   assert.strictEqual(app.editorState.selection, null);
 });
+
+test('drag: simulating a drag on a selected obstacle updates its position', () => {
+  const { ctx, doc, app } = setup();
+  app.enterEditor();
+  app.setEditorState(ctx.MISSIONS.editor.state.addObstacle(app.editorState, { x: 100, y: 100 }));
+  const id = app.editorState.field.obstacles[0].id;
+  app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'obstacle', id }));
+  // Test seam: directly call the drag handler with field-space delta.
+  ctx.MISSIONS.editor.field._test_dragMove({ x: 555, y: 666 });
+  assert.strictEqual(app.editorState.field.obstacles[0].x, 555);
+  assert.strictEqual(app.editorState.field.obstacles[0].y, 666);
+});
+
+test('drag: simulating a drag on the robot start updates the start pose', () => {
+  const { ctx, app } = setup();
+  app.enterEditor();
+  app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'start', id: null }));
+  ctx.MISSIONS.editor.field._test_dragMove({ x: 1800, y: 400 });
+  assert.strictEqual(app.editorState.field.robot_start.x, 1800);
+  assert.strictEqual(app.editorState.field.robot_start.y, 400);
+});
+
+test('drag: when nothing is selected, _test_dragMove is a no-op', () => {
+  const { ctx, app } = setup();
+  app.enterEditor();
+  const before = app.editorState;
+  ctx.MISSIONS.editor.field._test_dragMove({ x: 100, y: 100 });
+  assert.strictEqual(app.editorState, before);
+});
