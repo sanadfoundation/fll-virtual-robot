@@ -91,6 +91,103 @@
     return root ? [root] : [];
   }
 
+  // Flyout-style toolbox shown when a step is selected. Blockly 10 accepts
+  // either JSON (this) or XML; JSON is cleaner. A flyoutToolbox is shown
+  // permanently as a sidebar, appropriate for a small fixed set of blocks.
+  const TOOLBOX = {
+    kind: 'flyoutToolbox',
+    contents: [
+      { kind: 'label', text: 'Place' },
+      { kind: 'block', type: 'cond_zone' },
+      { kind: 'block', type: 'cond_contact' },
+      { kind: 'label', text: 'Sensor' },
+      { kind: 'block', type: 'cond_sensor' },
+      { kind: 'label', text: 'Compose' },
+      { kind: 'block', type: 'cond_not' },
+      { kind: 'block', type: 'cond_all_of' },
+      { kind: 'block', type: 'cond_any_of' },
+    ],
+  };
+
+  // Universal accessors — work on real Blockly blocks AND the test stub.
+  // Real Blockly blocks expose getFieldValue/getInputTargetBlock/getNextBlock;
+  // the test stub uses bare `fields`/`children` property bags.
+
+  function fieldOf(block, name) {
+    if (typeof block.getFieldValue === 'function') return block.getFieldValue(name);
+    return block.fields && block.fields[name];
+  }
+
+  function valueInputOf(block, name) {
+    if (typeof block.getInputTargetBlock === 'function') return block.getInputTargetBlock(name);
+    return block.children && block.children[name];
+  }
+
+  function statementInputOf(block, name) {
+    // Walk the statement chain via getNextBlock for real Blockly; for the
+    // test stub, children[name] is already an array.
+    if (typeof block.getInputTargetBlock === 'function') {
+      const head = block.getInputTargetBlock(name);
+      const out = [];
+      let cur = head;
+      while (cur) {
+        out.push(cur);
+        cur = (typeof cur.getNextBlock === 'function') ? cur.getNextBlock() : null;
+      }
+      return out;
+    }
+    const c = block.children && block.children[name];
+    return Array.isArray(c) ? c : (c ? [c] : []);
+  }
+
+  // Convert a condition tree to Blockly's serialization-state shape so we can
+  // load it via Blockly.serialization.workspaces.load(state, workspace).
+  function conditionToBlockState(c) {
+    if (!c || !c.kind) return null;
+    switch (c.kind) {
+      case 'zone':
+        return { type: 'cond_zone', fields: { ZONE: c.zone || '' } };
+      case 'sensor':
+        return {
+          type: 'cond_sensor',
+          fields: { PORT: c.port, OP: c.op, VALUE: String(c.value) },
+        };
+      case 'contact':
+        return { type: 'cond_contact', fields: { OBSTACLE: c.obstacle || '' } };
+      case 'not': {
+        const inner = conditionToBlockState(c.of);
+        return inner
+          ? { type: 'cond_not', inputs: { OF: { block: inner } } }
+          : { type: 'cond_not' };
+      }
+      case 'all_of':
+      case 'any_of': {
+        const out = { type: c.kind === 'all_of' ? 'cond_all_of' : 'cond_any_of' };
+        const children = (c.of || []).map(conditionToBlockState).filter(Boolean);
+        if (children.length > 0) {
+          // Statement input — chain via `next`.
+          for (let i = children.length - 1; i > 0; i--) {
+            children[i - 1].next = { block: children[i] };
+          }
+          out.inputs = { OF: { block: children[0] } };
+        }
+        return out;
+      }
+      default:
+        return null;
+    }
+  }
+
+  function conditionToWorkspaceState(condition) {
+    const root = conditionToBlockState(condition);
+    return {
+      blocks: {
+        languageVersion: 0,
+        blocks: root ? [{ ...root, x: 20, y: 20 }] : [],
+      },
+    };
+  }
+
   let blocksRegistered = false;
   function ensureBlockDefs(Blockly) {
     if (blocksRegistered || !Blockly) return;
@@ -109,7 +206,7 @@
 
     function ensureWorkspace() {
       if (workspace || !Blockly || !container) return workspace;
-      workspace = Blockly.inject(container, { toolbox: null, readOnly: false });
+      workspace = Blockly.inject(container, { toolbox: TOOLBOX, readOnly: false });
       workspace.addChangeListener(() => {
         if (suppressNextChange) return;
         syncToState();
@@ -132,21 +229,25 @@
       if (!b) return null;
       switch (b.type) {
         case 'cond_zone':
-          return { kind: 'zone', subject: 'robot', zone: b.fields.ZONE };
+          return { kind: 'zone', subject: 'robot', zone: fieldOf(b, 'ZONE') };
         case 'cond_sensor': {
-          const raw = b.fields.VALUE;
+          const raw = fieldOf(b, 'VALUE');
           const asNum = Number(raw);
-          return { kind: 'sensor', port: b.fields.PORT, op: b.fields.OP,
-                   value: Number.isNaN(asNum) || raw === '' ? raw : asNum };
+          return {
+            kind: 'sensor',
+            port: fieldOf(b, 'PORT'),
+            op: fieldOf(b, 'OP'),
+            value: Number.isNaN(asNum) || raw === '' ? raw : asNum,
+          };
         }
         case 'cond_contact':
-          return { kind: 'contact', obstacle: b.fields.OBSTACLE };
+          return { kind: 'contact', obstacle: fieldOf(b, 'OBSTACLE') };
         case 'cond_not':
-          return { kind: 'not', of: blockToCondition(b.children.OF) };
+          return { kind: 'not', of: blockToCondition(valueInputOf(b, 'OF')) };
         case 'cond_all_of':
-          return { kind: 'all_of', of: (b.children.OF || []).map(blockToCondition).filter(Boolean) };
+          return { kind: 'all_of', of: statementInputOf(b, 'OF').map(blockToCondition).filter(Boolean) };
         case 'cond_any_of':
-          return { kind: 'any_of', of: (b.children.OF || []).map(blockToCondition).filter(Boolean) };
+          return { kind: 'any_of', of: statementInputOf(b, 'OF').map(blockToCondition).filter(Boolean) };
         default:
           return null;
       }
@@ -175,8 +276,24 @@
       if (!workspace) return;
       suppressNextChange = true;
       workspace.clear();
-      const blocks = conditionToBlocks(step.condition);
-      workspace._setBlocks(blocks);
+      if (Blockly && Blockly.serialization && Blockly.serialization.workspaces &&
+          typeof Blockly.serialization.workspaces.load === 'function') {
+        // Production: real Blockly path.
+        const state = conditionToWorkspaceState(step.condition);
+        try {
+          Blockly.serialization.workspaces.load(state, workspace);
+        } catch (e) {
+          // Bad condition state shouldn't break the editor; just leave the
+          // workspace empty and log.
+          if (typeof console !== 'undefined' && console.warn) {
+            console.warn('mission editor: failed to load condition into workspace', e);
+          }
+        }
+      } else if (typeof workspace._setBlocks === 'function') {
+        // Test stub path.
+        const blocks = conditionToBlocks(step.condition);
+        workspace._setBlocks(blocks);
+      }
       suppressNextChange = false;
       updateLiveDropdowns(app.editorState);
     }
