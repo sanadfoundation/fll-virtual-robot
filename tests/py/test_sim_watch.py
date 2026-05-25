@@ -38,7 +38,9 @@ class TestSimWatch(unittest.TestCase):
         self.assertEqual(len(cmds), 3)
         for c in cmds:
             self.assertEqual(c['type'], 'var_update')
-        # MicroPython 1.28 preserves insertion order on dict; CPython 3.7+ same.
+        # Pure **kwargs: MicroPython 1.28 preserves insertion order, same as
+        # CPython 3.7+. The mixed positional + kwargs case has a different
+        # bug in MP — see the skipped test below.
         names = [c['name'] for c in cmds]
         self.assertEqual(names, ['score', 'ready', 'lap'])
         values = [c['value'] for c in cmds]
