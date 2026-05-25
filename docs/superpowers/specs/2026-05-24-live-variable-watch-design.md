@@ -271,11 +271,6 @@ side-by-side comparison lives in `prototypes/watch-panel/index.html`.
   the output pane and the watch pane — folds away together. No separate
   collapse for the watch pane; that would duplicate state for no kid-visible
   benefit.
-- **Toggle.** A single button in the Settings popover — *Variables: shown /
-  hidden* — lets a teacher hide the watch pane entirely for assessments
-  (output pane stays). State in localStorage (`fll-vr-watch-enabled`). The
-  default is **shown**.
-
 ### Resizing
 
 A 4px vertical divider sits between `.console-output-pane` and `.watch-pane`,
@@ -360,7 +355,6 @@ Exports on `window._watch`:
 | `declare(name, value)` | Blockly preamble; registers a variable without flashing. Idempotent. |
 | `set(name, value)` | Both source paths; updates the row and triggers flash if value changed. |
 | `clear()` | Called by `handleRun`; empties the registry and hides the pane. |
-| `enable(bool)` | Called by the Settings toggle. |
 
 Internal state: a `Map<string, {value, lastChange}>` plus a list of
 subscribers (currently one — the renderer). Renderer is a single
@@ -372,8 +366,7 @@ Files touched at integration time:
   `#console-wrap` into a flex row with `.console-output-pane` (existing log
   reparented into it, keeping `id="console-output"` so `appendOutput` is
   unchanged), a sibling `.watch-resize-handle` divider, then `.watch-pane`
-  with the header and the row list. Settings popover gets one new row for
-  the toggle.
+  with the header and the row list.
 - `css/style.css` — `.console-wrap` becomes `display: flex` and drops its
   inline padding (children own that); add `.console-output-pane`,
   `.watch-pane`, `.watch-pane-head`, `.watch-pane-list`, `.watch-row`,
@@ -385,7 +378,7 @@ Files touched at integration time:
   present.
 - `js/main.js` — `handleRun` calls `_watch.clear()`; new
   `initWatchResizeHandle()` wired in `DOMContentLoaded` next to the existing
-  `initResizeHandle()`; init reads the toggle and stored width from
+  `initResizeHandle()`; init reads the stored watch-pane width from
   localStorage.
 - `js/blockly_config.js` — `data_setvariableto`, `data_changevariableby`
   generators (set-site instrumentation); `generateBlocklyJS` preamble (capture
@@ -443,7 +436,7 @@ The repo's test layout uses headless browser tests under `tests/`. Add:
   | Bridge command type `var_update` | the cmd JSON shape | other types in `js/simulator.js:executeCommand` | None — audited the existing cases (`pair`, `move`, `move_tank`, `start`, `start_tank`, `stop`, `motor_*`, `print`, `wait`, `hub_*`, `beep`, `read_sensors`, `reset_yaw`). `var_update` is unique. |
   | `sim` module name | Python `sys.modules` | other modules registered by the bridge | None — current set is `hub`, `app`, `motor`, `motor_pair`, `runloop`, `color_sensor`, `distance_sensor`, `force_sensor`, `color`, `orientation`, `device`, `color_matrix`. `sim` is unused. |
   | `sim` identifier in Python user code | user's namespace | a user binding (e.g. `sim = motor.speed(port.A)`) | Possible — same shape as shadowing `motor` or `runloop`. Documented in the `sim` module hover; if v1 telemetry shows kids hitting it, we rename to `from sim import watch` and stop exposing `sim` as a name. |
-  | localStorage keys (`fll-vr-watch-enabled`, `fll-vr-watch-width`) | `localStorage` | existing keys | None — audited `js/main.js` (`fll-vr-theme`, `-speed`, `-units`, `-python-code`, `-blockly-xml`, `-tab`, `-project-name`, `-dirty`) and `js/llsp3_*.js`. Both new keys follow the project's `fll-vr-*` prefix convention and are unused. |
+  | localStorage key `fll-vr-watch-width` | `localStorage` | existing keys | None — audited `js/main.js` (`fll-vr-theme`, `-speed`, `-units`, `-python-code`, `-blockly-xml`, `-tab`, `-project-name`, `-dirty`) and `js/llsp3_*.js`. Follows the project's `fll-vr-*` prefix convention and is unused. |
   | `_Sim` class name in `py/spike_bridge.py` | bridge module | other classes there | None — current set is `_NoopAwaitable`, `_LightMatrix`, `_Speaker`, `_MotionSensor`, `_Button`, `_Light`, `_Hub`, `_HubModule`, `_AppSound`, `_AppMusic`, `_AppDisplay`, `_AppBarGraph`, `_AppLineGraph`, `_App`. `_Sim` is unique. |
 
   The audit is the mitigation: any future addition to the bridge should
@@ -468,7 +461,7 @@ The repo's test layout uses headless browser tests under `tests/`. Add:
 - Sparkline of recent values per row.
 - Expand-on-click for collections — show indexed children.
 - Pin / favourite a variable to keep it on top.
-- Per-variable enable/disable from the panel (vs. global toggle).
+- Per-variable enable/disable from the panel.
 - Export watch history as CSV alongside the existing console log.
 - `sim.watch_live(name, lambda: name)` for automatic re-polling without
   manual call sites (depends on MicroPython closure-cell semantics; small
