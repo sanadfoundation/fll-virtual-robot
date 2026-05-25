@@ -69,6 +69,10 @@
     const entries = Array.from(state.entries())
       .sort((a, b) => a[0].localeCompare(b[0]));
 
+    // TODO(diff-render): rebuild every render orphans setTimeout closures on
+    // detached rows, so a set() within an active flash window leaves the new
+    // row to its own timer. Cosmetic only — switch to a row-reuse diff if a
+    // jumpy animation surfaces in practice.
     list.innerHTML = '';
     for (const [name, info] of entries) {
       const row = document.createElement('div');

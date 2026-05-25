@@ -9,10 +9,10 @@ const SRC = fs.readFileSync(
   'utf8',
 );
 
-// Returns a sandbox with mocked DOM. The sandbox's `window._watch` is the
-// installed API. The sandbox records DOM mutations on `__domLog` so tests
-// can assert on what the renderer did.
-function loadWatchPanel(opts = {}) {
+// Returns a sandbox with mocked DOM. Tests inspect pane / list.children
+// directly to assert on renderer output; the api field gives access to
+// the public window._watch surface.
+function loadWatchPanel() {
   const rafQueue = [];
   const flushRaf = () => {
     while (rafQueue.length) {
@@ -83,7 +83,7 @@ function loadWatchPanel(opts = {}) {
     globalThis: root,
     document: documentStub,
     requestAnimationFrame(cb) { rafQueue.push(cb); return rafQueue.length; },
-    setTimeout(fn, ms) { setTimeouts.push({ fn, ms }); return setTimeouts.length; },
+    setTimeout(fn, _ms) { setTimeouts.push({ fn }); return setTimeouts.length; },
     performance: { now: () => Date.now() },
     console,
   });
