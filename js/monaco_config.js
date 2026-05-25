@@ -560,6 +560,18 @@ window.registerSpikeCompletions = function(monaco) {
         get_max:     { sig: 'app.linegraph.get_max(color) -> Awaitable',      doc: 'Get the maximum value.',        params: ['color'] },
       },
     },
+
+    sim: {
+      doc: 'Simulator-only access for debugging and testing.',
+      members: {
+        watch: {
+          sig: 'watch(name, value)',
+          doc: 'Show a variable in the watch panel. Pass a name and value (`sim.watch("score", score)`), a single kwarg (`sim.watch(score=score)`), or multiple kwargs (`sim.watch(score=score, ready=ready)`). Simulator-only — no real LEGO hub equivalent. The panel updates only at the moment of the call.',
+          params: ['name', 'value'],
+        },
+      },
+      constants: {},
+    },
   };
 
   // Top-level global names (shown before a dot)
