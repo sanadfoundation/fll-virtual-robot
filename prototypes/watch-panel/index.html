@@ -1,0 +1,581 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live Variable Watch — UX prototypes</title>
+<style>
+  /* ── Tokens lifted from css/style.css so the prototypes feel native ──── */
+  :root {
+    --bg: #0b0f18; --surface: #111827; --surface2: #1a2236;
+    --surface3: #1e2a42; --border: #1e2d4a; --border2: #2a3f60;
+    --amber: #fbbf24; --blue: #3b82f6; --cyan: #22d3ee;
+    --green: #22c55e; --red: #ef4444;
+    --text: #e2e8f0; --text-dim: #4b6280; --text-mid: #94a3b8;
+    --font-ui: 'Exo 2', system-ui, sans-serif;
+    --font-code: 'JetBrains Mono', 'Consolas', monospace;
+    --shadow-panel: 0 4px 16px rgba(0,0,0,0.5);
+  }
+  :root[data-theme="light"] {
+    --bg: #f6f7fb; --surface: #ffffff; --surface2: #f1f5f9;
+    --surface3: #e2e8f0; --border: #d8dee9; --border2: #b8c2d0;
+    --text: #0f172a; --text-dim: #94a3b8; --text-mid: #475569;
+    --cyan: #0891b2;
+    --shadow-panel: 0 4px 14px rgba(15,23,42,0.10);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: var(--font-ui);
+    display: flex; flex-direction: column;
+  }
+
+  /* ── Prototype topbar ────────────────────────────────────────────────── */
+  .pbar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px; background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .pbar h1 {
+    font-size: 13px; font-weight: 800; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--text-mid); margin: 0;
+  }
+  .pbar .layout-toggle { display: flex; gap: 6px; margin-left: auto; }
+  .pbar button {
+    background: var(--surface2); color: var(--text);
+    border: 1px solid var(--border2); border-radius: 8px;
+    padding: 6px 12px; font: inherit; cursor: pointer;
+    font-size: 12px; font-weight: 700;
+  }
+  .pbar button.active {
+    background: var(--cyan); color: var(--bg);
+    border-color: var(--cyan);
+  }
+  .pbar button:hover:not(.active) { border-color: var(--cyan); color: var(--cyan); }
+
+  /* ── App shell mock ──────────────────────────────────────────────────── */
+  .app {
+    display: flex; flex: 1; overflow: hidden;
+  }
+  .panel-left {
+    width: 360px; min-width: 260px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+  }
+  .editor-placeholder {
+    flex: 1; padding: 16px;
+    font-family: var(--font-code); font-size: 12px;
+    color: var(--text-mid);
+    overflow: auto;
+  }
+  .editor-placeholder .blk {
+    display: inline-block; padding: 6px 10px; margin: 4px 0;
+    background: var(--surface2); border-radius: 6px;
+    border-left: 3px solid var(--cyan);
+  }
+  .editor-placeholder .blk.var { border-left-color: var(--amber); }
+  .editor-placeholder .blk.ctrl { border-left-color: var(--green); }
+
+  .panel-right { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  .canvas-status {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 14px; background: var(--surface);
+    flex-shrink: 0; flex-wrap: wrap;
+  }
+  .canvas-status-ports { border-bottom: 1px solid var(--border); }
+  .canvas-status-position { border-top: 1px solid var(--border); }
+  .cstat-section-label {
+    font-size: 10px; font-weight: 800; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--text-dim);
+    padding-right: 4px; border-right: 1px solid var(--border);
+  }
+  .cstat-chip {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 6px 12px; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 10px;
+    min-height: 44px; position: relative; overflow: hidden;
+    white-space: nowrap;
+  }
+  .cstat-chip-icon {
+    display: grid; place-items: center; width: 30px; height: 30px;
+    border-radius: 8px; background: #ffffff;
+    border: 1px solid #d8dee9; font-size: 17px;
+  }
+  .cstat-chip-meta { display: inline-flex; flex-direction: column; gap: 3px; }
+  .cstat-chip-head { display: inline-flex; align-items: baseline; gap: 6px; }
+  .cstat-chip-role {
+    font-size: 10px; font-weight: 800; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--text-mid);
+  }
+  .cstat-chip-port {
+    font-size: 9px; font-weight: 700; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--text-dim);
+  }
+  .cstat-chip-port::before { content: "· "; }
+  .cstat-chip-value {
+    font-family: var(--font-code); font-size: 14px; font-weight: 700;
+    color: var(--amber);
+  }
+  .cstat-pose {
+    display: inline-flex; flex-direction: column;
+    padding: 4px 12px; border-right: 1px solid var(--border);
+    min-width: 70px;
+  }
+  .cstat-pose:last-child { border-right: 0; }
+  .cstat-pose-label {
+    font-size: 9px; font-weight: 800; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--text-dim); margin-bottom: 3px;
+  }
+  .cstat-pose-value {
+    font-family: var(--font-code); font-size: 14px; font-weight: 700; color: var(--amber);
+  }
+
+  .canvas-wrap {
+    flex: 1; position: relative; overflow: hidden; background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    padding: 14px;
+    background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+  .canvas-placeholder {
+    width: min(90%, 720px); aspect-ratio: 2362 / 1143;
+    background: #1f2937; border-radius: 3px;
+    box-shadow: 0 0 0 1px var(--border2), 0 8px 40px rgba(0,0,0,0.6);
+    display: grid; place-items: center; color: var(--text-dim);
+    font-family: var(--font-code); font-size: 13px;
+  }
+  :root[data-theme="light"] .canvas-placeholder { background: #fef3c7; }
+
+  .console-wrap {
+    background: var(--surface); border-top: 1px solid var(--border);
+    height: 88px; padding: 8px 14px; flex-shrink: 0;
+    font-family: var(--font-code); font-size: 12px; color: var(--text-mid);
+    overflow: auto;
+  }
+  .console-wrap .line { display: block; padding: 1px 0; }
+  .console-wrap .line.info { color: var(--cyan); }
+  .console-wrap .line.warn { color: var(--amber); }
+
+  /* ════════════════════════════════════════════════════════════════════════
+     ── LAYOUT A: Overlay card on the canvas ────────────────────────────── */
+  .watch-overlay {
+    position: absolute; top: 12px; right: 12px;
+    width: 180px; max-height: 60%;
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: 10px; box-shadow: var(--shadow-panel);
+    z-index: 8;
+    display: none;
+    flex-direction: column; overflow: hidden;
+    opacity: 0; transition: opacity 150ms;
+  }
+  .watch-overlay.visible { display: flex; opacity: 1; }
+  .watch-overlay-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 10px; font-weight: 800; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--text-dim);
+    cursor: move; user-select: none;
+  }
+  .watch-overlay-head .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--amber); box-shadow: 0 0 6px var(--amber);
+  }
+  .watch-overlay-list { padding: 4px 0; overflow: auto; }
+
+  /* ── LAYOUT B: Variables status band between ports and canvas ────────── */
+  .watch-band {
+    display: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .watch-band.visible { display: flex; }
+  .watch-band .vchip {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 6px 12px; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 10px;
+    min-height: 44px; position: relative; overflow: hidden;
+    white-space: nowrap;
+  }
+  .watch-band .vchip-icon {
+    display: grid; place-items: center; width: 30px; height: 30px;
+    border-radius: 8px; background: #ffffff;
+    border: 1px solid #d8dee9; font-size: 14px;
+  }
+  .watch-band .vchip-meta { display: inline-flex; flex-direction: column; gap: 3px; }
+  .watch-band .vchip-name {
+    font-size: 10px; font-weight: 800; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--text-mid);
+  }
+  .watch-band .vchip-value {
+    font-family: var(--font-code); font-size: 14px; font-weight: 700; color: var(--amber);
+  }
+
+  /* ── LAYOUT C: Editor-side drawer ────────────────────────────────────── */
+  .watch-drawer {
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    display: none; flex-direction: column;
+    max-height: 50%;
+  }
+  .watch-drawer.visible { display: flex; }
+  .watch-drawer-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 14px;
+    font-size: 10px; font-weight: 800; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--text-dim);
+    cursor: pointer; user-select: none;
+  }
+  .watch-drawer-head .chev {
+    margin-left: auto; transition: transform 200ms;
+  }
+  .watch-drawer.collapsed .watch-drawer-list { display: none; }
+  .watch-drawer.collapsed .watch-drawer-head .chev { transform: rotate(-90deg); }
+  .watch-drawer-list { padding: 4px 0 8px; overflow: auto; }
+
+  /* ── Row styling shared by overlay + drawer (band uses chip layout) ─── */
+  .watch-row {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding: 6px 12px;
+    border-radius: 4px;
+    transition: background 600ms ease-out;
+  }
+  .watch-row.flash { background: rgba(251, 191, 36, 0.20); transition: none; }
+  .watch-row .name {
+    font-family: var(--font-code); font-size: 12px; color: var(--text-mid);
+  }
+  .watch-row .value {
+    font-family: var(--font-code); font-size: 13px; font-weight: 700;
+    color: var(--amber);
+    max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  /* Band chip flash */
+  .watch-band .vchip.flash {
+    background: rgba(251, 191, 36, 0.22);
+    transition: background 600ms ease-out;
+  }
+  .watch-band .vchip { transition: background 600ms ease-out; }
+
+  /* Empty state hint inside overlay / drawer */
+  .watch-empty {
+    padding: 10px 12px; font-size: 11px; color: var(--text-dim); font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<div class="pbar">
+  <h1>Watch panel — UX prototypes</h1>
+  <div class="layout-toggle" id="layout-toggle">
+    <button data-layout="overlay" class="active">Overlay card</button>
+    <button data-layout="band">Status band</button>
+    <button data-layout="drawer">Editor drawer</button>
+  </div>
+  <button id="theme-btn" title="Toggle theme">🌙</button>
+  <button id="run-btn">▶ Run mock</button>
+</div>
+
+<div class="app">
+  <!-- Left: editor placeholder + (Layout C) drawer mounts here -->
+  <div class="panel-left">
+    <div class="editor-placeholder">
+      <div class="blk ctrl">when program starts</div><br>
+      <div class="blk var">set score to 0</div><br>
+      <div class="blk var">set ready to false</div><br>
+      <div class="blk ctrl">repeat 5</div><br>
+      &nbsp;&nbsp;<div class="blk var">change score by 10</div><br>
+      &nbsp;&nbsp;<div class="blk">wait 200 ms</div><br>
+      <div class="blk var">set ready to true</div><br>
+      <div class="blk var">set lastColor to "green"</div><br>
+    </div>
+    <div class="watch-drawer" id="drawer-host">
+      <div class="watch-drawer-head" id="drawer-head">
+        Variables <span class="chev">▾</span>
+      </div>
+      <div class="watch-drawer-list" id="drawer-list"></div>
+    </div>
+  </div>
+
+  <!-- Right: app body. Status bands flank the canvas. Layouts B and A mount here. -->
+  <div class="panel-right">
+
+    <div class="canvas-status canvas-status-ports">
+      <span class="cstat-section-label">Motors</span>
+      <div class="cstat-chip">
+        <span class="cstat-chip-icon">🛞</span>
+        <span class="cstat-chip-meta">
+          <span class="cstat-chip-head">
+            <span class="cstat-chip-role">Left</span>
+            <span class="cstat-chip-port">A</span>
+          </span>
+          <span class="cstat-chip-value">0°/s  0.0↻</span>
+        </span>
+      </div>
+      <div class="cstat-chip">
+        <span class="cstat-chip-icon">🛞</span>
+        <span class="cstat-chip-meta">
+          <span class="cstat-chip-head">
+            <span class="cstat-chip-role">Right</span>
+            <span class="cstat-chip-port">B</span>
+          </span>
+          <span class="cstat-chip-value">0°/s  0.0↻</span>
+        </span>
+      </div>
+      <span class="cstat-section-label" style="margin-left:8px">Sensors</span>
+      <div class="cstat-chip">
+        <span class="cstat-chip-icon">🎨</span>
+        <span class="cstat-chip-meta">
+          <span class="cstat-chip-head">
+            <span class="cstat-chip-role">Color</span>
+            <span class="cstat-chip-port">C</span>
+          </span>
+          <span class="cstat-chip-value">none</span>
+        </span>
+      </div>
+      <div class="cstat-chip">
+        <span class="cstat-chip-icon">📏</span>
+        <span class="cstat-chip-meta">
+          <span class="cstat-chip-head">
+            <span class="cstat-chip-role">Distance</span>
+            <span class="cstat-chip-port">D</span>
+          </span>
+          <span class="cstat-chip-value">300 mm</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Layout B mounts here -->
+    <div class="canvas-status watch-band" id="band-host">
+      <span class="cstat-section-label">Variables</span>
+      <div id="band-list" style="display:flex; gap:10px; flex-wrap:wrap;"></div>
+    </div>
+
+    <div class="canvas-wrap">
+      <div class="canvas-placeholder">FLL field — 2362 × 1143 mm</div>
+
+      <!-- Layout A mounts here -->
+      <div class="watch-overlay" id="overlay-host">
+        <div class="watch-overlay-head" id="overlay-head">
+          <span class="dot"></span> Variables
+        </div>
+        <div class="watch-overlay-list" id="overlay-list"></div>
+      </div>
+    </div>
+
+    <div class="canvas-status canvas-status-position">
+      <span class="cstat-section-label">Position</span>
+      <div class="cstat-pose">
+        <span class="cstat-pose-label">X</span>
+        <span class="cstat-pose-value">350</span>
+      </div>
+      <div class="cstat-pose">
+        <span class="cstat-pose-label">Y</span>
+        <span class="cstat-pose-value">163</span>
+      </div>
+      <div class="cstat-pose">
+        <span class="cstat-pose-label">Heading</span>
+        <span class="cstat-pose-value">90°</span>
+      </div>
+      <div class="cstat-pose">
+        <span class="cstat-pose-label">Yaw</span>
+        <span class="cstat-pose-value">0°</span>
+      </div>
+    </div>
+
+    <div class="console-wrap" id="console">
+      <span class="line info">[Init] Prototype loaded. Hit ▶ Run mock to see the panel update.</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── Tiny mock _watch registry shared by all three layouts ───────────
+  const state = new Map();   // name -> { value, lastShown }
+  let layout = 'overlay';
+
+  const $ = (id) => document.getElementById(id);
+  const overlayHost = $('overlay-host');
+  const bandHost = $('band-host');
+  const drawerHost = $('drawer-host');
+  const overlayList = $('overlay-list');
+  const bandList = $('band-list');
+  const drawerList = $('drawer-list');
+
+  const formatValue = (v) => {
+    if (typeof v === 'number')  return Number.isInteger(v) ? String(v) : v.toFixed(3);
+    if (typeof v === 'boolean') return v ? 'true' : 'false';
+    if (typeof v === 'string')  return `"${v}"`;
+    if (Array.isArray(v))       return `[${v.join(', ')}]`;
+    return String(v);
+  };
+
+  function render() {
+    const entries = Array.from(state.entries()).sort((a,b) => a[0].localeCompare(b[0]));
+    const visible = entries.length > 0;
+
+    // Show/hide each container based on visibility and selected layout
+    overlayHost.classList.toggle('visible', layout === 'overlay' && visible);
+    bandHost.classList.toggle('visible',    layout === 'band'    && visible);
+    drawerHost.classList.toggle('visible',  layout === 'drawer'  && visible);
+
+    if (layout === 'overlay') renderRowList(overlayList, entries);
+    else if (layout === 'band') renderBand(bandList, entries);
+    else if (layout === 'drawer') renderRowList(drawerList, entries);
+  }
+
+  function renderRowList(container, entries) {
+    // Diff-update so flash animations on existing rows aren't reset on every render.
+    const existing = new Map();
+    Array.from(container.children).forEach(el => existing.set(el.dataset.name, el));
+    container.innerHTML = '';
+    entries.forEach(([name, info]) => {
+      const row = document.createElement('div');
+      row.className = 'watch-row';
+      row.dataset.name = name;
+      row.innerHTML =
+        `<span class="name">${name}</span><span class="value">${formatValue(info.value)}</span>`;
+      container.appendChild(row);
+      const prev = existing.get(name);
+      const changed = !prev || prev.querySelector('.value').textContent !== formatValue(info.value);
+      if (changed && prev) {
+        row.classList.add('flash');
+        requestAnimationFrame(() => requestAnimationFrame(() => row.classList.remove('flash')));
+      }
+    });
+  }
+
+  function renderBand(container, entries) {
+    container.innerHTML = '';
+    entries.forEach(([name, info]) => {
+      const chip = document.createElement('div');
+      chip.className = 'vchip';
+      chip.dataset.name = name;
+      chip.innerHTML = `
+        <span class="vchip-icon">📊</span>
+        <span class="vchip-meta">
+          <span class="vchip-name">${name}</span>
+          <span class="vchip-value">${formatValue(info.value)}</span>
+        </span>`;
+      container.appendChild(chip);
+      if (info.justChanged) {
+        chip.classList.add('flash');
+        requestAnimationFrame(() => requestAnimationFrame(() => chip.classList.remove('flash')));
+      }
+    });
+  }
+
+  const _watch = {
+    declare(name, value) {
+      if (!state.has(name)) state.set(name, { value, justChanged: false });
+      render();
+    },
+    set(name, value) {
+      const prev = state.get(name);
+      const changed = !prev || prev.value !== value;
+      state.set(name, { value, justChanged: changed });
+      render();
+      // Clear justChanged after a render so band chips don't infinitely re-flash
+      setTimeout(() => {
+        const cur = state.get(name);
+        if (cur) state.set(name, { ...cur, justChanged: false });
+      }, 50);
+    },
+    clear() { state.clear(); render(); }
+  };
+
+  // ── Layout switcher ───────────────────────────────────────────────────
+  document.getElementById('layout-toggle').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-layout]');
+    if (!btn) return;
+    document.querySelectorAll('#layout-toggle button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    layout = btn.dataset.layout;
+    render();
+  });
+
+  // ── Theme toggle ──────────────────────────────────────────────────────
+  document.getElementById('theme-btn').addEventListener('click', () => {
+    const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+    document.documentElement.dataset.theme = next;
+    document.getElementById('theme-btn').textContent = next === 'light' ? '☀️' : '🌙';
+  });
+
+  // ── Drawer collapse ───────────────────────────────────────────────────
+  document.getElementById('drawer-head').addEventListener('click', () => {
+    document.getElementById('drawer-host').classList.toggle('collapsed');
+  });
+
+  // ── Overlay drag (rough) ──────────────────────────────────────────────
+  (function makeDraggable() {
+    const head = document.getElementById('overlay-head');
+    const card = document.getElementById('overlay-host');
+    let startX, startY, baseLeft, baseTop, dragging = false;
+    head.addEventListener('pointerdown', (e) => {
+      const rect = card.getBoundingClientRect();
+      const parentRect = card.parentElement.getBoundingClientRect();
+      // Switch from right-anchored to left/top so we can drag freely
+      card.style.right = 'auto';
+      card.style.left  = (rect.left - parentRect.left) + 'px';
+      card.style.top   = (rect.top  - parentRect.top)  + 'px';
+      baseLeft = rect.left - parentRect.left;
+      baseTop  = rect.top  - parentRect.top;
+      startX = e.clientX; startY = e.clientY;
+      dragging = true;
+      head.setPointerCapture(e.pointerId);
+    });
+    head.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      card.style.left = (baseLeft + (e.clientX - startX)) + 'px';
+      card.style.top  = (baseTop  + (e.clientY - startY)) + 'px';
+    });
+    head.addEventListener('pointerup',     () => dragging = false);
+    head.addEventListener('pointercancel', () => dragging = false);
+  })();
+
+  // ── Mock "Run" — declares + sets variables on a realistic schedule ────
+  function logLine(text, cls='info') {
+    const out = document.getElementById('console');
+    const ln = document.createElement('span');
+    ln.className = 'line ' + cls;
+    ln.textContent = text;
+    out.appendChild(ln);
+    out.scrollTop = out.scrollHeight;
+  }
+
+  async function runMock() {
+    _watch.clear();
+    document.getElementById('console').innerHTML = '';
+    logLine('[Run] Executing blocks...');
+
+    // Declare phase (preamble): registers vars at 0/false/"" so they appear on Run.
+    _watch.declare('score', 0);
+    _watch.declare('ready', false);
+    _watch.declare('lastColor', '');
+
+    await sleep(400);
+    _watch.set('score', 10);
+    await sleep(280);
+    _watch.set('score', 20);
+    await sleep(280);
+    _watch.set('score', 30);
+    await sleep(280);
+    _watch.set('lastColor', 'green');
+    await sleep(280);
+    _watch.set('score', 40);
+    await sleep(280);
+    _watch.set('score', 50);
+    await sleep(280);
+    _watch.set('ready', true);
+    await sleep(280);
+    _watch.set('lastColor', 'red');
+
+    logLine('[Done] Simulation complete.');
+  }
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+  document.getElementById('run-btn').addEventListener('click', runMock);
+</script>
+</body>
+</html>
