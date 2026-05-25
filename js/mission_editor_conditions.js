@@ -201,14 +201,26 @@
     const Blockly = global.Blockly;
     let workspace = null;
     let suppressNextChange = false;
+    let currentStepId = null;
+    let lastLoadedConditionJSON = null;
 
     ensureBlockDefs(Blockly);
 
     function ensureWorkspace() {
       if (workspace || !Blockly || !container) return workspace;
       workspace = Blockly.inject(container, { toolbox: TOOLBOX, readOnly: false });
-      workspace.addChangeListener(() => {
+      workspace.addChangeListener((ev) => {
         if (suppressNextChange) return;
+        const type = ev && ev.type;
+        // Allowlist of event types we care about. In real Blockly these are
+        // 'create', 'delete', 'change' (field set), and 'block_field_intermediate_change'.
+        // We deliberately ignore 'move', 'drag', 'viewport_change', 'click',
+        // 'selected', 'ui', 'comment_*', etc. — they fire constantly during a
+        // drag and don't change the condition's logical structure.
+        const RELEVANT = new Set(['create', 'delete', 'change']);
+        // The test stub fires events without `type`. Treat those as relevant
+        // so existing stub tests keep working.
+        if (type !== undefined && !RELEVANT.has(type)) return;
         syncToState();
       });
       return workspace;
@@ -222,6 +234,10 @@
       const top = workspace.getTopBlocks();
       const condition = top.length ? blockToCondition(top[0]) : null;
       if (!condition) return;
+      // Stash so the upcoming onChange→showForStep sees that the workspace
+      // already reflects this condition (no reload needed).
+      lastLoadedConditionJSON = JSON.stringify(condition);
+      currentStepId = stepId;
       app.setEditorState(MISSIONS.editor.state.editStep(app.editorState, stepId, { condition }));
     }
 
@@ -277,6 +293,17 @@
       if (panel && panel.classList) panel.classList.add('has-condition-open');
       ensureWorkspace();
       if (!workspace) return;
+
+      // Dedupe: if the workspace already reflects this step + condition,
+      // don't reload. Reloading mid-drag destroys the user's dragged block
+      // and re-creates it, causing infinite event cascades.
+      const incomingJSON = JSON.stringify(step.condition);
+      if (step.id === currentStepId && incomingJSON === lastLoadedConditionJSON) {
+        return;
+      }
+      currentStepId = step.id;
+      lastLoadedConditionJSON = incomingJSON;
+
       suppressNextChange = true;
       workspace.clear();
       if (Blockly && Blockly.serialization && Blockly.serialization.workspaces &&
@@ -295,11 +322,9 @@
       }
       suppressNextChange = false;
       updateLiveDropdowns(app.editorState);
-      // Force Blockly to recompute its layout against the now-larger container.
       if (Blockly && typeof Blockly.svgResize === 'function') {
         try { Blockly.svgResize(workspace); } catch (_e) {}
       }
-      // CSS transition can take a frame to settle; retry once.
       if (Blockly && typeof Blockly.svgResize === 'function' &&
           typeof setTimeout === 'function') {
         setTimeout(() => {
@@ -311,6 +336,8 @@
     function hide() {
       if (section) section.hidden = true;
       if (panel && panel.classList) panel.classList.remove('has-condition-open');
+      currentStepId = null;
+      lastLoadedConditionJSON = null;
     }
 
     app.onChange(({ mode, editorState }) => {
