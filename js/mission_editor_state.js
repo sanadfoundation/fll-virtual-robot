@@ -136,6 +136,52 @@
     return next;
   }
 
+  function addStep(state) {
+    const next = dirty(state);
+    const id = shortId('s');
+    next.steps.push({
+      id,
+      title: 'New step',
+      points: 10,
+      // Placeholder condition — loader will reject if zone "" doesn't exist;
+      // the author edits this via the condition picker (Phase D).
+      condition: { kind: 'zone', subject: 'robot', zone: '' },
+    });
+    return next;
+  }
+
+  function editStep(state, id, patch) {
+    const next = dirty(state);
+    const step = next.steps.find(s => s.id === id);
+    if (!step) return next;
+    if (patch.title     !== undefined) step.title     = patch.title;
+    if (patch.points    !== undefined) step.points    = patch.points;
+    if (patch.hint      !== undefined) step.hint      = patch.hint;
+    if (patch.requires  !== undefined) step.requires  = patch.requires.slice();
+    if (patch.condition !== undefined) step.condition = deepClone(patch.condition);
+    return next;
+  }
+
+  function deleteStep(state, id) {
+    const next = dirty(state);
+    next.steps = next.steps.filter(s => s.id !== id);
+    // Scrub references in remaining steps' requires.
+    for (const s of next.steps) {
+      if (s.requires) s.requires = s.requires.filter(r => r !== id);
+    }
+    return next;
+  }
+
+  function reorderStep(state, id, newIndex) {
+    const next = dirty(state);
+    const i = next.steps.findIndex(s => s.id === id);
+    if (i < 0) return next;
+    const [step] = next.steps.splice(i, 1);
+    const clampedIndex = Math.max(0, Math.min(newIndex, next.steps.length));
+    next.steps.splice(clampedIndex, 0, step);
+    return next;
+  }
+
   function setMeta(state, patch) {
     const next = dirty(state);
     if (patch.description     !== undefined) next.description     = patch.description;
@@ -213,6 +259,7 @@
     addObstacle, moveObstacle, resizeObstacle, deleteObstacle,
     addZone, moveZone, resizeZone, deleteZone,
     setRobotStart, setSelection, setMeta,
+    addStep, editStep, deleteStep, reorderStep,
     serializeToMission, loadFromMission,
     _clone: clone,
   };

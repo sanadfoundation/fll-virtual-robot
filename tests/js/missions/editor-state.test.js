@@ -149,3 +149,58 @@ test('setSelection: tracks { kind, id } or null', () => {
   next = ctx.MISSIONS.editor.state.setSelection(next, null);
   assert.strictEqual(next.selection, null);
 });
+
+test('addStep: appends a step with id, title, default points=10, default condition', () => {
+  const { ctx, s } = FIELD_OPS_BASE();
+  const next = ctx.MISSIONS.editor.state.addStep(s);
+  assert.strictEqual(next.steps.length, 1);
+  const step = next.steps[0];
+  assert.match(step.id, /^s-/);
+  assert.strictEqual(step.points, 10);
+  assert.strictEqual(typeof step.title, 'string');
+  // Default condition references no real zone yet; the loader will reject
+  // until the author edits — that's fine pre-Playtest.
+  assert.ok(step.condition, 'expected a default condition placeholder');
+});
+
+test('editStep: updates the named step fields', () => {
+  const { ctx, s } = FIELD_OPS_BASE();
+  let next = ctx.MISSIONS.editor.state.addStep(s);
+  const id = next.steps[0].id;
+  next = ctx.MISSIONS.editor.state.editStep(next, id, {
+    title: 'Reach red', points: 25, hint: 'Drive east',
+  });
+  assert.strictEqual(next.steps[0].title, 'Reach red');
+  assert.strictEqual(next.steps[0].points, 25);
+  assert.strictEqual(next.steps[0].hint, 'Drive east');
+});
+
+test('deleteStep: removes the step and scrubs requires references on remaining steps', () => {
+  const { ctx, s } = FIELD_OPS_BASE();
+  let next = ctx.MISSIONS.editor.state.addStep(s);  // step 1
+  next = ctx.MISSIONS.editor.state.addStep(next);    // step 2
+  const [a, b] = next.steps;
+  next = ctx.MISSIONS.editor.state.editStep(next, b.id, { requires: [a.id] });
+  next = ctx.MISSIONS.editor.state.deleteStep(next, a.id);
+  assert.strictEqual(next.steps.length, 1);
+  assert.deepStrictEqual(next.steps[0].requires || [], []);
+});
+
+test('reorderStep: moves the named step to the given index', () => {
+  const { ctx, s } = FIELD_OPS_BASE();
+  let next = ctx.MISSIONS.editor.state.addStep(s);
+  next = ctx.MISSIONS.editor.state.addStep(next);
+  next = ctx.MISSIONS.editor.state.addStep(next);
+  const [a, b, c] = next.steps;
+  next = ctx.MISSIONS.editor.state.reorderStep(next, c.id, 0);
+  assert.deepStrictEqual(next.steps.map(x => x.id), [c.id, a.id, b.id]);
+});
+
+test('editStep: updating the condition replaces it whole', () => {
+  const { ctx, s } = FIELD_OPS_BASE();
+  let next = ctx.MISSIONS.editor.state.addStep(s);
+  const id = next.steps[0].id;
+  const newCond = { kind: 'contact', obstacle: 'whatever' };
+  next = ctx.MISSIONS.editor.state.editStep(next, id, { condition: newCond });
+  assert.deepStrictEqual(next.steps[0].condition, newCond);
+});
