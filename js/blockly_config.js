@@ -3655,6 +3655,10 @@ function _registerSpikeMyBlocksFlyout(Blockly, workspace) {
     }
 
     // Call block per definition, carrying the argspec via <mutation>.
+    // Each %s slot gets a math_number shadow with the argspec default so
+    // the user can click-and-type a value directly (rather than only
+    // accepting a connected reporter). %b slots stay shadowless —
+    // booleans have no literal type in Scratch's model.
     for (const def of defs) {
       const blk = document.createElement('block');
       blk.setAttribute('type', 'myblocks_call');
@@ -3662,6 +3666,26 @@ function _registerSpikeMyBlocksFlyout(Blockly, workspace) {
       mut.setAttribute('procid', def.procId_ || '');
       mut.setAttribute('argspec', JSON.stringify(def.argspec_ || []));
       blk.appendChild(mut);
+
+      let argIdx = 0;
+      for (const tok of (def.argspec_ || [])) {
+        if (tok.kind !== 'arg') continue;
+        if (tok.argKind === 'string_number') {
+          const value = document.createElement('value');
+          value.setAttribute('name', 'ARG' + argIdx);
+          const shadow = document.createElement('shadow');
+          shadow.setAttribute('type', 'math_number');
+          const f = document.createElement('field');
+          f.setAttribute('name', 'NUM');
+          f.textContent = (tok.defaultValue !== undefined && tok.defaultValue !== '')
+            ? String(tok.defaultValue) : '0';
+          shadow.appendChild(f);
+          value.appendChild(shadow);
+          blk.appendChild(value);
+        }
+        argIdx++;
+      }
+
       xmlList.push(blk);
     }
     return xmlList;
