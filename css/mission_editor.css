@@ -249,31 +249,76 @@ body[data-mode="editor"] .editor-overlay-svg { pointer-events: auto; }
 
 .editor-step-row {
   display: grid;
-  grid-template-columns: 1fr 50px 1fr 24px 24px 24px 24px;
-  gap: 3px;
+  grid-template-columns: minmax(0, 1fr) 48px 24px 24px 24px 24px;
+  grid-template-areas:
+    "title points up   down req  del"
+    "hint  hint   hint hint hint hint";
+  gap: 4px 3px;
   align-items: center;
-  padding: 6px;
+  padding: 7px 8px;
   background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: 6px;
   cursor: pointer;
+  min-width: 0;
 }
-.step-requires-btn {
+.editor-step-row.selected {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 1px var(--amber);
+}
+.editor-step-row input {
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  outline: none;
+  min-width: 0;     /* critical: allow grid cells to shrink */
+  width: 100%;
+}
+.editor-step-row input:focus { border-color: var(--blue); }
+
+.step-title-input  { grid-area: title; }
+.step-points-input { grid-area: points; font-family: var(--font-code); text-align: center; }
+.step-hint-input   { grid-area: hint; }
+
+.step-up-btn       { grid-area: up; }
+.step-down-btn     { grid-area: down; }
+.step-requires-btn { grid-area: req; }
+.step-delete-btn   { grid-area: del; }
+
+.step-up-btn,
+.step-down-btn,
+.step-requires-btn,
+.step-delete-btn {
   background: transparent;
   border: 1px solid var(--border2);
   color: var(--text-mid);
-  width: 24px; height: 24px;
+  width: 24px;
+  height: 24px;
   border-radius: 4px;
   cursor: pointer;
   font-family: var(--font-ui);
   font-size: 11px;
+  padding: 0;
+  display: grid;
+  place-items: center;
 }
-.step-requires-btn:hover { color: var(--amber); border-color: var(--amber); }
+.step-up-btn:hover,
+.step-down-btn:hover,
+.step-requires-btn:hover {
+  color: var(--amber);
+  border-color: var(--amber);
+}
+.step-delete-btn:hover { color: var(--red); border-color: var(--red); }
+
 .step-requires-panel {
   grid-column: 1 / -1;
   background: var(--surface3);
   border-top: 1px solid var(--border2);
-  margin-top: 6px;
+  margin-top: 4px;
   padding: 8px;
   border-radius: 5px;
   display: flex;
@@ -291,45 +336,6 @@ body[data-mode="editor"] .editor-overlay-svg { pointer-events: auto; }
   font-size: 11px;
   color: var(--text-mid);
   font-style: italic;
-}
-.editor-step-row.selected {
-  border-color: var(--amber);
-  box-shadow: 0 0 0 1px var(--amber);
-}
-.editor-step-row input {
-  background: var(--surface3);
-  border: 1px solid var(--border);
-  color: var(--text);
-  padding: 4px 7px;
-  border-radius: 4px;
-  font-family: var(--font-ui);
-  font-size: 11px;
-  outline: none;
-}
-.editor-step-row input:focus { border-color: var(--blue); }
-.step-points-input { font-family: var(--font-code); text-align: center; }
-.step-delete-btn {
-  background: transparent;
-  border: 1px solid var(--border2);
-  color: var(--text-mid);
-  width: 28px; height: 28px;
-  border-radius: 5px;
-  cursor: pointer;
-}
-.step-delete-btn:hover { color: var(--red); border-color: var(--red); }
-.step-up-btn, .step-down-btn {
-  background: transparent;
-  border: 1px solid var(--border2);
-  color: var(--text-mid);
-  width: 24px; height: 24px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-family: var(--font-ui);
-  font-size: 11px;
-}
-.step-up-btn:hover, .step-down-btn:hover {
-  color: var(--amber);
-  border-color: var(--amber);
 }
 .editor-error {
   margin-left: 12px;
