@@ -79,3 +79,39 @@ test('loadFromMission: takes a loaded mission and returns editor state', () => {
   assert.strictEqual(editorState.selection, null);
   assert.strictEqual(editorState.dirty, false);
 });
+
+test('validate: valid state returns { ok: true, mission }', () => {
+  const ctx = env();
+  let s = ctx.MISSIONS.editor.state.createBlank();
+  s = ctx.MISSIONS.editor.state.addZone(s, { x: 100, y: 100 });
+  s.steps.push({
+    id: 'a', title: 'a', points: 1,
+    condition: { kind: 'zone', subject: 'robot', zone: s.field.zones[0].id },
+  });
+  const r = ctx.MISSIONS.editor.state.validate(s);
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.mission.id, s.id);
+});
+
+test('validate: empty steps on mission-type returns { ok: false, error }', () => {
+  const ctx = env();
+  const s = ctx.MISSIONS.editor.state.createBlank();
+  const r = ctx.MISSIONS.editor.state.validate(s);
+  assert.strictEqual(r.ok, false);
+  assert.match(r.error, /at least one step/);
+});
+
+test('validate: condition referencing a deleted zone returns ok:false', () => {
+  const ctx = env();
+  let s = ctx.MISSIONS.editor.state.createBlank();
+  s = ctx.MISSIONS.editor.state.addZone(s, { x: 0, y: 0 });
+  const zid = s.field.zones[0].id;
+  s.steps.push({
+    id: 'a', title: 'a', points: 1,
+    condition: { kind: 'zone', subject: 'robot', zone: zid },
+  });
+  s = ctx.MISSIONS.editor.state.deleteZone(s, zid);
+  const r = ctx.MISSIONS.editor.state.validate(s);
+  assert.strictEqual(r.ok, false);
+  assert.match(r.error, /unknown zone/);
+});

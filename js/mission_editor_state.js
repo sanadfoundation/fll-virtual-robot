@@ -226,6 +226,16 @@
     };
   }
 
+  function validate(state) {
+    const raw = serializeToMission(state);
+    try {
+      const mission = MISSIONS.loader.load(raw);
+      return { ok: true, mission };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  }
+
   function loadFromMission(mission) {
     const state = createBlank();
     state.id              = mission.id;
@@ -260,7 +270,7 @@
     addZone, moveZone, resizeZone, deleteZone,
     setRobotStart, setSelection, setMeta,
     addStep, editStep, deleteStep, reorderStep,
-    serializeToMission, loadFromMission,
+    serializeToMission, loadFromMission, validate,
     _clone: clone,
   };
 })(typeof window !== 'undefined' ? window : globalThis);
