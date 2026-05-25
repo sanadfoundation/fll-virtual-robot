@@ -70,10 +70,13 @@ function makeMainEnv(opts = {}) {
   };
 
   const documentEl = makeEl();
+  const docListeners = {};
   const document = {
     documentElement: documentEl,
     body: makeEl(),
-    addEventListener: () => {},
+    addEventListener: (evt, handler) => {
+      (docListeners[evt] = docListeners[evt] || []).push(handler);
+    },
     querySelector: () => null,
     querySelectorAll: () => [],
     getElementById: (id) => {
@@ -128,7 +131,12 @@ function makeMainEnv(opts = {}) {
   );
   vm.runInContext(MAIN_CODE, context, { filename: 'js/main.js' });
 
-  return { context, window, document, storage, elementsById };
+  if (opts.fireDOMContentLoaded) {
+    const handlers = docListeners['DOMContentLoaded'] || [];
+    for (const h of handlers) { try { h(); } catch (e) { /* surfaced via test */ } }
+  }
+
+  return { context, window, document, storage, elementsById, documentEl };
 }
 
 module.exports = { makeMainEnv };

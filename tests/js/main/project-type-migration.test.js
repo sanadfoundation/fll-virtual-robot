@@ -71,3 +71,12 @@ test('migrateLegacyTabKey: unrecognised legacy tab value falls back to default',
   assert.strictEqual(storage.has('fll-vr-tab'), false,
     'garbage legacy key should still be retired');
 });
+
+test('bootstrap: legacy tab "python" + DOMContentLoaded fires → project-type=python persisted', () => {
+  const { storage } = makeMainEnv({
+    storage: { 'fll-vr-tab': 'python' },
+    fireDOMContentLoaded: true,
+  });
+  assert.strictEqual(storage.get('fll-vr-project-type'), 'python');
+  assert.strictEqual(storage.has('fll-vr-tab'), false);
+});

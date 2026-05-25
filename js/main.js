@@ -288,13 +288,11 @@ function switchMode(mode, options) {
     resizeBlocklyWorkspace();
   }
 
-  if (!options || options.persist !== false) lsSet(TAB_KEY, m);
+  if (!options || options.persist !== false) setProjectType(m);
 }
 
-function applyStoredTab() {
-  const stored = lsGet(TAB_KEY);
-  const tab = (stored === 'python' || stored === 'blocks') ? stored : DEFAULT_TAB;
-  switchMode(tab, { persist: false });
+function applyStoredProjectType() {
+  switchMode(getProjectType(), { persist: false });
 }
 
 // ── Run / Stop ────────────────────────────────────────────────────────────────
@@ -711,6 +709,7 @@ function setBlocklyState(state) {
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
+  migrateLegacyTabKey();
   projectName = lsGet(NAME_KEY) || DEFAULT_NAME;
   dirty       = lsGet(DIRTY_KEY) === '1';
 
@@ -739,7 +738,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   applyStoredSpeed();
   applyStoredUnits();
-  applyStoredTab();
+  applyStoredProjectType();
 
   if (window.LLSP3 && window.LLSP3.ui && typeof window.LLSP3.ui.init === 'function') {
     window.LLSP3.ui.init({
