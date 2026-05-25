@@ -152,6 +152,22 @@
       }
     }
 
+    function updateLiveDropdowns(state) {
+      if (!workspace || !workspace.getAllBlocks) return;
+      const zOpts = zoneOptions(state);
+      const oOpts = obstacleOptions(state);
+      for (const b of workspace.getAllBlocks()) {
+        if (b.type === 'cond_zone' && b.getField && typeof b.getField === 'function') {
+          const f = b.getField('ZONE');
+          if (f && typeof f.menuGenerator_ !== 'undefined') f.menuGenerator_ = zOpts;
+        }
+        if (b.type === 'cond_contact' && b.getField && typeof b.getField === 'function') {
+          const f = b.getField('OBSTACLE');
+          if (f && typeof f.menuGenerator_ !== 'undefined') f.menuGenerator_ = oOpts;
+        }
+      }
+    }
+
     function showForStep(step) {
       if (!section) return;
       section.hidden = false;
@@ -162,6 +178,7 @@
       const blocks = conditionToBlocks(step.condition);
       workspace._setBlocks(blocks);
       suppressNextChange = false;
+      updateLiveDropdowns(app.editorState);
     }
 
     function hide() {
