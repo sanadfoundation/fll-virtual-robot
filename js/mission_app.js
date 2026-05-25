@@ -72,6 +72,9 @@
     if (MISSIONS.editor && MISSIONS.editor.steps && MISSIONS.editor.steps.attach) {
       MISSIONS.editor.steps.attach(app, doc);
     }
+    if (MISSIONS.editor && MISSIONS.editor.conditions && MISSIONS.editor.conditions.attach) {
+      MISSIONS.editor.conditions.attach(app, doc);
+    }
 
     // Wire the header 🎯 button: open a blank editor on click.
     const missionsBtn = doc.getElementById('btn-missions');

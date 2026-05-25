@@ -150,7 +150,7 @@ function makeEditorDoc(idsExtra = []) {
     // steps
     'editor-steps-list', 'btn-add-step',
     // conditions
-    'editor-cond-workspace',
+    'editor-cond-section', 'editor-cond-workspace',
     // shared with Plan 1 (sandbox surfaces hidden in editor mode)
     'mission-map', 'mission-map-title',
   ].concat(idsExtra);
