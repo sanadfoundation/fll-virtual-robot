@@ -1916,9 +1916,14 @@ function registerGenerators(Blockly) {
   }
 
   js['data_variable']         = (b) => [_varNameOf(b), ORDER_ATOMIC];
-  js['data_setvariableto']    = (b) => `${_varNameOf(b)} = ${val(b,'VALUE','0')};\n`;
-  js['data_changevariableby'] = (b) =>
-    `${_varNameOf(b)} = (Number(${_varNameOf(b)}) || 0) + (Number(${val(b,'VALUE','0')}) || 0);\n`;
+  js['data_setvariableto']    = (b) => {
+    const name = _varNameOf(b);
+    return `${name} = ${val(b,'VALUE','0')}; _watch.set(${_jsString(_displayNameOf(b))}, ${name});\n`;
+  };
+  js['data_changevariableby'] = (b) => {
+    const name = _varNameOf(b);
+    return `${name} = (Number(${name})||0) + (Number(${val(b,'VALUE','0')})||0); _watch.set(${_jsString(_displayNameOf(b))}, ${name});\n`;
+  };
 
   // ── More-Movement ──────────────────────────────────────────────────────────
 
@@ -3859,6 +3864,28 @@ function _sanitizeVarName(name) {
 }
 if (typeof window !== 'undefined') window._sanitizeVarName = _sanitizeVarName;
 
+// Display-name lookup: returns the unsanitized Scratch variable name (what
+// the user typed), for the watch panel. Sibling of _varNameOf which returns
+// the sanitized JS identifier.
+function _displayNameOf(block) {
+  const id = block.getFieldValue('VARIABLE');
+  const ws = block.workspace;
+  const v = ws && ws.getVariableById ? ws.getVariableById(id) : null;
+  return (v && v.name) ? v.name : id;
+}
+
+// Safe-quote a string for inlining into generated JS source. JSON.stringify
+// handles every character that would otherwise break a single-quoted literal
+// (quotes, backslashes, newlines, control chars).
+function _jsString(s) {
+  return JSON.stringify(String(s == null ? '' : s));
+}
+
+if (typeof window !== 'undefined') {
+  window._displayNameOf = _displayNameOf;
+  window._jsString      = _jsString;
+}
+
 // Hat blocks that already emit their own `_hats.push(...)` polling loop, plus
 // `flipperevents_whenProgramStarts` which emits the `_mainBody = ...`
 // assignment. Anything else at the top level is a raw statement chain that
@@ -3933,6 +3960,9 @@ function generateBlocklyJS(workspace) {
   const userVarDecls = userVars
     .map(v => `var ${_sanitizeVarName(v.name)} = 0;`)
     .join('\n');
+  const watchDecls = userVars
+    .map(v => `_watch.declare(${_jsString(v.name)}, ${_sanitizeVarName(v.name)});`)
+    .join('\n');
 
   const preamble = [
     `var _moveSpeed     = 50;`,
@@ -3954,7 +3984,9 @@ function generateBlocklyJS(workspace) {
     `var _hatPrev  = {};`,
     `var _hatFired  = {};`,
     `var _t0       = performance.now();`,
+    'const _watch = window._watch || { declare(){}, set(){}, clear(){} };',
     userVarDecls,
+    watchDecls,
   ].filter(Boolean).join('\n');
 
   const epilogue = [

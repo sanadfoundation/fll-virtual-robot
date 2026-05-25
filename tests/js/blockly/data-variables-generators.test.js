@@ -36,7 +36,7 @@ test('data_variable generator emits the sanitized identifier as a reporter', () 
   assert.strictEqual(order, js.ORDER_ATOMIC);
 });
 
-test('data_setvariableto generator emits a JS assignment', () => {
+test('data_setvariableto generator emits a JS assignment and a _watch.set', () => {
   const { Blockly, workspace } = setupGenerators();
   const js = Blockly.JavaScript;
   const origValueToCode = js.valueToCode;
@@ -48,7 +48,9 @@ test('data_setvariableto generator emits a JS assignment', () => {
       getInputTargetBlock() { return null; },
     };
     const code = js['data_setvariableto'](block);
-    assert.strictEqual(code.trim(), 'v_k_p = 0.5;');
+    // Assignment and watch call on the same line so the panel update can't
+    // lag the variable write across an await boundary.
+    assert.match(code, /^v_k_p\s*=\s*0\.5;\s*_watch\.set\("k_p",\s*v_k_p\);\s*$/);
   } finally {
     js.valueToCode = origValueToCode;
   }
@@ -92,6 +94,66 @@ test('generateBlocklyJS preamble declares each workspace variable', () => {
     assert.ok(code.includes('var v_w_d = 0;'),    'declares v_w_d');
     assert.ok(code.includes('var v_has_spaces_ = 0;'),
       'sanitizes spaces and punctuation');
+  } finally {
+    js.workspaceToCode = origWorkspaceToCode;
+  }
+});
+
+test('data_setvariableto: variable name with quote escapes safely', () => {
+  const { Blockly, env } = setupGenerators();
+  const js = Blockly.JavaScript;
+  const origValueToCode = js.valueToCode;
+  js.valueToCode = () => '0';
+  try {
+    const block = {
+      workspace: { getVariableById: () => ({ name: "it's" }) },
+      getFieldValue() { return 'q-id'; },
+      getInputTargetBlock() { return null; },
+    };
+    const code = js['data_setvariableto'](block);
+    // _jsString uses JSON.stringify so apostrophes are safely double-quoted.
+    assert.match(code, /_watch\.set\("it's",\s*v_it_s\);/);
+  } finally {
+    js.valueToCode = origValueToCode;
+  }
+});
+
+test('data_changevariableby generator emits the watch call after the add', () => {
+  const { Blockly, workspace } = setupGenerators();
+  const js = Blockly.JavaScript;
+  const origValueToCode = js.valueToCode;
+  js.valueToCode = () => '1';
+  try {
+    const block = {
+      workspace,
+      getFieldValue() { return 'err-id'; },
+      getInputTargetBlock() { return null; },
+    };
+    const code = js['data_changevariableby'](block);
+    assert.match(code, /v_error\s*=\s*\(Number\(v_error\)\s*\|\|\s*0\)\s*\+\s*\(Number\(1\)\s*\|\|\s*0\);\s*_watch\.set\("error",\s*v_error\);/);
+  } finally {
+    js.valueToCode = origValueToCode;
+  }
+});
+
+test('generateBlocklyJS preamble declares each variable into _watch', () => {
+  const { Blockly, env } = setupGenerators();
+  const js = Blockly.JavaScript;
+  const origWorkspaceToCode = js.workspaceToCode;
+  js.workspaceToCode = () => '';
+  try {
+    const stub = {
+      getAllVariables() {
+        return [{ name: 'error' }, { name: 'has spaces!' }];
+      },
+    };
+    const code = env.window.generateBlocklyJS(stub);
+    assert.ok(code.includes('const _watch = window._watch'),
+      'captures window._watch into the AsyncFunction scope');
+    assert.ok(code.includes('_watch.declare("error", v_error);'),
+      'declares each variable with its display name');
+    assert.ok(code.includes('_watch.declare("has spaces!", v_has_spaces_);'),
+      'preserves the display name even when the JS identifier was sanitized');
   } finally {
     js.workspaceToCode = origWorkspaceToCode;
   }
