@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Canvas UX Prototypes — Virtual Robot Simulator</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="proto-shared.css">
+  <style>
+    body { display: block; height: auto; overflow: auto; }
+    .wrap {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 28px 24px 60px;
+      font-family: var(--font-ui);
+      color: var(--text);
+    }
+    h1 {
+      font-size: 24px;
+      letter-spacing: 0.02em;
+      margin-bottom: 6px;
+    }
+    h1 .accent { color: var(--amber); }
+    p.lede {
+      color: var(--text-mid);
+      max-width: 720px;
+      line-height: 1.5;
+      margin-bottom: 28px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+      gap: 16px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 18px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color .14s, transform .14s;
+    }
+    .card:hover {
+      border-color: var(--amber);
+      transform: translateY(-2px);
+    }
+    .card-tag {
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      font-weight: 800;
+      color: var(--amber);
+    }
+    .card h2 {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .card-desc {
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--text-mid);
+    }
+    .card-art {
+      height: 130px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      display: grid;
+      grid-template-columns: 0.4fr 1fr;
+      grid-template-rows: 1fr;
+      padding: 8px;
+      gap: 6px;
+      overflow: hidden;
+      position: relative;
+    }
+    .art-pane {
+      background: var(--surface3);
+      border-radius: 4px;
+    }
+    .art-canvas {
+      background: var(--surface3);
+      border-radius: 4px;
+      position: relative;
+      overflow: hidden;
+    }
+    .art-canvas::before {
+      content: '';
+      position: absolute;
+      inset: 16% 10%;
+      background: linear-gradient(135deg, #6b8c3a 0%, #557029 50%, #6b8c3a 100%);
+      border-radius: 2px;
+    }
+    /* Per-card art variants */
+    .art-sidebar { grid-template-columns: 0.4fr 1fr 0.34fr; }
+    .art-sidebar > .art-side {
+      background: var(--amber);
+      opacity: 0.65;
+      border-radius: 4px;
+    }
+    .art-popovers .art-canvas-band-top,
+    .art-popovers .art-canvas-band-bot { display: none; }
+    .art-popovers .art-pop-btn {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 38px;
+      height: 14px;
+      background: var(--amber);
+      opacity: 0.85;
+      border-radius: 3px;
+    }
+    .art-popovers .art-pop-btn:nth-child(3) { right: 50px; }
+    .art-popovers .art-pop-btn:nth-child(4) { right: 94px; }
+    .art-hud .art-hud-pip {
+      position: absolute;
+      background: var(--amber);
+      opacity: 0.7;
+      border-radius: 3px;
+    }
+    .art-hud .art-hud-pip.tl { top: 6px; left: 6px; width: 56px; height: 16px; }
+    .art-hud .art-hud-pip.tr { top: 6px; right: 6px; width: 56px; height: 16px; }
+    .art-hud .art-hud-pip.br { bottom: 6px; right: 6px; width: 68px; height: 16px; }
+    .art-strip .art-canvas-band-top,
+    .art-strip .art-canvas-band-bot {
+      height: 6px !important;
+    }
+    .art-dock .art-canvas-band-top,
+    .art-dock .art-canvas-band-bot { display: none; }
+    .art-dock .art-bottom {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 14px;
+      background: var(--amber);
+      opacity: 0.7;
+    }
+    /* Default canvas bands (shown on baseline / strip variant) */
+    .art-canvas-band-top,
+    .art-canvas-band-bot {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 14px;
+      background: var(--amber);
+      opacity: 0.55;
+    }
+    .art-canvas-band-top { top: 0; }
+    .art-canvas-band-bot { bottom: 0; }
+    .card-stats {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 11px;
+    }
+    .stat {
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-mid);
+    }
+    .stat strong { color: var(--text); }
+    .stat.win { color: var(--green); border-color: var(--green); }
+    .stat.tradeoff { color: var(--yellow); }
+    .legend {
+      margin-top: 28px;
+      padding: 14px 16px;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      font-size: 12px;
+      color: var(--text-mid);
+      line-height: 1.55;
+    }
+    .legend code {
+      font-family: var(--font-code);
+      background: var(--surface2);
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: var(--amber);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Canvas UX <span class="accent">Prototypes</span></h1>
+    <p class="lede">
+      Five live variants exploring how to give the canvas more vertical room
+      by relocating the Motors/Sensors and Position panels. Each variant runs
+      the real simulator — click <strong>Run</strong> in the bottom dock to
+      drive the robot and watch the values update wherever they live now.
+    </p>
+
+    <div class="grid">
+      <a class="card" href="01-sidebar.html">
+        <span class="card-tag">Prototype A</span>
+        <h2>Collapsible right sidebar</h2>
+        <div class="card-art art-sidebar">
+          <div class="art-pane"></div>
+          <div class="art-canvas"></div>
+          <div class="art-side"></div>
+        </div>
+        <p class="card-desc">
+          Stack ports + position vertically in a slim right sidebar with a
+          pin/hide toggle. Familiar IDE pattern; preserves canvas width but
+          eats some horizontal room.
+        </p>
+        <div class="card-stats">
+          <span class="stat win">+full vertical canvas</span>
+          <span class="stat tradeoff">−240px width</span>
+        </div>
+      </a>
+
+      <a class="card" href="02-popovers.html">
+        <span class="card-tag">Prototype B</span>
+        <h2>Header popover buttons</h2>
+        <div class="card-art art-popovers">
+          <div class="art-pane"></div>
+          <div class="art-canvas">
+            <span class="art-pop-btn"></span>
+            <span class="art-pop-btn"></span>
+            <span class="art-pop-btn"></span>
+          </div>
+        </div>
+        <p class="card-desc">
+          Three pill buttons in the header (Motors / Sensors / Position)
+          open downward popovers on demand. Canvas takes the whole panel;
+          telemetry is one click away with live activity dots on the
+          buttons.
+        </p>
+        <div class="card-stats">
+          <span class="stat win">+full canvas, both axes</span>
+          <span class="stat tradeoff">click-to-inspect</span>
+        </div>
+      </a>
+
+      <a class="card" href="03-hud.html">
+        <span class="card-tag">Prototype C</span>
+        <h2>Floating canvas HUD</h2>
+        <div class="card-art art-hud">
+          <div class="art-pane"></div>
+          <div class="art-canvas">
+            <span class="art-hud-pip tl"></span>
+            <span class="art-hud-pip tr"></span>
+            <span class="art-hud-pip br"></span>
+          </div>
+        </div>
+        <p class="card-desc">
+          Translucent panels overlaid in the canvas corners — Motors top-left,
+          Sensors top-right, Position bottom-right. No layout space consumed;
+          values fade slightly while the robot is moving.
+        </p>
+        <div class="card-stats">
+          <span class="stat win">+zero chrome</span>
+          <span class="stat tradeoff">may cover field</span>
+        </div>
+      </a>
+
+      <a class="card" href="04-strip.html">
+        <span class="card-tag">Prototype D</span>
+        <h2>Thin status strips</h2>
+        <div class="card-art art-strip">
+          <div class="art-pane"></div>
+          <div class="art-canvas">
+            <span class="art-canvas-band-top"></span>
+            <span class="art-canvas-band-bot"></span>
+          </div>
+        </div>
+        <p class="card-desc">
+          Keep the bands above/below but collapse them to a single
+          ~26&nbsp;px line of inline values. Hover or click to expand
+          back to the full chips. Smallest visual change.
+        </p>
+        <div class="card-stats">
+          <span class="stat win">+~70 px canvas height</span>
+          <span class="stat tradeoff">smaller type</span>
+        </div>
+      </a>
+
+      <a class="card" href="05-dock.html">
+        <span class="card-tag">Prototype E</span>
+        <h2>Bottom-dock telemetry</h2>
+        <div class="card-art art-dock">
+          <div class="art-pane"></div>
+          <div class="art-canvas">
+            <span class="art-bottom"></span>
+          </div>
+        </div>
+        <p class="card-desc">
+          Position chips slot into the bottom dock next to the speed
+          slider. Ports collapse into one dock button that slides up
+          a panel of chips when toggled. Canvas takes the whole panel.
+        </p>
+        <div class="card-stats">
+          <span class="stat win">+full canvas, no new chrome</span>
+          <span class="stat tradeoff">busier dock</span>
+        </div>
+      </a>
+
+      <a class="card" href="06-pack.html">
+        <span class="card-tag">Prototype F</span>
+        <h2>Packing dock</h2>
+        <div class="card-art art-popovers">
+          <div class="art-pane"></div>
+          <div class="art-canvas">
+            <span class="art-pop-btn" style="left: 6px; right: auto; width: 14px; height: 14px; border-radius: 50%;"></span>
+          </div>
+        </div>
+        <p class="card-desc">
+          Like Prototype B but the three pill buttons collapse into a single
+          circle on demand. Click the chevron to pack; click the circle to
+          unpack — the circle pulses green when values change while packed.
+        </p>
+        <div class="card-stats">
+          <span class="stat win">+canvas + clutter-free</span>
+          <span class="stat tradeoff">two-step inspect</span>
+        </div>
+      </a>
+
+      <a class="card" href="../index.html" style="border-style: dashed;">
+        <span class="card-tag" style="color: var(--cyan);">Baseline</span>
+        <h2>Current production layout</h2>
+        <div class="card-art">
+          <div class="art-pane"></div>
+          <div class="art-canvas">
+            <span class="art-canvas-band-top"></span>
+            <span class="art-canvas-band-bot"></span>
+          </div>
+        </div>
+        <p class="card-desc">
+          Ports band above the canvas, Position band below — what's
+          shipped today. Use as the reference when comparing the
+          prototypes.
+        </p>
+        <div class="card-stats">
+          <span class="stat">baseline</span>
+        </div>
+      </a>
+    </div>
+
+    <div class="legend">
+      <strong>How to use:</strong> Serve the repo with
+      <code>python3 -m http.server 8787</code> (PyScript needs HTTP), then
+      visit <code>/prototypes/</code>. Each card opens a working variant —
+      click <strong>Run</strong> in the bottom dock to drive the robot and
+      watch the values update in their new home. Every variant keeps the
+      same element IDs that <code>simulator.js</code> writes to, so
+      live data flows unchanged.
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,60 @@
+/* Shared chrome for the prototype variants — a slim banner at the very top
+   of every prototype that names the variant and lets you jump between them.
+   Imports the base style.css from the project root via the page itself. */
+
+.proto-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 14px;
+  background: linear-gradient(180deg, rgba(251,191,36,0.10), rgba(251,191,36,0.02));
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--text-mid);
+  flex-shrink: 0;
+}
+.proto-banner-title {
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--amber);
+  font-size: 11px;
+}
+.proto-banner-sep {
+  width: 1px;
+  align-self: stretch;
+  background: var(--border);
+}
+.proto-banner-desc {
+  flex: 1;
+  color: var(--text-mid);
+}
+.proto-banner-nav {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.proto-banner-nav a {
+  text-decoration: none;
+  color: var(--text-mid);
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-size: 11px;
+}
+.proto-banner-nav a:hover {
+  background: var(--surface2);
+  color: var(--text);
+  border-color: var(--border);
+}
+.proto-banner-nav a.current {
+  background: var(--surface3);
+  color: var(--amber);
+  border-color: var(--amber);
+}
+.proto-banner-nav a.home {
+  color: var(--cyan);
+}

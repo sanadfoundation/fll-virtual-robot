@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prototype A · Right Sidebar — Virtual Robot</title>
+
+  <!-- PyScript -->
+  <link rel="stylesheet" href="https://pyscript.net/releases/2025.3.1/core.css">
+  <script type="module" src="https://pyscript.net/releases/2025.3.1/core.js"></script>
+
+  <!-- Blockly -->
+  <script src="https://unpkg.com/blockly@10.4.3/blockly.min.js"></script>
+  <script src="https://unpkg.com/blockly@10.4.3/javascript_compressed.js"></script>
+
+  <!-- JSZip -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
+  <!-- Monaco Editor -->
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs/loader.js"></script>
+
+  <!-- App styles -->
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="proto-shared.css">
+
+  <style>
+    /* ── Prototype A overrides ───────────────────────────── */
+
+    /* Right panel becomes column: canvas-row (flex row) + console */
+    .panel-right { display: flex; flex-direction: column; }
+
+    .canvas-row {
+      flex: 1;
+      display: flex;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* Hide the old above/below bands — content moves into the sidebar */
+    #canvas-ports.in-sidebar,
+    #canvas-position.in-sidebar { display: none; }
+
+    /* Canvas now stretches to the full vertical of the row */
+    .canvas-row .canvas-wrap { flex: 1; min-width: 0; }
+
+    /* The sidebar itself */
+    .proto-sidebar {
+      width: 250px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 12px 12px 12px 8px;
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      overflow-y: auto;
+      transition: width .18s ease, padding .18s ease, opacity .12s ease;
+    }
+    .proto-sidebar.collapsed {
+      width: 0;
+      padding: 0;
+      opacity: 0;
+      overflow: hidden;
+      border-left: none;
+    }
+    .proto-sidebar-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .proto-sidebar-card-title {
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      font-weight: 800;
+      color: var(--text-dim);
+    }
+
+    /* In-sidebar chip layout: stack each chip vertically, full width */
+    .proto-sidebar .cstat-chip {
+      width: 100%;
+      justify-content: flex-start;
+      min-height: 42px;
+    }
+    .proto-sidebar .cstat-pose {
+      display: flex;
+      flex-direction: row;
+      align-items: baseline;
+      justify-content: space-between;
+      padding: 6px 4px;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+      min-width: 0;
+      width: 100%;
+    }
+    .proto-sidebar .cstat-pose:last-child { border-bottom: none; }
+    .proto-sidebar .cstat-pose-label { margin-bottom: 0; }
+
+    /* Collapse handle on the edge of the canvas-row */
+    .proto-sidebar-toggle {
+      position: absolute;
+      top: 50%;
+      right: 0;
+      transform: translate(0, -50%);
+      width: 22px;
+      height: 56px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-right: none;
+      border-radius: 6px 0 0 6px;
+      cursor: pointer;
+      color: var(--text-mid);
+      font-size: 12px;
+      display: grid;
+      place-items: center;
+      z-index: 4;
+      transition: color .12s, background .12s, right .18s;
+    }
+    .proto-sidebar-toggle:hover {
+      background: var(--surface2);
+      color: var(--amber);
+      border-color: var(--amber);
+    }
+    .proto-sidebar-toggle .chev { transition: transform .18s; }
+    .proto-sidebar.collapsed + .proto-sidebar-toggle .chev { transform: rotate(180deg); }
+
+    /* Anchor the toggle on the inside edge of the sidebar */
+    .canvas-row { position: relative; }
+    .proto-sidebar:not(.collapsed) + .proto-sidebar-toggle { right: 250px; }
+  </style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div id="py-loading">
+  <div class="loading-logo">
+    <div class="logo-mark">🤖</div>
+    <span>Virtual Robot</span>
+  </div>
+  <div class="loading-bar-wrap"><div class="loading-bar"></div></div>
+  <span class="loading-text">Loading MicroPython runtime…</span>
+</div>
+
+<!-- Prototype banner -->
+<div class="proto-banner">
+  <span class="proto-banner-title">Prototype A</span>
+  <span class="proto-banner-sep"></span>
+  <span class="proto-banner-desc">Collapsible right sidebar — stack ports + position vertically. Pin/hide with the chevron handle on the sidebar edge.</span>
+  <div class="proto-banner-nav">
+    <a class="home" href="index.html">← All prototypes</a>
+    <a href="01-sidebar.html" class="current">A</a>
+    <a href="02-popovers.html">B</a>
+    <a href="03-hud.html">C</a>
+    <a href="04-strip.html">D</a>
+    <a href="05-dock.html">E</a>
+    <a href="06-pack.html">F</a>
+    <a href="../index.html">Baseline</a>
+  </div>
+</div>
+
+<!-- ── Header ──────────────────────────────────────────── -->
+<header>
+  <div class="app-logo"><div class="logo-mark">🤖</div></div>
+
+  <div class="file-actions" id="file-actions">
+    <input type="text" id="project-name" class="project-name-input" placeholder="Untitled-Project" maxlength="64" title="Project name">
+    <input type="file" id="file-open-input" accept=".llsp3" style="display:none">
+    <button class="btn btn-icon-file" id="btn-new"  type="button" title="New project" aria-label="New project">📄</button>
+    <button class="btn btn-icon-file" id="btn-open" type="button" title="Open .llsp3 file" aria-label="Open project">📂</button>
+    <button class="btn btn-icon-file" id="btn-save" type="button" title="Save project" aria-label="Save project">💾</button>
+  </div>
+
+  <div class="tab-group">
+    <button class="tab-btn active" id="tab-blocks">🧱 Blocks</button>
+    <button class="tab-btn"        id="tab-python">🐍 Python</button>
+  </div>
+
+  <div class="spacer"></div>
+
+  <div class="header-controls">
+    <div class="settings-menu" id="settings-menu">
+      <button class="btn btn-settings" id="settings-trigger" type="button" aria-haspopup="true" aria-expanded="false" title="Settings">
+        <span class="settings-gear" aria-hidden="true">⚙</span> Settings
+      </button>
+      <div class="settings-pop" id="settings-pop" role="menu" aria-labelledby="settings-trigger">
+        <h3>Settings</h3>
+        <div class="sensor-row">
+          <span class="sensor-label">Theme</span>
+          <button class="btn btn-theme" id="btn-theme" title="Toggle light/dark theme" aria-label="Toggle theme">
+            <span class="icon-moon">🌙</span><span class="icon-sun">☀️</span>
+          </button>
+        </div>
+        <div class="sensor-row">
+          <span class="sensor-label">Units</span>
+          <select id="units-select" class="units-select" aria-label="Position units">
+            <option value="cm">cm</option>
+            <option value="mm">mm</option>
+            <option value="in">in</option>
+          </select>
+        </div>
+        <button class="btn btn-reset" id="btn-defaults" title="Reset theme, speed, and editor contents to defaults">⟲ Reset to defaults</button>
+      </div>
+    </div>
+    <a class="btn btn-support" id="btn-support" href="https://go.sanadfoundation.ca/support-fll-tooling-efforts" target="_blank" rel="noopener noreferrer" title="Support development of this simulator">
+      <span class="btn-support-icon" aria-hidden="true">❤️</span>
+      Support
+    </a>
+    <a class="btn btn-github btn-github-iconly" id="btn-github" href="https://github.com/sanadfoundation/fll-virtual-robot" target="_blank" rel="noopener noreferrer" title="View source on GitHub" aria-label="View source on GitHub">
+      <svg class="btn-github-mark" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+        <path fill="currentColor" fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+      </svg>
+    </a>
+  </div>
+</header>
+
+<!-- ── Main body ────────────────────────────────────────── -->
+<div class="app-body">
+
+  <div class="panel-left">
+    <div class="editor-wrap">
+      <div id="py-editor-wrap" style="height:100%">
+        <div id="py-editor" style="height:100%"></div>
+      </div>
+      <div id="blockly-div"></div>
+    </div>
+  </div>
+
+  <div class="resize-handle" id="resize-handle">
+    <button class="resize-collapse-btn" id="resize-collapse-btn"
+            type="button"
+            aria-label="Collapse editor panel"
+            aria-pressed="false"
+            title="Collapse editor panel">
+      <span class="resize-collapse-icon" aria-hidden="true">◀</span>
+    </button>
+  </div>
+
+  <div class="panel-right">
+
+    <!-- Canvas row: canvas on the left, sidebar on the right -->
+    <div class="canvas-row">
+      <div class="canvas-wrap">
+        <canvas id="robot-canvas"></canvas>
+        <div id="canvas-hover" hidden></div>
+      </div>
+
+      <aside class="proto-sidebar" id="proto-sidebar" aria-label="Robot status sidebar">
+
+        <!-- Position card -->
+        <div class="proto-sidebar-card">
+          <span class="proto-sidebar-card-title">Position</span>
+          <div id="canvas-position">
+            <div class="cstat-pose" title="Horizontal position from the left edge of the field">
+              <span class="cstat-pose-label">X</span>
+              <span class="cstat-pose-value" id="sp-x">—</span>
+            </div>
+            <div class="cstat-pose" title="Vertical position from the bottom edge of the field">
+              <span class="cstat-pose-label">Y</span>
+              <span class="cstat-pose-value" id="sp-y">—</span>
+            </div>
+            <div class="cstat-pose" title="Direction the robot is facing (0° = east, 90° = north)">
+              <span class="cstat-pose-label">Heading</span>
+              <span class="cstat-pose-value" id="sp-heading">—</span>
+            </div>
+            <div class="cstat-pose" title="Net rotation since the last reset_yaw_angle() call">
+              <span class="cstat-pose-label">Yaw</span>
+              <span class="cstat-pose-value" id="sp-yaw">—</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Motors card -->
+        <div class="proto-sidebar-card">
+          <span class="proto-sidebar-card-title">Motors</span>
+          <div id="cstat-motors" style="display:flex; flex-direction:column; gap:8px;">
+            <div class="cstat-chip" id="port-row-A" title="Light motor on port A — left drive wheel; value is current rotation">
+              <span class="cstat-chip-icon" aria-hidden="true">🛞</span>
+              <span class="cstat-chip-meta">
+                <span class="cstat-chip-head">
+                  <span class="cstat-chip-role">Left</span>
+                  <span class="cstat-chip-port">A</span>
+                </span>
+                <span class="cstat-chip-value" id="port-value-A">0°/s  0.0↻</span>
+              </span>
+            </div>
+            <div class="cstat-chip" id="port-row-B" title="Light motor on port B — right drive wheel; value is current rotation">
+              <span class="cstat-chip-icon" aria-hidden="true">🛞</span>
+              <span class="cstat-chip-meta">
+                <span class="cstat-chip-head">
+                  <span class="cstat-chip-role">Right</span>
+                  <span class="cstat-chip-port">B</span>
+                </span>
+                <span class="cstat-chip-value" id="port-value-B">0°/s  0.0↻</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sensors card -->
+        <div class="proto-sidebar-card">
+          <span class="proto-sidebar-card-title">Sensors</span>
+          <div id="cstat-sensors" style="display:flex; flex-direction:column; gap:8px;">
+            <div class="cstat-chip cstat-chip-color" id="port-row-C" title="Color sensor on port C — reads the colour under the robot">
+              <span class="cstat-chip-icon" aria-hidden="true">🎨</span>
+              <span class="cstat-chip-meta">
+                <span class="cstat-chip-head">
+                  <span class="cstat-chip-role">Color</span>
+                  <span class="cstat-chip-port">C</span>
+                </span>
+                <span class="cstat-chip-value" id="port-value-C">none</span>
+              </span>
+              <span class="sensor-color-swatch" id="color-swatch"></span>
+            </div>
+            <div class="cstat-chip" id="port-row-D" title="Distance sensor on port D — reads how far the nearest object is">
+              <span class="cstat-chip-icon" aria-hidden="true">📏</span>
+              <span class="cstat-chip-meta">
+                <span class="cstat-chip-head">
+                  <span class="cstat-chip-role">Distance</span>
+                  <span class="cstat-chip-port">D</span>
+                </span>
+                <span class="cstat-chip-value" id="port-value-D">—</span>
+              </span>
+            </div>
+            <button class="cstat-chip cstat-chip-force" id="port-force-E" type="button"
+                    title="Force sensor on port E — press &amp; hold to apply force"
+                    aria-label="Apply force on the sensor at port E">
+              <span class="cstat-chip-icon" aria-hidden="true">👇</span>
+              <span class="cstat-chip-meta">
+                <span class="cstat-chip-head">
+                  <span class="cstat-chip-role">Force</span>
+                  <span class="cstat-chip-port">E</span>
+                </span>
+                <span class="cstat-chip-value" id="port-value-E">0.0 N</span>
+              </span>
+              <span class="port-force-fill" id="port-force-fill-E"></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Element kept so simulator.js's writes to canvas-ports id still find a node. -->
+        <div id="canvas-ports" style="display:none"></div>
+      </aside>
+
+      <button class="proto-sidebar-toggle" id="proto-sidebar-toggle" type="button" title="Hide / show status sidebar" aria-label="Toggle status sidebar" aria-pressed="false">
+        <span class="chev" aria-hidden="true">▶</span>
+      </button>
+    </div>
+
+    <div class="console-wrap" id="console-wrap">
+      <button class="console-header" id="console-toggle" type="button" aria-expanded="true" aria-controls="console-output">
+        <span class="dot"></span>
+        <span class="console-header-label">Console Output</span>
+        <span class="console-spacer"></span>
+        <span class="console-toggle-chevron" aria-hidden="true">▾</span>
+      </button>
+      <div id="console-output"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Bottom dock ─────────────────────────────────────── -->
+<div class="status-bar bottom-dock">
+  <div class="dock-actions">
+    <button class="btn btn-run  btn-icon-only" id="btn-run"   disabled title="Run (Ctrl+Enter)" aria-label="Run">
+      <span class="dock-icon" aria-hidden="true">▶</span>
+    </button>
+    <button class="btn btn-stop btn-icon-only" id="btn-stop"  disabled title="Stop" aria-label="Stop">
+      <span class="dock-icon" aria-hidden="true">■</span>
+    </button>
+    <button class="btn btn-reset btn-icon-only" id="btn-reset" title="Start over — reset robot to spawn" aria-label="Start over">
+      <span class="dock-icon" aria-hidden="true">↺</span>
+    </button>
+  </div>
+  <div class="dock-speed" title="Simulation speed multiplier">
+    <span class="dock-speed-label">Speed</span>
+    <input type="range" id="speed-slider" min="0.25" max="4" step="0.25" value="1" aria-label="Simulation speed">
+    <span id="speed-label">1x</span>
+  </div>
+  <div class="spacer"></div>
+  <div class="status-item">
+    <span class="status-dot ready" id="status-dot"></span>
+    <span id="status-label">Ready</span>
+  </div>
+</div>
+
+<!-- ── JavaScript ────────────────────────────────────────── -->
+<script src="../js/kinematics.js"></script>
+<script src="../js/force_sensor_logic.js"></script>
+<script src="../js/ruler.js"></script>
+<script src="../js/simulator.js"></script>
+<script src="../js/blockly_config.js"></script>
+<script src="../js/monaco_config.js"></script>
+<script src="../js/llsp3_assets.js"></script>
+<script src="../js/llsp3_manifest.js"></script>
+<script src="../js/llsp3_python.js"></script>
+<script src="../js/llsp3_blocks.js"></script>
+<script src="../js/llsp3_io.js"></script>
+<script src="../js/llsp3_ui.js"></script>
+<script src="../js/main.js"></script>
+<script src="../js/version_check.js"></script>
+<script>window.versionCheck && window.versionCheck.init();</script>
+
+<script>
+(function () {
+  const trigger = document.getElementById('settings-trigger');
+  const pop = document.getElementById('settings-pop');
+  if (!trigger || !pop) return;
+  function close() { pop.classList.remove('open'); trigger.setAttribute('aria-expanded', 'false'); }
+  function open() { pop.classList.add('open'); trigger.setAttribute('aria-expanded', 'true'); }
+  trigger.addEventListener('click', e => { e.stopPropagation(); pop.classList.contains('open') ? close() : open(); });
+  document.addEventListener('click', e => { if (!pop.contains(e.target) && e.target !== trigger && !trigger.contains(e.target)) close(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && pop.classList.contains('open')) close(); });
+})();
+
+(function () {
+  const wrap = document.getElementById('console-wrap');
+  const toggle = document.getElementById('console-toggle');
+  if (!wrap || !toggle) return;
+  const KEY = 'fll-console-collapsed';
+  function apply(collapsed) { wrap.classList.toggle('collapsed', collapsed); toggle.setAttribute('aria-expanded', String(!collapsed)); }
+  apply(localStorage.getItem(KEY) === '1');
+  toggle.addEventListener('click', () => { const next = !wrap.classList.contains('collapsed'); apply(next); localStorage.setItem(KEY, next ? '1' : '0'); });
+})();
+
+// Prototype A: sidebar toggle. Persists the collapsed state per-prototype so
+// returning users see the same layout. Triggers a window resize so the
+// simulator recomputes the canvas size via its existing resize handler.
+(function () {
+  const sb = document.getElementById('proto-sidebar');
+  const btn = document.getElementById('proto-sidebar-toggle');
+  if (!sb || !btn) return;
+  const KEY = 'fll-proto-a-sidebar-collapsed';
+  function apply(collapsed) {
+    sb.classList.toggle('collapsed', collapsed);
+    btn.setAttribute('aria-pressed', String(collapsed));
+    // Nudge the simulator to re-fit the canvas.
+    requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+  }
+  apply(localStorage.getItem(KEY) === '1');
+  btn.addEventListener('click', () => {
+    const next = !sb.classList.contains('collapsed');
+    apply(next);
+    localStorage.setItem(KEY, next ? '1' : '0');
+  });
+})();
+</script>
+
+<!-- ── PyScript: Spike Prime API Bridge ─────────────────── -->
+<script type="mpy" worker src="../py/spike_bridge.py"></script>
+
+</body>
+</html>

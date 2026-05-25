@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prototype E · Bottom Dock — Virtual Robot</title>
+
+  <link rel="stylesheet" href="https://pyscript.net/releases/2025.3.1/core.css">
+  <script type="module" src="https://pyscript.net/releases/2025.3.1/core.js"></script>
+
+  <script src="https://unpkg.com/blockly@10.4.3/blockly.min.js"></script>
+  <script src="https://unpkg.com/blockly@10.4.3/javascript_compressed.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs/loader.js"></script>
+
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="proto-shared.css">
+
+  <style>
+    /* ── Prototype E overrides ───────────────────────────── */
+
+    /* Bands removed from the right panel — canvas takes the whole panel. */
+    .panel-right > #canvas-ports,
+    .panel-right > #canvas-position { display: none !important; }
+
+    /* Position telemetry, inlined into the bottom dock. Each tile mirrors the
+       baseline cstat-pose but at dock-scale. */
+    .dock-position {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 0 8px;
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      height: 100%;
+    }
+    .dock-position .cstat-pose {
+      flex-direction: row;
+      align-items: baseline;
+      padding: 4px 8px;
+      border-right: none;
+      gap: 5px;
+      min-width: 0;
+    }
+    .dock-position .cstat-pose-label {
+      font-size: 9px;
+      margin-bottom: 0;
+    }
+    .dock-position .cstat-pose-value {
+      font-size: 12px;
+    }
+
+    /* Ports trigger button in the dock */
+    .dock-ports-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      cursor: pointer;
+      font-family: var(--font-ui);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text);
+      transition: border-color .12s, color .12s, background .12s;
+      height: 28px;
+    }
+    .dock-ports-btn:hover {
+      border-color: var(--amber);
+      color: var(--amber);
+    }
+    .dock-ports-btn[aria-expanded="true"] {
+      background: var(--surface3);
+      border-color: var(--amber);
+      color: var(--amber);
+    }
+    .dock-ports-btn .pip {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--text-dim);
+    }
+    .dock-ports-btn[data-active="true"] .pip {
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+    }
+    .dock-ports-btn .chev {
+      font-size: 10px;
+      transition: transform .15s;
+    }
+    .dock-ports-btn[aria-expanded="true"] .chev {
+      transform: rotate(180deg);
+    }
+
+    /* The slide-up panel that hangs over the canvas. Lives inside .panel-right
+       so it's anchored to the canvas area, not the whole window. */
+    .panel-right { position: relative; }
+    .dock-ports-panel {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      bottom: 0;
+      transform: translateY(110%);
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 12px 12px 0 0;
+      padding: 14px 14px 18px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      box-shadow: 0 -8px 28px rgba(0,0,0,0.35);
+      transition: transform .18s ease;
+      z-index: 4;
+    }
+    :root[data-theme="light"] .dock-ports-panel {
+      box-shadow: 0 -8px 28px rgba(15,23,42,0.16);
+    }
+    .dock-ports-panel.open {
+      transform: translateY(0);
+    }
+    .dock-ports-panel .cstat-section-label {
+      font-size: 10px;
+    }
+    .dock-ports-panel .cstat-group {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .dock-ports-panel .cstat-divider {
+      width: 1px;
+      align-self: stretch;
+      background: var(--border);
+    }
+  </style>
+</head>
+<body>
+
+<div id="py-loading">
+  <div class="loading-logo">
+    <div class="logo-mark">🤖</div>
+    <span>Virtual Robot</span>
+  </div>
+  <div class="loading-bar-wrap"><div class="loading-bar"></div></div>
+  <span class="loading-text">Loading MicroPython runtime…</span>
+</div>
+
+<div class="proto-banner">
+  <span class="proto-banner-title">Prototype E</span>
+  <span class="proto-banner-sep"></span>
+  <span class="proto-banner-desc">Bottom-dock telemetry — position chips inline in the dock; ports tucked behind a single button that slides up a panel.</span>
+  <div class="proto-banner-nav">
+    <a class="home" href="index.html">← All prototypes</a>
+    <a href="01-sidebar.html">A</a>
+    <a href="02-popovers.html">B</a>
+    <a href="03-hud.html">C</a>
+    <a href="04-strip.html">D</a>
+    <a href="05-dock.html" class="current">E</a>
+    <a href="06-pack.html">F</a>
+    <a href="../index.html">Baseline</a>
+  </div>
+</div>
+
+<header>
+  <div class="app-logo"><div class="logo-mark">🤖</div></div>
+
+  <div class="file-actions" id="file-actions">
+    <input type="text" id="project-name" class="project-name-input" placeholder="Untitled-Project" maxlength="64" title="Project name">
+    <input type="file" id="file-open-input" accept=".llsp3" style="display:none">
+    <button class="btn btn-icon-file" id="btn-new"  type="button" title="New project" aria-label="New project">📄</button>
+    <button class="btn btn-icon-file" id="btn-open" type="button" title="Open .llsp3 file" aria-label="Open project">📂</button>
+    <button class="btn btn-icon-file" id="btn-save" type="button" title="Save project" aria-label="Save project">💾</button>
+  </div>
+
+  <div class="tab-group">
+    <button class="tab-btn active" id="tab-blocks">🧱 Blocks</button>
+    <button class="tab-btn"        id="tab-python">🐍 Python</button>
+  </div>
+
+  <div class="spacer"></div>
+
+  <div class="header-controls">
+    <div class="settings-menu" id="settings-menu">
+      <button class="btn btn-settings" id="settings-trigger" type="button" aria-haspopup="true" aria-expanded="false" title="Settings">
+        <span class="settings-gear" aria-hidden="true">⚙</span> Settings
+      </button>
+      <div class="settings-pop" id="settings-pop" role="menu" aria-labelledby="settings-trigger">
+        <h3>Settings</h3>
+        <div class="sensor-row">
+          <span class="sensor-label">Theme</span>
+          <button class="btn btn-theme" id="btn-theme" title="Toggle light/dark theme" aria-label="Toggle theme">
+            <span class="icon-moon">🌙</span><span class="icon-sun">☀️</span>
+          </button>
+        </div>
+        <div class="sensor-row">
+          <span class="sensor-label">Units</span>
+          <select id="units-select" class="units-select" aria-label="Position units">
+            <option value="cm">cm</option>
+            <option value="mm">mm</option>
+            <option value="in">in</option>
+          </select>
+        </div>
+        <button class="btn btn-reset" id="btn-defaults" title="Reset theme, speed, and editor contents to defaults">⟲ Reset to defaults</button>
+      </div>
+    </div>
+    <a class="btn btn-support" id="btn-support" href="https://go.sanadfoundation.ca/support-fll-tooling-efforts" target="_blank" rel="noopener noreferrer" title="Support development of this simulator">
+      <span class="btn-support-icon" aria-hidden="true">❤️</span>
+      Support
+    </a>
+    <a class="btn btn-github btn-github-iconly" id="btn-github" href="https://github.com/sanadfoundation/fll-virtual-robot" target="_blank" rel="noopener noreferrer" title="View source on GitHub" aria-label="View source on GitHub">
+      <svg class="btn-github-mark" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+        <path fill="currentColor" fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+      </svg>
+    </a>
+  </div>
+</header>
+
+<div class="app-body">
+  <div class="panel-left">
+    <div class="editor-wrap">
+      <div id="py-editor-wrap" style="height:100%">
+        <div id="py-editor" style="height:100%"></div>
+      </div>
+      <div id="blockly-div"></div>
+    </div>
+  </div>
+
+  <div class="resize-handle" id="resize-handle">
+    <button class="resize-collapse-btn" id="resize-collapse-btn"
+            type="button"
+            aria-label="Collapse editor panel"
+            aria-pressed="false"
+            title="Collapse editor panel">
+      <span class="resize-collapse-icon" aria-hidden="true">◀</span>
+    </button>
+  </div>
+
+  <div class="panel-right">
+
+    <!-- Hidden anchor elements (kept so any IDs simulator.js or main.js may
+         reference resolve cleanly). -->
+    <div id="canvas-ports" aria-hidden="true"></div>
+    <div id="canvas-position" aria-hidden="true"></div>
+
+    <div class="canvas-wrap">
+      <canvas id="robot-canvas"></canvas>
+      <div id="canvas-hover" hidden></div>
+    </div>
+
+    <!-- Ports slide-up panel: hidden until the dock button opens it. The
+         chips live here permanently so the simulator's writes hit the same
+         IDs whether or not the panel is visible. -->
+    <div class="dock-ports-panel" id="dock-ports-panel" role="region" aria-label="Ports">
+      <div class="cstat-group" id="cstat-motors">
+        <span class="cstat-section-label">Motors</span>
+        <div class="cstat-chip" id="port-row-A" title="Light motor on port A — left drive wheel; value is current rotation">
+          <span class="cstat-chip-icon" aria-hidden="true">🛞</span>
+          <span class="cstat-chip-meta">
+            <span class="cstat-chip-head">
+              <span class="cstat-chip-role">Left</span>
+              <span class="cstat-chip-port">A</span>
+            </span>
+            <span class="cstat-chip-value" id="port-value-A">0°/s  0.0↻</span>
+          </span>
+        </div>
+        <div class="cstat-chip" id="port-row-B" title="Light motor on port B — right drive wheel; value is current rotation">
+          <span class="cstat-chip-icon" aria-hidden="true">🛞</span>
+          <span class="cstat-chip-meta">
+            <span class="cstat-chip-head">
+              <span class="cstat-chip-role">Right</span>
+              <span class="cstat-chip-port">B</span>
+            </span>
+            <span class="cstat-chip-value" id="port-value-B">0°/s  0.0↻</span>
+          </span>
+        </div>
+      </div>
+      <div class="cstat-divider" aria-hidden="true"></div>
+      <div class="cstat-group" id="cstat-sensors">
+        <span class="cstat-section-label">Sensors</span>
+        <div class="cstat-chip cstat-chip-color" id="port-row-C" title="Color sensor on port C">
+          <span class="cstat-chip-icon" aria-hidden="true">🎨</span>
+          <span class="cstat-chip-meta">
+            <span class="cstat-chip-head">
+              <span class="cstat-chip-role">Color</span>
+              <span class="cstat-chip-port">C</span>
+            </span>
+            <span class="cstat-chip-value" id="port-value-C">none</span>
+          </span>
+          <span class="sensor-color-swatch" id="color-swatch"></span>
+        </div>
+        <div class="cstat-chip" id="port-row-D" title="Distance sensor on port D">
+          <span class="cstat-chip-icon" aria-hidden="true">📏</span>
+          <span class="cstat-chip-meta">
+            <span class="cstat-chip-head">
+              <span class="cstat-chip-role">Distance</span>
+              <span class="cstat-chip-port">D</span>
+            </span>
+            <span class="cstat-chip-value" id="port-value-D">—</span>
+          </span>
+        </div>
+        <button class="cstat-chip cstat-chip-force" id="port-force-E" type="button"
+                title="Force sensor on port E — press &amp; hold to apply force"
+                aria-label="Apply force on the sensor at port E">
+          <span class="cstat-chip-icon" aria-hidden="true">👇</span>
+          <span class="cstat-chip-meta">
+            <span class="cstat-chip-head">
+              <span class="cstat-chip-role">Force</span>
+              <span class="cstat-chip-port">E</span>
+            </span>
+            <span class="cstat-chip-value" id="port-value-E">0.0 N</span>
+          </span>
+          <span class="port-force-fill" id="port-force-fill-E"></span>
+        </button>
+      </div>
+    </div>
+
+    <div class="console-wrap" id="console-wrap">
+      <button class="console-header" id="console-toggle" type="button" aria-expanded="true" aria-controls="console-output">
+        <span class="dot"></span>
+        <span class="console-header-label">Console Output</span>
+        <span class="console-spacer"></span>
+        <span class="console-toggle-chevron" aria-hidden="true">▾</span>
+      </button>
+      <div id="console-output"></div>
+    </div>
+  </div>
+</div>
+
+<div class="status-bar bottom-dock">
+  <div class="dock-actions">
+    <button class="btn btn-run  btn-icon-only" id="btn-run"   disabled title="Run (Ctrl+Enter)" aria-label="Run">
+      <span class="dock-icon" aria-hidden="true">▶</span>
+    </button>
+    <button class="btn btn-stop btn-icon-only" id="btn-stop"  disabled title="Stop" aria-label="Stop">
+      <span class="dock-icon" aria-hidden="true">■</span>
+    </button>
+    <button class="btn btn-reset btn-icon-only" id="btn-reset" title="Start over — reset robot to spawn" aria-label="Start over">
+      <span class="dock-icon" aria-hidden="true">↺</span>
+    </button>
+  </div>
+  <div class="dock-speed" title="Simulation speed multiplier">
+    <span class="dock-speed-label">Speed</span>
+    <input type="range" id="speed-slider" min="0.25" max="4" step="0.25" value="1" aria-label="Simulation speed">
+    <span id="speed-label">1x</span>
+  </div>
+  <div class="spacer"></div>
+
+  <!-- Position chips inlined into the dock -->
+  <div class="dock-position" title="Robot pose">
+    <div class="cstat-pose" title="X position">
+      <span class="cstat-pose-label">X</span>
+      <span class="cstat-pose-value" id="sp-x">—</span>
+    </div>
+    <div class="cstat-pose" title="Y position">
+      <span class="cstat-pose-label">Y</span>
+      <span class="cstat-pose-value" id="sp-y">—</span>
+    </div>
+    <div class="cstat-pose" title="Heading">
+      <span class="cstat-pose-label">H</span>
+      <span class="cstat-pose-value" id="sp-heading">—</span>
+    </div>
+    <div class="cstat-pose" title="Yaw">
+      <span class="cstat-pose-label">Y°</span>
+      <span class="cstat-pose-value" id="sp-yaw">—</span>
+    </div>
+  </div>
+
+  <!-- Ports panel trigger -->
+  <button class="dock-ports-btn" id="dock-ports-btn" type="button" aria-haspopup="true" aria-expanded="false" data-active="false" title="Open Motors / Sensors panel">
+    <span class="pip" aria-hidden="true"></span>
+    🎯 Ports
+    <span class="chev" aria-hidden="true">▴</span>
+  </button>
+
+  <div class="status-item">
+    <span class="status-dot ready" id="status-dot"></span>
+    <span id="status-label">Ready</span>
+  </div>
+</div>
+
+<script src="../js/kinematics.js"></script>
+<script src="../js/force_sensor_logic.js"></script>
+<script src="../js/ruler.js"></script>
+<script src="../js/simulator.js"></script>
+<script src="../js/blockly_config.js"></script>
+<script src="../js/monaco_config.js"></script>
+<script src="../js/llsp3_assets.js"></script>
+<script src="../js/llsp3_manifest.js"></script>
+<script src="../js/llsp3_python.js"></script>
+<script src="../js/llsp3_blocks.js"></script>
+<script src="../js/llsp3_io.js"></script>
+<script src="../js/llsp3_ui.js"></script>
+<script src="../js/main.js"></script>
+<script src="../js/version_check.js"></script>
+<script>window.versionCheck && window.versionCheck.init();</script>
+
+<script>
+(function () {
+  const trigger = document.getElementById('settings-trigger');
+  const pop = document.getElementById('settings-pop');
+  if (!trigger || !pop) return;
+  function close() { pop.classList.remove('open'); trigger.setAttribute('aria-expanded', 'false'); }
+  function open() { pop.classList.add('open'); trigger.setAttribute('aria-expanded', 'true'); }
+  trigger.addEventListener('click', e => { e.stopPropagation(); pop.classList.contains('open') ? close() : open(); });
+  document.addEventListener('click', e => { if (!pop.contains(e.target) && e.target !== trigger && !trigger.contains(e.target)) close(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && pop.classList.contains('open')) close(); });
+})();
+
+(function () {
+  const wrap = document.getElementById('console-wrap');
+  const toggle = document.getElementById('console-toggle');
+  if (!wrap || !toggle) return;
+  const KEY = 'fll-console-collapsed';
+  function apply(collapsed) { wrap.classList.toggle('collapsed', collapsed); toggle.setAttribute('aria-expanded', String(!collapsed)); }
+  apply(localStorage.getItem(KEY) === '1');
+  toggle.addEventListener('click', () => { const next = !wrap.classList.contains('collapsed'); apply(next); localStorage.setItem(KEY, next ? '1' : '0'); });
+})();
+
+// Prototype E: ports slide-up panel. Outside-click and Escape close it. The
+// activity pip lights green briefly when any motor or sensor value changes
+// so the user can tell to peek even when the panel is closed.
+(function () {
+  const btn = document.getElementById('dock-ports-btn');
+  const panel = document.getElementById('dock-ports-panel');
+  if (!btn || !panel) return;
+
+  function close() {
+    panel.classList.remove('open');
+    btn.setAttribute('aria-expanded', 'false');
+  }
+  function open() {
+    panel.classList.add('open');
+    btn.setAttribute('aria-expanded', 'true');
+  }
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    panel.classList.contains('open') ? close() : open();
+  });
+  document.addEventListener('click', e => {
+    if (panel.contains(e.target) || btn.contains(e.target)) return;
+    close();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+
+  // Activity indicator: light up when any port value changes.
+  const ids = ['port-value-A', 'port-value-B', 'port-value-C', 'port-value-D', 'port-value-E'];
+  let last = ids.map(id => (document.getElementById(id) || {}).textContent || '');
+  let t;
+  setInterval(() => {
+    let changed = false;
+    ids.forEach((id, i) => {
+      const cur = (document.getElementById(id) || {}).textContent || '';
+      if (cur !== last[i]) { changed = true; last[i] = cur; }
+    });
+    if (changed) {
+      btn.setAttribute('data-active', 'true');
+      clearTimeout(t);
+      t = setTimeout(() => btn.setAttribute('data-active', 'false'), 700);
+    }
+  }, 250);
+})();
+</script>
+
+<script type="mpy" worker src="../py/spike_bridge.py"></script>
+
+</body>
+</html>

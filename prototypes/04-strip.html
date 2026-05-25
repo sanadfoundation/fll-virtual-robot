@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prototype D · Thin Strips — Virtual Robot</title>
+
+  <link rel="stylesheet" href="https://pyscript.net/releases/2025.3.1/core.css">
+  <script type="module" src="https://pyscript.net/releases/2025.3.1/core.js"></script>
+
+  <script src="https://unpkg.com/blockly@10.4.3/blockly.min.js"></script>
+  <script src="https://unpkg.com/blockly@10.4.3/javascript_compressed.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs/loader.js"></script>
+
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="proto-shared.css">
+
+  <style>
+    /* ── Prototype D overrides ───────────────────────────── */
+
+    /* Collapsed mode: shrink each band from ~62px to ~28px by hiding icons +
+       the role/port head row, leaving a compact inline value-only strip.
+       Click anywhere on the strip to expand back to full chips. */
+    .canvas-status.proto-collapsed {
+      padding: 3px 12px;
+      gap: 6px;
+      cursor: pointer;
+    }
+    .canvas-status.proto-collapsed .cstat-section-label {
+      font-size: 9px;
+      padding-right: 6px;
+      border-right: 1px solid var(--border);
+    }
+    .canvas-status.proto-collapsed .cstat-chip {
+      padding: 2px 8px;
+      min-height: 22px;
+      background: transparent;
+      border: 0;
+      gap: 4px;
+    }
+    .canvas-status.proto-collapsed .cstat-chip-icon { display: none; }
+    .canvas-status.proto-collapsed .cstat-chip-head {
+      gap: 4px;
+    }
+    .canvas-status.proto-collapsed .cstat-chip-meta {
+      flex-direction: row;
+      align-items: baseline;
+      gap: 6px;
+    }
+    .canvas-status.proto-collapsed .cstat-chip-role { font-size: 9px; }
+    .canvas-status.proto-collapsed .cstat-chip-port { display: none; }
+    .canvas-status.proto-collapsed .cstat-chip-value {
+      font-size: 12px;
+    }
+    .canvas-status.proto-collapsed .sensor-color-swatch {
+      width: 10px;
+      height: 10px;
+    }
+    .canvas-status.proto-collapsed .cstat-chip-force {
+      cursor: pointer;
+      background: var(--surface2);
+      padding: 2px 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+    .canvas-status.proto-collapsed .port-force-fill {
+      height: 2px;
+      bottom: 0;
+    }
+    .canvas-status.proto-collapsed .cstat-divider {
+      margin: 0 2px;
+    }
+    /* Position strip in collapsed mode */
+    .canvas-status.proto-collapsed .cstat-pose {
+      flex-direction: row;
+      align-items: baseline;
+      padding: 2px 8px;
+      border-right: 1px solid var(--border);
+      min-width: 0;
+      gap: 6px;
+    }
+    .canvas-status.proto-collapsed .cstat-pose-label {
+      margin-bottom: 0;
+      font-size: 9px;
+    }
+    .canvas-status.proto-collapsed .cstat-pose-value {
+      font-size: 12px;
+    }
+    /* Expand chevron lives on the right side of each strip */
+    .proto-strip-chev {
+      margin-left: auto;
+      width: 22px;
+      height: 18px;
+      display: grid;
+      place-items: center;
+      color: var(--text-dim);
+      font-size: 10px;
+      border-radius: 4px;
+      transition: transform .15s, color .12s, background .12s;
+    }
+    .canvas-status.proto-collapsed:hover .proto-strip-chev {
+      color: var(--amber);
+      background: var(--surface3);
+    }
+    .canvas-status:not(.proto-collapsed) .proto-strip-chev {
+      transform: rotate(180deg);
+    }
+
+    /* Hint that the whole strip is clickable */
+    .canvas-status.proto-collapsed:hover {
+      background: linear-gradient(180deg, var(--surface), var(--surface2));
+    }
+  </style>
+</head>
+<body>
+
+<div id="py-loading">
+  <div class="loading-logo">
+    <div class="logo-mark">🤖</div>
+    <span>Virtual Robot</span>
+  </div>
+  <div class="loading-bar-wrap"><div class="loading-bar"></div></div>
+  <span class="loading-text">Loading MicroPython runtime…</span>
+</div>
+
+<div class="proto-banner">
+  <span class="proto-banner-title">Prototype D</span>
+  <span class="proto-banner-sep"></span>
+  <span class="proto-banner-desc">Thin strips — same bands but condensed to a single line each. Click a strip to expand to full chips; click the chevron to collapse again.</span>
+  <div class="proto-banner-nav">
+    <a class="home" href="index.html">← All prototypes</a>
+    <a href="01-sidebar.html">A</a>
+    <a href="02-popovers.html">B</a>
+    <a href="03-hud.html">C</a>
+    <a href="04-strip.html" class="current">D</a>
+    <a href="05-dock.html">E</a>
+    <a href="06-pack.html">F</a>
+    <a href="../index.html">Baseline</a>
+  </div>
+</div>
+
+<header>
+  <div class="app-logo"><div class="logo-mark">🤖</div></div>
+
+  <div class="file-actions" id="file-actions">
+    <input type="text" id="project-name" class="project-name-input" placeholder="Untitled-Project" maxlength="64" title="Project name">
+    <input type="file" id="file-open-input" accept=".llsp3" style="display:none">
+    <button class="btn btn-icon-file" id="btn-new"  type="button" title="New project" aria-label="New project">📄</button>
+    <button class="btn btn-icon-file" id="btn-open" type="button" title="Open .llsp3 file" aria-label="Open project">📂</button>
+    <button class="btn btn-icon-file" id="btn-save" type="button" title="Save project" aria-label="Save project">💾</button>
+  </div>
+
+  <div class="tab-group">
+    <button class="tab-btn active" id="tab-blocks">🧱 Blocks</button>
+    <button class="tab-btn"        id="tab-python">🐍 Python</button>
+  </div>
+
+  <div class="spacer"></div>
+
+  <div class="header-controls">
+    <div class="settings-menu" id="settings-menu">
+      <button class="btn btn-settings" id="settings-trigger" type="button" aria-haspopup="true" aria-expanded="false" title="Settings">
+        <span class="settings-gear" aria-hidden="true">⚙</span> Settings
+      </button>
+      <div class="settings-pop" id="settings-pop" role="menu" aria-labelledby="settings-trigger">
+        <h3>Settings</h3>
+        <div class="sensor-row">
+          <span class="sensor-label">Theme</span>
+          <button class="btn btn-theme" id="btn-theme" title="Toggle light/dark theme" aria-label="Toggle theme">
+            <span class="icon-moon">🌙</span><span class="icon-sun">☀️</span>
+          </button>
+        </div>
+        <div class="sensor-row">
+          <span class="sensor-label">Units</span>
+          <select id="units-select" class="units-select" aria-label="Position units">
+            <option value="cm">cm</option>
+            <option value="mm">mm</option>
+            <option value="in">in</option>
+          </select>
+        </div>
+        <button class="btn btn-reset" id="btn-defaults" title="Reset theme, speed, and editor contents to defaults">⟲ Reset to defaults</button>
+      </div>
+    </div>
+    <a class="btn btn-support" id="btn-support" href="https://go.sanadfoundation.ca/support-fll-tooling-efforts" target="_blank" rel="noopener noreferrer" title="Support development of this simulator">
+      <span class="btn-support-icon" aria-hidden="true">❤️</span>
+      Support
+    </a>
+    <a class="btn btn-github btn-github-iconly" id="btn-github" href="https://github.com/sanadfoundation/fll-virtual-robot" target="_blank" rel="noopener noreferrer" title="View source on GitHub" aria-label="View source on GitHub">
+      <svg class="btn-github-mark" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+        <path fill="currentColor" fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+      </svg>
+    </a>
+  </div>
+</header>
+
+<div class="app-body">
+  <div class="panel-left">
+    <div class="editor-wrap">
+      <div id="py-editor-wrap" style="height:100%">
+        <div id="py-editor" style="height:100%"></div>
+      </div>
+      <div id="blockly-div"></div>
+    </div>
+  </div>
+
+  <div class="resize-handle" id="resize-handle">
+    <button class="resize-collapse-btn" id="resize-collapse-btn"
+            type="button"
+            aria-label="Collapse editor panel"
+            aria-pressed="false"
+            title="Collapse editor panel">
+      <span class="resize-collapse-icon" aria-hidden="true">◀</span>
+    </button>
+  </div>
+
+  <div class="panel-right">
+
+    <!-- Ports band: starts collapsed; clicking it expands to full chips. -->
+    <div class="canvas-status canvas-status-ports proto-collapsed" id="canvas-ports" title="Click to expand">
+      <div class="cstat-group" id="cstat-motors">
+        <span class="cstat-section-label">Motors</span>
+        <div class="cstat-chip" id="port-row-A" title="Light motor on port A — left drive wheel; value is current rotation">
+          <span class="cstat-chip-icon" aria-hidden="true">🛞</span>
+          <span class="cstat-chip-meta">
+            <span class="cstat-chip-head">
+              <span class="cstat-chip-role">Left</span>
+              <span class="cstat-chip-port">A</span>
+            </span>
+            <span class="cstat-chip-value" id="port-value-A">0°/s  0.0↻</span>
+          </span>
+        </div>
+        <div class="cstat-chip" id="port-row-B" title="Light motor on port B — right drive wheel; value is current rotation">
+          <span class="cstat-chip-icon" aria-hidden="true">🛞</span>
+          <span class="cstat-chip-meta">
+            <span class="cstat-chip-head">
+              <span class="cstat-chip-role">Right</span>
+              <span class="cstat-chip-port">B</span>
+            </span>
+            <span class="cstat-chip-value" id="port-value-B">0°/s  0.0↻</span>
+          </span>
+        </div>
+      </div>
+      <div class="cstat-divider" aria-hidden="true"></div>
+      <div class="cstat-group" id="cstat-sensors">
+        <span class="cstat-section-label">Sensors</span>
+        <div class="cstat-chip cstat-chip-color" id="port-row-C" title="Color sensor on port C">
+          <span class="cstat-chip-icon" aria-hidden="true">🎨</span>
+          <span class="cstat-chip-meta">
+            <span class="cstat-chip-head">
+              <span class="cstat-chip-role">Color</span>
+              <span class="cstat-chip-port">C</span>
+            </span>
+            <span class="cstat-chip-value" id="port-value-C">none</span>
+          </span>
+          <span class="sensor-color-swatch" id="color-swatch"></span>
+        </div>
+        <div class="cstat-chip" id="port-row-D" title="Distance sensor on port D">
+          <span class="cstat-chip-icon" aria-hidden="true">📏</span>
+          <span class="cstat-chip-meta">
+            <span class="cstat-chip-head">
+              <span class="cstat-chip-role">Distance</span>
+              <span class="cstat-chip-port">D</span>
+            </span>
+            <span class="cstat-chip-value" id="port-value-D">—</span>
+          </span>
+        </div>
+        <button class="cstat-chip cstat-chip-force" id="port-force-E" type="button"
+                title="Force sensor on port E — press &amp; hold to apply force"
+                aria-label="Apply force on the sensor at port E">
+          <span class="cstat-chip-icon" aria-hidden="true">👇</span>
+          <span class="cstat-chip-meta">
+            <span class="cstat-chip-head">
+              <span class="cstat-chip-role">Force</span>
+              <span class="cstat-chip-port">E</span>
+            </span>
+            <span class="cstat-chip-value" id="port-value-E">0.0 N</span>
+          </span>
+          <span class="port-force-fill" id="port-force-fill-E"></span>
+        </button>
+      </div>
+      <span class="proto-strip-chev" aria-hidden="true">▾</span>
+    </div>
+
+    <div class="canvas-wrap">
+      <canvas id="robot-canvas"></canvas>
+      <div id="canvas-hover" hidden></div>
+    </div>
+
+    <div class="canvas-status canvas-status-position proto-collapsed" id="canvas-position" title="Click to expand">
+      <span class="cstat-section-label">Position</span>
+      <div class="cstat-pose" title="Horizontal position">
+        <span class="cstat-pose-label">X</span>
+        <span class="cstat-pose-value" id="sp-x">—</span>
+      </div>
+      <div class="cstat-pose" title="Vertical position">
+        <span class="cstat-pose-label">Y</span>
+        <span class="cstat-pose-value" id="sp-y">—</span>
+      </div>
+      <div class="cstat-pose" title="Heading">
+        <span class="cstat-pose-label">Heading</span>
+        <span class="cstat-pose-value" id="sp-heading">—</span>
+      </div>
+      <div class="cstat-pose" title="Yaw">
+        <span class="cstat-pose-label">Yaw</span>
+        <span class="cstat-pose-value" id="sp-yaw">—</span>
+      </div>
+      <span class="proto-strip-chev" aria-hidden="true">▾</span>
+    </div>
+
+    <div class="console-wrap" id="console-wrap">
+      <button class="console-header" id="console-toggle" type="button" aria-expanded="true" aria-controls="console-output">
+        <span class="dot"></span>
+        <span class="console-header-label">Console Output</span>
+        <span class="console-spacer"></span>
+        <span class="console-toggle-chevron" aria-hidden="true">▾</span>
+      </button>
+      <div id="console-output"></div>
+    </div>
+  </div>
+</div>
+
+<div class="status-bar bottom-dock">
+  <div class="dock-actions">
+    <button class="btn btn-run  btn-icon-only" id="btn-run"   disabled title="Run (Ctrl+Enter)" aria-label="Run">
+      <span class="dock-icon" aria-hidden="true">▶</span>
+    </button>
+    <button class="btn btn-stop btn-icon-only" id="btn-stop"  disabled title="Stop" aria-label="Stop">
+      <span class="dock-icon" aria-hidden="true">■</span>
+    </button>
+    <button class="btn btn-reset btn-icon-only" id="btn-reset" title="Start over — reset robot to spawn" aria-label="Start over">
+      <span class="dock-icon" aria-hidden="true">↺</span>
+    </button>
+  </div>
+  <div class="dock-speed" title="Simulation speed multiplier">
+    <span class="dock-speed-label">Speed</span>
+    <input type="range" id="speed-slider" min="0.25" max="4" step="0.25" value="1" aria-label="Simulation speed">
+    <span id="speed-label">1x</span>
+  </div>
+  <div class="spacer"></div>
+  <div class="status-item">
+    <span class="status-dot ready" id="status-dot"></span>
+    <span id="status-label">Ready</span>
+  </div>
+</div>
+
+<script src="../js/kinematics.js"></script>
+<script src="../js/force_sensor_logic.js"></script>
+<script src="../js/ruler.js"></script>
+<script src="../js/simulator.js"></script>
+<script src="../js/blockly_config.js"></script>
+<script src="../js/monaco_config.js"></script>
+<script src="../js/llsp3_assets.js"></script>
+<script src="../js/llsp3_manifest.js"></script>
+<script src="../js/llsp3_python.js"></script>
+<script src="../js/llsp3_blocks.js"></script>
+<script src="../js/llsp3_io.js"></script>
+<script src="../js/llsp3_ui.js"></script>
+<script src="../js/main.js"></script>
+<script src="../js/version_check.js"></script>
+<script>window.versionCheck && window.versionCheck.init();</script>
+
+<script>
+(function () {
+  const trigger = document.getElementById('settings-trigger');
+  const pop = document.getElementById('settings-pop');
+  if (!trigger || !pop) return;
+  function close() { pop.classList.remove('open'); trigger.setAttribute('aria-expanded', 'false'); }
+  function open() { pop.classList.add('open'); trigger.setAttribute('aria-expanded', 'true'); }
+  trigger.addEventListener('click', e => { e.stopPropagation(); pop.classList.contains('open') ? close() : open(); });
+  document.addEventListener('click', e => { if (!pop.contains(e.target) && e.target !== trigger && !trigger.contains(e.target)) close(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && pop.classList.contains('open')) close(); });
+})();
+
+(function () {
+  const wrap = document.getElementById('console-wrap');
+  const toggle = document.getElementById('console-toggle');
+  if (!wrap || !toggle) return;
+  const KEY = 'fll-console-collapsed';
+  function apply(collapsed) { wrap.classList.toggle('collapsed', collapsed); toggle.setAttribute('aria-expanded', String(!collapsed)); }
+  apply(localStorage.getItem(KEY) === '1');
+  toggle.addEventListener('click', () => { const next = !wrap.classList.contains('collapsed'); apply(next); localStorage.setItem(KEY, next ? '1' : '0'); });
+})();
+
+// Prototype D: click a strip to toggle collapsed/expanded. The force chip is
+// a button — clicks on it must NOT toggle the strip (force-press would fire
+// the toggle every time). Persist each strip's state independently.
+(function () {
+  const KEY_PORTS = 'fll-proto-d-ports-expanded';
+  const KEY_POS   = 'fll-proto-d-pos-expanded';
+  const ports = document.getElementById('canvas-ports');
+  const pos   = document.getElementById('canvas-position');
+  if (!ports || !pos) return;
+
+  function applyExpanded(el, expanded) {
+    el.classList.toggle('proto-collapsed', !expanded);
+    el.setAttribute('title', expanded ? 'Click chevron to collapse' : 'Click to expand');
+  }
+  applyExpanded(ports, localStorage.getItem(KEY_PORTS) === '1');
+  applyExpanded(pos,   localStorage.getItem(KEY_POS)   === '1');
+
+  function bind(el, key) {
+    el.addEventListener('click', e => {
+      // Don't toggle when the force chip swallows the click.
+      if (e.target.closest('#port-force-E')) return;
+      const expanded = el.classList.contains('proto-collapsed');
+      applyExpanded(el, expanded);
+      localStorage.setItem(key, expanded ? '1' : '0');
+      // Nudge the canvas to refit after the height change.
+      requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+    });
+  }
+  bind(ports, KEY_PORTS);
+  bind(pos,   KEY_POS);
+})();
+</script>
+
+<script type="mpy" worker src="../py/spike_bridge.py"></script>
+
+</body>
+</html>
