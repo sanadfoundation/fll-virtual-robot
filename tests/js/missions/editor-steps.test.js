@@ -123,3 +123,39 @@ test('steps: selected row gets .selected class', () => {
   const row = doc.getElementById('editor-steps-list').children[0];
   assert.ok(row.classList.contains('selected'));
 });
+
+test('requires: checkbox for another step toggles requires on the row', () => {
+  const { ctx, doc, app } = setup();
+  app.enterEditor();
+  doc.getElementById('btn-add-step')._click();
+  doc.getElementById('btn-add-step')._click();
+  const [a, b] = app.editorState.steps;
+  // Open requires on row B (second row).
+  const rows = doc.getElementById('editor-steps-list').children;
+  const reqBtn = rows[1].querySelector('.step-requires-btn');
+  reqBtn._click();
+  // The panel should be in the DOM with a checkbox for step A.
+  const panel = rows[1].querySelector('.step-requires-panel');
+  assert.ok(panel, 'requires panel should appear');
+  const checkbox = panel.querySelector('input');
+  assert.ok(checkbox, 'expected a checkbox for the other step');
+  checkbox._fire('change', { target: { checked: true } });
+  // Mock input doesn't track `checked` on the actual input — the handler reads
+  // from the synthetic event. Verify state side-effect:
+  assert.deepStrictEqual(app.editorState.steps[1].requires, [a.id]);
+});
+
+test('requires: toggling off removes the requirement', () => {
+  const { ctx, doc, app } = setup();
+  app.enterEditor();
+  doc.getElementById('btn-add-step')._click();
+  doc.getElementById('btn-add-step')._click();
+  const [a, b] = app.editorState.steps;
+  app.setEditorState(ctx.MISSIONS.editor.state.editStep(app.editorState, b.id, { requires: [a.id] }));
+  const rows = doc.getElementById('editor-steps-list').children;
+  rows[1].querySelector('.step-requires-btn')._click();
+  const panel = rows[1].querySelector('.step-requires-panel');
+  const checkbox = panel.querySelector('input');
+  checkbox._fire('change', { target: { checked: false } });
+  assert.deepStrictEqual(app.editorState.steps[1].requires, []);
+});

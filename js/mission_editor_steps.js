@@ -90,6 +90,48 @@
         }
       });
 
+      const reqBtn = doc.createElement('button');
+      reqBtn.classList.add('step-requires-btn');
+      reqBtn.setAttribute('type', 'button');
+      reqBtn.textContent = '⛓';
+      let panel = null;
+      reqBtn.addEventListener('click', (e) => {
+        if (e && e.stopPropagation) e.stopPropagation();
+        e._handled = true;
+        if (panel) { row.removeChild(panel); panel = null; return; }
+        panel = doc.createElement('div');
+        panel.classList.add('step-requires-panel');
+        const others = app.editorState.steps.filter(s => s.id !== step.id);
+        if (others.length === 0) {
+          const empty = doc.createElement('div');
+          empty.textContent = 'No other steps yet.';
+          empty.classList.add('step-requires-empty');
+          panel.appendChild(empty);
+        } else {
+          const currentRequires = new Set(step.requires || []);
+          for (const other of others) {
+            const label = doc.createElement('label');
+            label.classList.add('step-requires-item');
+            const cb = doc.createElement('input');
+            cb.setAttribute('type', 'checkbox');
+            if (currentRequires.has(other.id)) cb.setAttribute('checked', 'true');
+            cb.addEventListener('change', (ev) => {
+              const checked = ev.target && ev.target.checked;
+              const cur = new Set(app.editorState.steps.find(s => s.id === step.id).requires || []);
+              if (checked) cur.add(other.id); else cur.delete(other.id);
+              app.setEditorState(MISSIONS.editor.state.editStep(
+                app.editorState, step.id, { requires: Array.from(cur) }));
+            });
+            label.appendChild(cb);
+            const span = doc.createElement('span');
+            span.textContent = other.title || other.id;
+            label.appendChild(span);
+            panel.appendChild(label);
+          }
+        }
+        row.appendChild(panel);
+      });
+
       const del = doc.createElement('button');
       del.classList.add('step-delete-btn');
       del.setAttribute('type', 'button');
@@ -110,6 +152,7 @@
       row.appendChild(hint);
       row.appendChild(up);
       row.appendChild(down);
+      row.appendChild(reqBtn);
       row.appendChild(del);
       return row;
     }

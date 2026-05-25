@@ -249,7 +249,7 @@ body[data-mode="editor"] .editor-overlay-svg { pointer-events: auto; }
 
 .editor-step-row {
   display: grid;
-  grid-template-columns: 1fr 50px 1fr 24px 24px 24px;
+  grid-template-columns: 1fr 50px 1fr 24px 24px 24px 24px;
   gap: 3px;
   align-items: center;
   padding: 6px;
@@ -257,6 +257,40 @@ body[data-mode="editor"] .editor-overlay-svg { pointer-events: auto; }
   border: 1px solid var(--border);
   border-radius: 6px;
   cursor: pointer;
+}
+.step-requires-btn {
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--text-mid);
+  width: 24px; height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 11px;
+}
+.step-requires-btn:hover { color: var(--amber); border-color: var(--amber); }
+.step-requires-panel {
+  grid-column: 1 / -1;
+  background: var(--surface3);
+  border-top: 1px solid var(--border2);
+  margin-top: 6px;
+  padding: 8px;
+  border-radius: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.step-requires-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text);
+}
+.step-requires-empty {
+  font-size: 11px;
+  color: var(--text-mid);
+  font-style: italic;
 }
 .editor-step-row.selected {
   border-color: var(--amber);
