@@ -207,40 +207,52 @@ practice.
 
 ### Placement
 
-A floating card pinned to the top-right corner of the canvas viewport,
-inside `.canvas-wrap`, with `position: absolute` so it overlays the field
-rather than displacing the always-visible Ports / Position bands.
+The bottom console strip splits horizontally into a console-output pane (left)
+and a variables pane (right), sharing the existing 88px-tall band. The
+variables pane sits beside the print output kids already read, never overlaps
+the field, and never displaces any always-visible status (Ports, Position).
 
 ```
 ┌─────────────────────────────────────────────────────┐
 │  Ports band (motors A/B, sensors C/D/E)             │
 ├─────────────────────────────────────────────────────┤
-│                                          ┌────────┐ │
-│                                          │ Watch  │ │
-│           canvas                         ├────────┤ │
-│                                          │ score  │ │
-│                                          │   42   │ │
-│                                          │        │ │
-│                                          │ ready  │ │
-│                                          │ true   │ │
-│                                          └────────┘ │
+│                                                     │
+│                                                     │
+│              FLL field canvas                       │
+│                                                     │
+│                                                     │
 ├─────────────────────────────────────────────────────┤
 │  Position band (X / Y / Heading / Yaw)              │
-├─────────────────────────────────────────────────────┤
-│  Console                                            │
-└─────────────────────────────────────────────────────┘
+├─────────────────────────────────────────────┬───────┤
+│ [Run] Executing blocks…                     │ Vars  │
+│ [info] Mission complete!                    ├───────┤
+│                                             │ score │
+│                                             │  42   │
+│                                             │ ready │
+│                                             │ true  │
+└─────────────────────────────────────────────┴───────┘
 ```
 
-Width ~160px, max-height 40% of the canvas (scrolls internally beyond that),
-theme-aware background, 4px shadow. Anchored top-right with 12px margin.
-Draggable handle on its title bar; position persists in localStorage
-(`fll-vr-watch-pos`).
+The existing `#console-wrap` becomes a flex row. The console output keeps
+its current padding, scroll, and styling but moves into a sibling div
+(`.console-output-pane`). A new `.watch-pane` sits to its right, with its
+own header strip, alphabetised row list, and internal scroll. The split
+defaults to **62% / 38%**; both panes scroll independently when their
+content overflows.
+
+Decision (locked): chosen over the overlay, status-band, and editor-drawer
+options. Rationale: the watch pane sits next to the print output kids already
+read, the field stays visually uncluttered, and the layout claims no new
+vertical space — the console strip is reused, not extended. The full
+side-by-side comparison lives in `prototypes/watch-panel/index.html`.
 
 ### Behavior
 
-- **Hidden by default** until a variable has been declared *or* set. The card
-  fades in (`opacity 0 → 1` over 150ms) on first appearance and fades out when
-  cleared. Zero-state = no card at all, no header taking up space.
+- **Hidden when empty.** The watch pane is `display: none` until a variable
+  has been declared *or* set; the console pane fills the strip alone. As soon
+  as the first `_watch.declare` or `_watch.set` fires, the pane slides in (a
+  width transition from 0 → 38% over 200ms) and stays for the rest of the
+  run. Zero-state = console takes the whole bar, no header chrome wasted.
 - **One row per variable.** Sorted alphabetically by display name.
 - **Change flash:** when `set(name, value)` is called and the value differs
   from the current display, the row's background pulses (a 600ms ease-out
@@ -251,11 +263,18 @@ Draggable handle on its title bar; position persists in localStorage
   arrays shown as `[a, b, c]` with truncation at 32 chars and full value in
   a `title` tooltip.
 - **Clear on Run.** `handleRun` (`js/main.js:279`) calls `_watch.clear()` right
-  after `clearOutput()`. The panel goes back to its hidden state until the new
-  run's first declare/set.
+  after `clearOutput()`. The pane goes back to its hidden state (width 0,
+  `display: none` after the transition) until the new run's first declare/set.
+- **Console-collapse coexistence.** The existing console can be collapsed via
+  its header chevron (the IIFE at the bottom of `index.html` toggles
+  `.collapsed` on `#console-wrap`). When collapsed, the entire strip — both
+  the output pane and the watch pane — folds away together. No separate
+  collapse for the watch pane; that would duplicate state for no kid-visible
+  benefit.
 - **Toggle.** A single button in the Settings popover — *Variables: shown /
-  hidden* — lets a teacher hide the panel entirely for assessments. State in
-  localStorage (`fll-vr-watch-enabled`). The default is **shown**.
+  hidden* — lets a teacher hide the watch pane entirely for assessments
+  (output pane stays). State in localStorage (`fll-vr-watch-enabled`). The
+  default is **shown**.
 
 Per the CLAUDE.md project-type model, a project is created as either
 Blocks-only or Python-only and never switches mid-session, so the panel has
@@ -289,7 +308,7 @@ Exports on `window._watch`:
 |---|---|
 | `declare(name, value)` | Blockly preamble; registers a variable without flashing. Idempotent. |
 | `set(name, value)` | Both source paths; updates the row and triggers flash if value changed. |
-| `clear()` | Called by `handleRun`; empties the registry and hides the card. |
+| `clear()` | Called by `handleRun`; empties the registry and hides the pane. |
 | `enable(bool)` | Called by the Settings toggle. |
 
 Internal state: a `Map<string, {value, lastChange}>` plus a list of
@@ -298,10 +317,17 @@ subscribers (currently one — the renderer). Renderer is a single
 
 Files touched at integration time:
 
-- `index.html` — new `<script src="js/watch_panel.js"></script>` and a
-  Settings popover row for the toggle, plus a positioned container div.
-- `css/style.css` — `.watch-panel`, `.watch-row`, `.watch-row.flash`, theme
-  tokens (`--watch-bg`, `--watch-accent`).
+- `index.html` — new `<script src="js/watch_panel.js"></script>`; restructure
+  `#console-wrap` into a flex row with `.console-output-pane` (existing log
+  reparented into it, keeping `id="console-output"` so `appendOutput` is
+  unchanged) plus a sibling `.watch-pane` containing the header and the
+  row list. Settings popover gets one new row for the toggle.
+- `css/style.css` — `.console-wrap` becomes `display: flex` and drops its
+  inline padding (children own that); add `.console-output-pane`,
+  `.watch-pane`, `.watch-pane-head`, `.watch-pane-list`, `.watch-row`,
+  `.watch-row.flash`, theme tokens (`--watch-bg`, `--watch-accent`). Keep
+  the existing `#console-wrap.collapsed { height: ... }` rule so the
+  collapse interaction still works when the watch pane is present.
 - `js/main.js` — `handleRun` calls `_watch.clear()`; init reads the toggle
   from localStorage.
 - `js/blockly_config.js` — `data_setvariableto`, `data_changevariableby`
@@ -384,11 +410,11 @@ The repo's test layout uses headless browser tests under `tests/`. Add:
 - Worker-side update batching if `sim.watch` is ever called inside a hot
   loop in real student code.
 
-## Open question for review
+## Decisions log
 
-- Default panel location: top-right of the canvas (current recommendation)
-  vs. inside the editor pane (left). Top-right keeps the editor uncluttered
-  and lets students see variables while watching the robot move; left puts
-  them next to the code that defines them. The `prototypes/watch-panel/`
-  page has both options (Overlay, Status band, Editor drawer, Split
-  console) as runnable mockups — flag which one wins.
+- **Panel placement: split console.** Chosen 2026-05-25 from four runnable
+  prototypes in `prototypes/watch-panel/`. The split console keeps the
+  watch pane adjacent to the print output kids already read, claims no new
+  vertical real estate, and leaves the field uncluttered. The overlay,
+  status-band, and editor-drawer prototypes remain in the page as
+  reference for the rationale.
