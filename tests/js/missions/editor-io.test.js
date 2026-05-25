@@ -132,3 +132,27 @@ test('attach: clicking Load opens file picker; selecting a file loads it', async
   assert.strictEqual(app.mode, 'editor');
   assert.strictEqual(app.editorState.title, 'Load Test');
 });
+
+test('attach: Save includes a screenshot.png when captureScreenshot is provided', async () => {
+  const ctx = env();
+  const doc = require('../mocks/editor-dom').makeEditorDoc(['editor-file-open-input']);
+  ctx.document = doc;
+  const app = ctx.MISSIONS.app.create();
+  app.enterEditor();
+  let s = app.editorState;
+  s = ctx.MISSIONS.editor.state.addZone(s, { x: 0, y: 0 });
+  s.steps.push({ id: 'a', title: 'a', points: 1,
+    condition: { kind: 'zone', subject: 'robot', zone: s.field.zones[0].id } });
+  app.setEditorState(s);
+  const fakePng = new Uint8Array([137, 80, 78, 71]);
+  const downloads = [];
+  ctx.MISSIONS.editor.io.attach(app, doc, {
+    captureScreenshot: async () => fakePng,
+    downloadFile: (filename, bytes) => downloads.push({ filename, bytes }),
+  });
+  doc.getElementById('btn-editor-save')._click();
+  await new Promise(r => setTimeout(r, 100));
+  assert.strictEqual(downloads.length, 1);
+  const zip = await ctx.JSZip.loadAsync(downloads[0].bytes);
+  assert.ok(zip.file('screenshot.png'));
+});

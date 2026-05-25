@@ -39,6 +39,7 @@
 
   function attach(app, doc, opts = {}) {
     const downloadFile = opts.downloadFile || _browserDownload;
+    const captureScreenshot = opts.captureScreenshot || _defaultCaptureScreenshot;
     const btnSave = doc.getElementById('btn-editor-save');
     if (btnSave) {
       btnSave.addEventListener('click', async () => {
@@ -48,7 +49,11 @@
           _showError(doc, r.error);
           return;
         }
-        const bytes = await writeBundle(r.mission);
+        let screenshot = null;
+        try {
+          if (captureScreenshot) screenshot = await captureScreenshot();
+        } catch (_e) { /* ignore screenshot failures */ }
+        const bytes = await writeBundle(r.mission, screenshot ? { screenshot } : {});
         const filename = `${slugify(app.editorState.title)}.llmission`;
         downloadFile(filename, bytes);
       });
@@ -107,6 +112,18 @@
       toolbar.appendChild(tag);
     }
     tag.textContent = `⚠ ${msg}`;
+  }
+
+  async function _defaultCaptureScreenshot() {
+    if (typeof global.document === 'undefined') return null;
+    const canvas = global.document.getElementById('robot-canvas');
+    if (!canvas || typeof canvas.toBlob !== 'function') return null;
+    return await new Promise((resolve) => {
+      canvas.toBlob((blob) => {
+        if (!blob) { resolve(null); return; }
+        blob.arrayBuffer().then(buf => resolve(new Uint8Array(buf)));
+      }, 'image/png');
+    });
   }
 
   function _browserDownload(filename, bytes) {
