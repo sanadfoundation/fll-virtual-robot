@@ -70,3 +70,37 @@ test('field: exiting editor clears the overlay', () => {
   assert.strictEqual(overlay.querySelectorAll('.editor-zone').length, 0);
   assert.strictEqual(overlay.querySelectorAll('.editor-robot-start').length, 0);
 });
+
+test('palette: starts in select mode', () => {
+  const { doc, app } = setup();
+  app.enterEditor();
+  const palette = doc.getElementById('editor-canvas-overlay').querySelector('.editor-palette');
+  assert.ok(palette, 'palette should be rendered');
+  const selectBtn = palette.querySelector('.editor-tool-select');
+  assert.ok(selectBtn.classList.contains('active'));
+});
+
+test('palette: click "Add obstacle" then click canvas adds an obstacle at that point', () => {
+  const { ctx, doc, app } = setup();
+  app.enterEditor();
+  const palette = doc.getElementById('editor-canvas-overlay').querySelector('.editor-palette');
+  palette.querySelector('.editor-tool-obstacle')._click();
+  // Now the canvas click handler should treat clicks as "place obstacle".
+  // We synthesise a click event with field-space coords carried via detail.
+  const svg = doc.getElementById('editor-canvas-overlay').querySelector('.editor-overlay-svg');
+  svg._fire('click', { _fieldPoint: { x: 500, y: 400 } });
+  assert.strictEqual(app.editorState.field.obstacles.length, 1);
+  assert.strictEqual(app.editorState.field.obstacles[0].x, 500);
+  assert.strictEqual(app.editorState.field.obstacles[0].y, 400);
+});
+
+test('palette: after placing an obstacle the active tool reverts to "select"', () => {
+  const { ctx, doc, app } = setup();
+  app.enterEditor();
+  const palette = doc.getElementById('editor-canvas-overlay').querySelector('.editor-palette');
+  palette.querySelector('.editor-tool-obstacle')._click();
+  const svg = doc.getElementById('editor-canvas-overlay').querySelector('.editor-overlay-svg');
+  svg._fire('click', { _fieldPoint: { x: 0, y: 0 } });
+  assert.ok(palette.querySelector('.editor-tool-select').classList.contains('active'));
+  assert.ok(!palette.querySelector('.editor-tool-obstacle').classList.contains('active'));
+});

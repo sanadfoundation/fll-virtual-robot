@@ -7,6 +7,8 @@
   const FIELD_H_MM = 1143;
   const NS = 'http://www.w3.org/2000/svg';
 
+  const TOOLS = ['select', 'obstacle', 'zone', 'start'];
+
   // Convert math y-up coordinates to SVG (top-left origin) coords.
   // SVG viewBox is in mm; we keep math y-up coordinates by setting
   // transform="scale(1,-1) translate(0,-FIELD_H_MM)" on the root group.
@@ -20,6 +22,8 @@
     let zonesGroup = null;
     let obstaclesGroup = null;
     let startGroup = null;
+    let activeTool = 'select';
+    let palette = null;
 
     function ensureSvg() {
       if (svg) return;
@@ -38,12 +42,80 @@
       mathGroup.appendChild(startGroup);
       svg.appendChild(mathGroup);
       overlay.appendChild(svg);
+      svg.addEventListener('click', handleSvgClick);
+      // Production-only: convert pointer events to field coords using SVG CTM.
+      // In tests, an injected `_fieldPoint` short-circuits this branch.
+      svg.addEventListener('click', (ev) => {
+        if (ev._fieldPoint) return;  // already handled by the synthetic-path listener above
+        if (typeof svg.getBoundingClientRect !== 'function') return;
+        const rect = svg.getBoundingClientRect();
+        if (!rect.width) return;
+        // Page-space → SVG-space via the inverse CTM. Math y-up.
+        const px = (ev.clientX - rect.left) * (FIELD_W_MM / rect.width);
+        const pyTop = (ev.clientY - rect.top)  * (FIELD_H_MM / rect.height);
+        const py = FIELD_H_MM - pyTop;
+        handleSvgClick({ _fieldPoint: { x: px, y: py } });
+      });
+    }
+
+    function ensurePalette() {
+      if (palette) return;
+      palette = doc.createElement('div');
+      palette.classList.add('editor-palette');
+      for (const tool of TOOLS) {
+        const btn = doc.createElement('button');
+        btn.classList.add('editor-tool', `editor-tool-${tool}`);
+        if (tool === activeTool) btn.classList.add('active');
+        btn.textContent = labelFor(tool);
+        btn.setAttribute('type', 'button');
+        btn.addEventListener('click', () => setTool(tool));
+        palette.appendChild(btn);
+      }
+      overlay.appendChild(palette);
+    }
+
+    function labelFor(tool) {
+      switch (tool) {
+        case 'select':   return '↖ Select';
+        case 'obstacle': return '▭ Obstacle';
+        case 'zone':     return '▢ Zone';
+        case 'start':    return '⌖ Robot start';
+        default: return tool;
+      }
+    }
+
+    function setTool(tool) {
+      activeTool = tool;
+      const buttons = palette.children;
+      for (const b of buttons) {
+        b.classList.toggle('active', b.classList.contains(`editor-tool-${tool}`));
+      }
+    }
+
+    function handleSvgClick(ev) {
+      const point = ev._fieldPoint;  // Production wiring converts pageX/pageY via SVG CTM.
+      if (!point) return;
+      if (activeTool === 'obstacle') {
+        app.setEditorState(MISSIONS.editor.state.addObstacle(app.editorState, point));
+        setTool('select');
+      } else if (activeTool === 'zone') {
+        app.setEditorState(MISSIONS.editor.state.addZone(app.editorState, point));
+        setTool('select');
+      } else if (activeTool === 'start') {
+        const next = MISSIONS.editor.state.setRobotStart(app.editorState, {
+          x: point.x, y: point.y, heading: app.editorState.field.robot_start.heading,
+        });
+        app.setEditorState(next);
+        setTool('select');
+      }
+      // 'select' is a no-op here (selection logic comes in Task 9).
     }
 
     function clearOverlay() {
       while (overlay.children.length) overlay.removeChild(overlay.children[0]);
       svg = null; mathGroup = null;
       zonesGroup = null; obstaclesGroup = null; startGroup = null;
+      palette = null;
     }
 
     function createSvg(tag) {
@@ -101,8 +173,15 @@
     }
 
     app.onChange(({ mode, editorState }) => {
-      if (mode === 'editor') render(editorState);
-      else clearOverlay();
+      if (mode === 'editor') {
+        ensureSvg();
+        ensurePalette();
+        render(editorState);
+      } else {
+        clearOverlay();
+        palette = null;
+        activeTool = 'select';
+      }
     });
   }
 
