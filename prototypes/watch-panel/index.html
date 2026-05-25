@@ -289,80 +289,6 @@
     background: var(--amber); box-shadow: 0 0 6px var(--amber);
   }
   .watch-split-list { flex: 1; padding: 2px 0; overflow: auto; }
-
-  /* ── LAYOUT E: Python watch — user-driven expression list ──────────── */
-  .watch-python {
-    position: absolute; top: 12px; right: 12px;
-    width: 240px; max-height: 70%;
-    background: var(--surface); border: 1px solid var(--border2);
-    border-radius: 10px; box-shadow: var(--shadow-panel);
-    z-index: 8;
-    display: none;
-    flex-direction: column; overflow: hidden;
-  }
-  .watch-python.visible { display: flex; }
-  .watch-python-head {
-    display: flex; align-items: center; gap: 8px;
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--border);
-    font-size: 10px; font-weight: 800; letter-spacing: 0.14em;
-    text-transform: uppercase; color: var(--text-dim);
-    cursor: move; user-select: none;
-  }
-  .watch-python-head .dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--green); box-shadow: 0 0 6px var(--green);
-  }
-  .watch-python-list { flex: 1; padding: 4px 0; overflow: auto; min-height: 30px; }
-  .watch-python-empty {
-    padding: 10px 12px; font-size: 11px; color: var(--text-dim); font-style: italic;
-  }
-  .watch-python-row {
-    display: flex; align-items: baseline; gap: 6px;
-    padding: 6px 10px 6px 12px;
-    transition: background 600ms ease-out;
-  }
-  .watch-python-row.flash { background: rgba(34, 197, 94, 0.20); transition: none; }
-  .watch-python-row .expr {
-    font-family: var(--font-code); font-size: 12px; color: var(--text-mid);
-    flex: 1; min-width: 0;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
-  .watch-python-row .value {
-    font-family: var(--font-code); font-size: 13px; font-weight: 700;
-    color: var(--amber);
-    max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
-  .watch-python-row .value.err { color: var(--red); font-style: italic; font-weight: 500; }
-  .watch-python-row .rm {
-    background: none; border: 0; padding: 0 2px;
-    color: var(--text-dim); cursor: pointer; font-size: 13px;
-    visibility: hidden;
-  }
-  .watch-python-row:hover .rm { visibility: visible; }
-  .watch-python-row .rm:hover { color: var(--red); }
-  .watch-python-foot {
-    border-top: 1px solid var(--border);
-    padding: 8px 10px;
-    background: var(--surface2);
-  }
-  .watch-python-foot input {
-    width: 100%;
-    background: var(--surface); color: var(--text);
-    border: 1px solid var(--border2); border-radius: 6px;
-    padding: 6px 8px;
-    font-family: var(--font-code); font-size: 12px;
-  }
-  .watch-python-foot input:focus {
-    outline: 2px solid var(--cyan); outline-offset: 0;
-    border-color: var(--cyan);
-  }
-  .watch-python-foot input::placeholder {
-    color: var(--text-dim); font-style: italic;
-  }
-  .watch-python-hint {
-    margin-top: 6px; font-size: 10px; color: var(--text-dim); line-height: 1.4;
-  }
 </style>
 </head>
 <body>
@@ -374,7 +300,6 @@
     <button data-layout="band">Status band</button>
     <button data-layout="drawer">Editor drawer</button>
     <button data-layout="split">Split console</button>
-    <button data-layout="python">🐍 Python watch</button>
   </div>
   <button id="theme-btn" title="Toggle theme">🌙</button>
   <button id="run-btn">▶ Run mock</button>
@@ -465,24 +390,6 @@
         </div>
         <div class="watch-overlay-list" id="overlay-list"></div>
       </div>
-
-      <!-- Layout E mounts here -->
-      <div class="watch-python" id="python-host">
-        <div class="watch-python-head" id="python-head">
-          <span class="dot"></span> 🐍 Watch
-        </div>
-        <div class="watch-python-list" id="python-list">
-          <div class="watch-python-empty">Type a name or expression below to watch it while the program runs.</div>
-        </div>
-        <div class="watch-python-foot">
-          <input type="text" id="python-input"
-                 placeholder="+ Add expression (e.g. score, len(items), x > 5)…"
-                 spellcheck="false" autocomplete="off">
-          <div class="watch-python-hint">
-            Evaluated at every <code>await</code> and every ~150&nbsp;ms while the program runs.
-          </div>
-        </div>
-      </div>
     </div>
 
     <div class="canvas-status canvas-status-position">
@@ -529,17 +436,10 @@
   const bandHost = $('band-host');
   const drawerHost = $('drawer-host');
   const splitHost = $('split-host');
-  const pythonHost = $('python-host');
   const overlayList = $('overlay-list');
   const bandList = $('band-list');
   const drawerList = $('drawer-list');
   const splitList = $('split-list');
-  const pythonList = $('python-list');
-
-  // ── Python watch list — user-typed expressions ──────────────────────
-  const watchExprs = [];                          // ordered list of expression strings
-  const exprResults = new Map();                  // expr -> { value, isError, prev }
-  const SAMPLE_EXPRS = ['score', 'ready', 'score * 2', 'lastColor.upper()'];
 
   const formatValue = (v) => {
     if (typeof v === 'number')  return Number.isInteger(v) ? String(v) : v.toFixed(3);
@@ -558,83 +458,12 @@
     bandHost.classList.toggle('visible',    layout === 'band'    && visible);
     drawerHost.classList.toggle('visible',  layout === 'drawer'  && visible);
     splitHost.classList.toggle('visible',   layout === 'split'   && visible);
-    // Python layout is user-driven: always shown while selected (even if no
-    // expressions yet) so the user can see and use the input affordance.
-    pythonHost.classList.toggle('visible',  layout === 'python');
 
     if (layout === 'overlay')      renderRowList(overlayList, entries);
     else if (layout === 'band')    renderBand(bandList, entries);
     else if (layout === 'drawer')  renderRowList(drawerList, entries);
     else if (layout === 'split')   renderRowList(splitList, entries);
-    else if (layout === 'python')  renderPythonList();
   }
-
-  // Render the user-driven Python expression list. Re-evaluates every
-  // expression against the current `state` snapshot — in production this
-  // happens in the worker (Python eval over user frame), but for the
-  // prototype we use JS expressions so the user can type and see results.
-  function renderPythonList() {
-    pythonList.innerHTML = '';
-    if (watchExprs.length === 0) {
-      const empty = document.createElement('div');
-      empty.className = 'watch-python-empty';
-      empty.textContent = 'Type a name or expression below to watch it while the program runs.';
-      pythonList.appendChild(empty);
-      return;
-    }
-    // Build a scope object from the mock state map for the prototype's eval.
-    const scope = {};
-    for (const [k, v] of state.entries()) scope[k] = v.value;
-    for (const expr of watchExprs) {
-      const result = mockEval(expr, scope);
-      const prev = exprResults.get(expr);
-      const changed = !prev || prev.value !== result.value || prev.isError !== result.isError;
-      exprResults.set(expr, result);
-      const row = document.createElement('div');
-      row.className = 'watch-python-row';
-      const value = result.isError
-        ? `<span class="value err">&lt;${escapeHtml(result.value)}&gt;</span>`
-        : `<span class="value">${escapeHtml(formatValue(result.value))}</span>`;
-      row.innerHTML = `
-        <span class="expr">${escapeHtml(expr)}</span>
-        ${value}
-        <button class="rm" data-expr="${escapeAttr(expr)}" title="Remove">×</button>`;
-      pythonList.appendChild(row);
-      if (changed && prev !== undefined) {
-        row.classList.add('flash');
-        requestAnimationFrame(() => requestAnimationFrame(() => row.classList.remove('flash')));
-      }
-    }
-  }
-
-  // Prototype-only expression evaluator. Production runs `eval(expr, globals,
-  // f_locals)` in the Python worker; here we approximate with JS new Function()
-  // so the user can see realistic-looking behaviour.
-  function mockEval(expr, scope) {
-    // Translate a couple of Python idioms to JS for the demo.
-    let translated = expr
-      .replace(/\bTrue\b/g, 'true')
-      .replace(/\bFalse\b/g, 'false')
-      .replace(/\bNone\b/g, 'null')
-      .replace(/(\w)\.upper\(\)/g, '($1 == null ? $1 : String($1).toUpperCase())')
-      .replace(/(\w)\.lower\(\)/g, '($1 == null ? $1 : String($1).toLowerCase())')
-      .replace(/\blen\(([^)]+)\)/g, '(($1) == null ? 0 : ($1).length)');
-    const names = Object.keys(scope);
-    const values = Object.values(scope);
-    try {
-      const fn = new Function(...names, `"use strict"; return (${translated});`);
-      const v = fn(...values);
-      if (v === undefined) return { value: 'undefined', isError: true };
-      return { value: v, isError: false };
-    } catch (e) {
-      return { value: e.message.replace(/^.*?:\s*/, ''), isError: true };
-    }
-  }
-
-  const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => ({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-  }[c]));
-  const escapeAttr = (s) => escapeHtml(s);
 
   function renderRowList(container, entries) {
     // Diff-update so flash animations on existing rows aren't reset on every render.
@@ -727,60 +556,6 @@
       const rect = card.getBoundingClientRect();
       const parentRect = card.parentElement.getBoundingClientRect();
       // Switch from right-anchored to left/top so we can drag freely
-      card.style.right = 'auto';
-      card.style.left  = (rect.left - parentRect.left) + 'px';
-      card.style.top   = (rect.top  - parentRect.top)  + 'px';
-      baseLeft = rect.left - parentRect.left;
-      baseTop  = rect.top  - parentRect.top;
-      startX = e.clientX; startY = e.clientY;
-      dragging = true;
-      head.setPointerCapture(e.pointerId);
-    });
-    head.addEventListener('pointermove', (e) => {
-      if (!dragging) return;
-      card.style.left = (baseLeft + (e.clientX - startX)) + 'px';
-      card.style.top  = (baseTop  + (e.clientY - startY)) + 'px';
-    });
-    head.addEventListener('pointerup',     () => dragging = false);
-    head.addEventListener('pointercancel', () => dragging = false);
-  })();
-
-  // ── Python input wiring ───────────────────────────────────────────────
-  const pythonInput = document.getElementById('python-input');
-  function addWatchExpr(expr) {
-    expr = String(expr || '').trim();
-    if (!expr) return;
-    if (watchExprs.includes(expr)) return;       // dedupe
-    watchExprs.push(expr);
-    render();
-  }
-  function removeWatchExpr(expr) {
-    const i = watchExprs.indexOf(expr);
-    if (i >= 0) watchExprs.splice(i, 1);
-    exprResults.delete(expr);
-    render();
-  }
-  pythonInput.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter') return;
-    addWatchExpr(pythonInput.value);
-    pythonInput.value = '';
-  });
-  pythonList.addEventListener('click', (e) => {
-    const btn = e.target.closest('button.rm');
-    if (btn) removeWatchExpr(btn.dataset.expr);
-  });
-  // Pre-seed a few examples so the layout is meaningful on first open. The
-  // user can clear them with the × on hover.
-  SAMPLE_EXPRS.forEach(addWatchExpr);
-
-  // Make the Python card draggable too — uses the same logic as the overlay.
-  (function makePythonDraggable() {
-    const head = document.getElementById('python-head');
-    const card = pythonHost;
-    let startX, startY, baseLeft, baseTop, dragging = false;
-    head.addEventListener('pointerdown', (e) => {
-      const rect = card.getBoundingClientRect();
-      const parentRect = card.parentElement.getBoundingClientRect();
       card.style.right = 'auto';
       card.style.left  = (rect.left - parentRect.left) + 'px';
       card.style.top   = (rect.top  - parentRect.top)  + 'px';
