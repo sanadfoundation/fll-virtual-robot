@@ -381,7 +381,10 @@
     if (!pop.contains(e.target) && e.target !== trigger && !trigger.contains(e.target)) close();
   });
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && pop.classList.contains('open')) close();
+    if (e.key === 'Escape' && pop.classList.contains('open')) {
+      close();
+      trigger.focus();
+    }
   });
 })();
 </script>
