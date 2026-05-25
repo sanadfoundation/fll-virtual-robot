@@ -99,20 +99,26 @@ test('generateBlocklyJS preamble declares each workspace variable', () => {
   }
 });
 
-test('data_setvariableto: variable name with quote escapes safely', () => {
+test('data_setvariableto: variable name with double-quote escapes safely', () => {
+  // Use a double-quote rather than an apostrophe — apostrophes don't need
+  // escaping inside JSON.stringify's double-quoted output, so they'd pass
+  // even if _jsString were a naive `"${s}"` concatenation. A double-quote
+  // is the discriminating character: JSON.stringify produces \", naive
+  // concatenation produces broken JS.
   const { Blockly, env } = setupGenerators();
   const js = Blockly.JavaScript;
   const origValueToCode = js.valueToCode;
   js.valueToCode = () => '0';
   try {
     const block = {
-      workspace: { getVariableById: () => ({ name: "it's" }) },
+      workspace: { getVariableById: () => ({ name: 'say "hi"' }) },
       getFieldValue() { return 'q-id'; },
       getInputTargetBlock() { return null; },
     };
     const code = js['data_setvariableto'](block);
-    // _jsString uses JSON.stringify so apostrophes are safely double-quoted.
-    assert.match(code, /_watch\.set\("it's",\s*v_it_s\);/);
+    // Sanitized JS identifier is v_say__hi_ (quotes/spaces become underscores).
+    // Display name in the watch call is the JSON-escaped form: "say \"hi\"".
+    assert.match(code, /_watch\.set\("say \\"hi\\"",\s*v_say__hi_\);/);
   } finally {
     js.valueToCode = origValueToCode;
   }
