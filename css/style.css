@@ -903,8 +903,37 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
 /* ── Console ───────────────────────────────────────────── */
 .console-wrap {
   background: var(--surface); border-top: 1px solid var(--border);
-  height: 88px; flex-shrink: 0;
+  /* Default 88px; JS resize handle sets --console-height as an inline var. */
+  height: var(--console-height, 88px); flex-shrink: 0;
   display: flex; flex-direction: column;
+}
+
+/* Vertical drag strip immediately above .console-wrap. Mirrors the existing
+   .resize-handle pattern but stacks horizontally so the hover area runs the
+   full width of the strip. */
+.console-resize-handle {
+  height: 4px;
+  background: var(--border);
+  cursor: row-resize;
+  flex-shrink: 0;
+  transition: background 0.2s;
+  position: relative;
+}
+.console-resize-handle::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--amber);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.console-resize-handle:hover::after { opacity: 1; }
+
+/* Hide the handle when the strip is collapsed — nothing to resize. The
+   handle sits *before* its target in DOM order, so use :has() to look
+   forward at the next sibling. */
+.panel-right:has(#console-wrap.collapsed) .console-resize-handle {
+  display: none;
 }
 
 .console-header {

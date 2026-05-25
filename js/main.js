@@ -58,6 +58,7 @@ const NAME_KEY           = 'fll-vr-project-name';
 const DIRTY_KEY          = 'fll-vr-dirty';
 const PROJECT_TYPE_KEY   = 'fll-vr-project-type';
 const WATCH_W_KEY        = 'fll-vr-watch-width';
+const CONSOLE_H_KEY      = 'fll-vr-console-height';
 
 const DEFAULT_THEME        = 'light';
 const DEFAULT_SPEED        = 1;
@@ -667,6 +668,52 @@ function initWatchResizeHandle() {
   });
 }
 
+// Vertical resize handle just above the console strip. Dragging it changes
+// the console's height via the --console-height CSS variable, so the
+// .collapsed { height: 32px } rule still wins by specificity when the strip
+// is folded. Mirrors initWatchResizeHandle's persistence pattern.
+function initConsoleResizeHandle() {
+  const handle = document.getElementById('console-resize-handle');
+  const wrap   = document.getElementById('console-wrap');
+  const right  = document.querySelector('.panel-right');
+  if (!handle || !wrap || !right) return;
+
+  // Apply stored height on boot, clamped against the current panel height
+  // so a tall value saved on a big screen doesn't crowd the canvas now.
+  const stored = parseInt(lsGet(CONSOLE_H_KEY), 10);
+  if (Number.isFinite(stored) && stored > 0) {
+    const max = right.offsetHeight - 200;        // leave ≥ 200px for canvas
+    const clamped = Math.max(60, Math.min(stored, max));
+    wrap.style.setProperty('--console-height', clamped + 'px');
+  }
+
+  let dragging = false, startY = 0, startH = 0, latestH = 0;
+
+  handle.addEventListener('mousedown', e => {
+    dragging = true;
+    startY = e.clientY;
+    startH = wrap.offsetHeight;
+    latestH = startH;
+    document.body.style.userSelect = 'none';
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const min = 60;
+    const max = right.offsetHeight - 200;        // keep canvas ≥ 200px
+    // Dragging the handle up (delta < 0) makes the strip taller.
+    latestH = Math.max(min, Math.min(startH - (e.clientY - startY), max));
+    wrap.style.setProperty('--console-height', latestH + 'px');
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    document.body.style.userSelect = '';
+    lsSet(CONSOLE_H_KEY, String(latestH));
+  });
+}
+
 // ── Editor-panel collapse/expand ─────────────────────────────────────────────
 // A button centred on the resize handle folds .panel-left away so the canvas
 // can run full-width — useful on small laptops or when watching the field
@@ -771,6 +818,7 @@ document.addEventListener('DOMContentLoaded', () => {
   _pollForWorker();
   initResizeHandle();
   initWatchResizeHandle();
+  initConsoleResizeHandle();
   window.addEventListener('resize', resizeBlocklyWorkspace);
 
   document.getElementById('btn-run').addEventListener('click', handleRun);
