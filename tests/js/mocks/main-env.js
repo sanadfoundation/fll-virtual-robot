@@ -101,7 +101,9 @@ function makeMainEnv(opts = {}) {
     sim: null,
     appendOutput: () => {},
     _pyWorker: null,
-    RobotSimulator: function () { return { speedMult: 1, reset: () => {}, _setStatus: () => {} }; },
+    RobotSimulator: function () {
+      return { speedMult: 1, reset: () => {}, _setStatus: () => {}, setUnits: () => {} };
+    },
   };
 
   // RequireJS stub — main.js calls require.config() then require([...], cb).
@@ -133,7 +135,7 @@ function makeMainEnv(opts = {}) {
 
   if (opts.fireDOMContentLoaded) {
     const handlers = docListeners['DOMContentLoaded'] || [];
-    for (const h of handlers) { try { h(); } catch (e) { /* surfaced via test */ } }
+    for (const h of handlers) h();
   }
 
   return { context, window, document, storage, elementsById, documentEl };
