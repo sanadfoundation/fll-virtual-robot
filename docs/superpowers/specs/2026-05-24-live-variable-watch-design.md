@@ -276,6 +276,57 @@ side-by-side comparison lives in `prototypes/watch-panel/index.html`.
   (output pane stays). State in localStorage (`fll-vr-watch-enabled`). The
   default is **shown**.
 
+### Resizing
+
+A 4px vertical divider sits between `.console-output-pane` and `.watch-pane`,
+matching the existing `.resize-handle` between the editor panel and the
+canvas (`js/main.js:540–582`). Dragging it changes the watch pane's width
+(positive delta narrows the watch pane and widens the output, mirroring the
+panel-left resize's `startW + delta` math).
+
+```js
+function initWatchResizeHandle() {
+  const handle = document.getElementById('watch-resize-handle');
+  const pane   = document.querySelector('.watch-pane');
+  if (!handle || !pane) return;
+
+  let dragging = false, startX = 0, startW = 0;
+  handle.addEventListener('mousedown', e => {
+    dragging = true;
+    startX = e.clientX;
+    startW = pane.offsetWidth;
+    document.body.style.userSelect = 'none';
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const wrap = handle.parentElement;
+    const min = 160, max = wrap.offsetWidth - 200;       // keep output ≥ 200px
+    const newW = Math.max(min, Math.min(startW - (e.clientX - startX), max));
+    pane.style.width = newW + 'px';
+    lsSet(WATCH_W_KEY, String(newW));
+  });
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    document.body.style.userSelect = '';
+  });
+}
+```
+
+Persistence: `localStorage` key `fll-vr-watch-width`. On boot, if a width is
+stored, apply it before the pane becomes visible so the layout doesn't flash.
+If no width is stored, the pane uses its default `width: 38%` from CSS.
+
+Min widths: the watch pane clamps at 160px (enough for the widest
+expected row — `lastColor "magenta"` is the worst case at our font size).
+The output pane clamps at 200px so a student dragging aggressively can't
+make the console unreadable. Matches the same belt-and-suspenders pattern
+the editor/canvas resize uses (`Math.max(260, ...)`).
+
+Cursor / hover: the handle gets `cursor: col-resize` and the same hover
+amber glow as `.resize-handle::after` (re-use the existing CSS rule by
+adding `.watch-resize-handle` to the selector list).
+
 Per the CLAUDE.md project-type model, a project is created as either
 Blocks-only or Python-only and never switches mid-session, so the panel has
 no per-mode visibility logic — it's just always available, fed by whichever
@@ -320,16 +371,22 @@ Files touched at integration time:
 - `index.html` — new `<script src="js/watch_panel.js"></script>`; restructure
   `#console-wrap` into a flex row with `.console-output-pane` (existing log
   reparented into it, keeping `id="console-output"` so `appendOutput` is
-  unchanged) plus a sibling `.watch-pane` containing the header and the
-  row list. Settings popover gets one new row for the toggle.
+  unchanged), a sibling `.watch-resize-handle` divider, then `.watch-pane`
+  with the header and the row list. Settings popover gets one new row for
+  the toggle.
 - `css/style.css` — `.console-wrap` becomes `display: flex` and drops its
   inline padding (children own that); add `.console-output-pane`,
   `.watch-pane`, `.watch-pane-head`, `.watch-pane-list`, `.watch-row`,
-  `.watch-row.flash`, theme tokens (`--watch-bg`, `--watch-accent`). Keep
-  the existing `#console-wrap.collapsed { height: ... }` rule so the
-  collapse interaction still works when the watch pane is present.
-- `js/main.js` — `handleRun` calls `_watch.clear()`; init reads the toggle
-  from localStorage.
+  `.watch-row.flash`, `.watch-resize-handle`, theme tokens (`--watch-bg`,
+  `--watch-accent`). Extend the existing `.resize-handle::after` hover rule
+  to also match `.watch-resize-handle::after` so the amber-glow feedback is
+  consistent. Keep the existing `#console-wrap.collapsed { height: ... }`
+  rule so the collapse interaction still works when the watch pane is
+  present.
+- `js/main.js` — `handleRun` calls `_watch.clear()`; new
+  `initWatchResizeHandle()` wired in `DOMContentLoaded` next to the existing
+  `initResizeHandle()`; init reads the toggle and stored width from
+  localStorage.
 - `js/blockly_config.js` — `data_setvariableto`, `data_changevariableby`
   generators (set-site instrumentation); `generateBlocklyJS` preamble (capture
   `window._watch`, emit `_watch.declare` calls); new `_displayNameOf` and
@@ -374,15 +431,24 @@ The repo's test layout uses headless browser tests under `tests/`. Add:
   assignment by one event-loop tick. Mitigation: emit the `_watch.set` on
   the same statement line as the assignment, never on a new awaited line.
   The generators in this spec do this — keep the pattern.
-- **`_watch` name collision (Blockly):** the sanitizer maps every user
-  variable to `v_<name>`, so a user variable literally named `_watch`
-  becomes `v__watch` and doesn't shadow the `const _watch` captured in the
-  preamble.
-- **`sim` module shadowing (Python):** if a user names a local `sim` (e.g.
-  `sim = motor.speed(port.A)`), `sim.watch(...)` after that point fails with
-  `AttributeError`. Mitigation: document the reserved name in the `sim`
-  module hover. Realistically this is the same shape as shadowing `motor`
-  or `runloop` — a footgun that exists for any module name.
+- **Namespace pollution — does anything we add collide with user code, or
+  with what's already in the page?** Enumerating every surface the feature
+  introduces, and what currently occupies it:
+
+  | New name | Lives in | Could collide with | Verdict |
+  |---|---|---|---|
+  | `window._watch` | page globals | other `window.*` we set | None — audited `js/` for `window.*` assignments; current set is `sim`, `_pyWorker`, `_sanitizeVarName`, `_sensorPortWarns`, `_blkVolume`, `appendOutput`, `DEFAULT_BLOCKLY_XML`, `generateBlocklyJS`, `initBlockly`, `registerSpikeCompletions`, `RobotSimulator`. `_watch` is unused. |
+  | `_watch` identifier inside generated Blockly JS | the AsyncFunction scope | a user Scratch variable named `_watch` | None — `_sanitizeVarName` prepends `v_` to every user name, so the JS identifier is `v__watch` (different from `_watch`). The preamble's `const _watch = window._watch;` is unreachable from user-named identifiers. |
+  | `_watch` identifier inside generated Blockly JS | the AsyncFunction scope | the existing preamble vars (`_moveSpeed`, `_hats`, `_t0`, …) | None — none of the existing preamble names is `_watch`. Cross-checked against `js/blockly_config.js:3663–3683`. |
+  | Bridge command type `var_update` | the cmd JSON shape | other types in `js/simulator.js:executeCommand` | None — audited the existing cases (`pair`, `move`, `move_tank`, `start`, `start_tank`, `stop`, `motor_*`, `print`, `wait`, `hub_*`, `beep`, `read_sensors`, `reset_yaw`). `var_update` is unique. |
+  | `sim` module name | Python `sys.modules` | other modules registered by the bridge | None — current set is `hub`, `app`, `motor`, `motor_pair`, `runloop`, `color_sensor`, `distance_sensor`, `force_sensor`, `color`, `orientation`, `device`, `color_matrix`. `sim` is unused. |
+  | `sim` identifier in Python user code | user's namespace | a user binding (e.g. `sim = motor.speed(port.A)`) | Possible — same shape as shadowing `motor` or `runloop`. Documented in the `sim` module hover; if v1 telemetry shows kids hitting it, we rename to `from sim import watch` and stop exposing `sim` as a name. |
+  | localStorage keys (`fll-vr-watch-enabled`, `fll-vr-watch-width`) | `localStorage` | existing keys | None — audited `js/main.js` (`fll-vr-theme`, `-speed`, `-units`, `-python-code`, `-blockly-xml`, `-tab`, `-project-name`, `-dirty`) and `js/llsp3_*.js`. Both new keys follow the project's `fll-vr-*` prefix convention and are unused. |
+  | `_Sim` class name in `py/spike_bridge.py` | bridge module | other classes there | None — current set is `_NoopAwaitable`, `_LightMatrix`, `_Speaker`, `_MotionSensor`, `_Button`, `_Light`, `_Hub`, `_HubModule`, `_AppSound`, `_AppMusic`, `_AppDisplay`, `_AppBarGraph`, `_AppLineGraph`, `_App`. `_Sim` is unique. |
+
+  The audit is the mitigation: any future addition to the bridge should
+  rerun the grep before picking a name. The risk is durable, not just a
+  v1 concern.
 - **Staleness between `sim.watch` calls (Python):** the panel only updates
   when the user calls the helper, so a variable that changes in a loop
   without a `watch` call in that loop stays stale. Mitigation in v1: shape
