@@ -19,7 +19,12 @@ function makeEl(initial) {
     appendChild(child) { this.children.push(child); },
     removeChild() {},
     addEventListener(evt, handler) {
-      if (evt === 'click') this._clickHandler = handler;
+      if (evt === 'click') {
+        if (this._clickHandler !== null) {
+          throw new Error("makeEl: second 'click' listener registered — extend the mock to use an array");
+        }
+        this._clickHandler = handler;
+      }
       // Other events are dropped on the floor; tests that need them can
       // extend this later.
     },

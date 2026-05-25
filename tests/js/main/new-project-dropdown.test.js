@@ -125,7 +125,7 @@ test('DOMContentLoaded: btn-new-blocks click → handleNewProject("blocks")', ()
     fireDOMContentLoaded: true,
   });
   const el = elementsById['btn-new-blocks'];
-  assert.ok(el._clickHandler);
+  assert.ok(el._clickHandler, 'bootstrap must register a click handler on btn-new-blocks');
   el._clickHandler();
   assert.strictEqual(storage.has('fll-vr-blockly-xml'), false);
   assert.strictEqual(storage.get('fll-vr-project-type'), 'blocks');
