@@ -377,7 +377,6 @@
   const packBtn   = document.getElementById('canvas-pack-handle');
   const unpackBtn = document.getElementById('canvas-unpack-handle');
   if (!toolbar || !packBtn || !unpackBtn || buttons.some(b => !b) || pops.some(p => !p)) return;
-  const STATE_KEY = 'fll-canvas-toolbar-state';
 
   function closeAllPops() {
     pops.forEach((p, i) => {
@@ -392,12 +391,12 @@
       buttons[j].setAttribute('aria-expanded', String(open));
     });
   }
+  // Always start expanded on load. Toggling during a session is allowed
+  // but isn't persisted — kids who want a wider canvas pack each time.
   function setState(state) {
     toolbar.setAttribute('data-state', state);
     if (state === 'packed') closeAllPops();
-    localStorage.setItem(STATE_KEY, state);
   }
-  setState(localStorage.getItem(STATE_KEY) === 'packed' ? 'packed' : 'expanded');
 
   packBtn.addEventListener('click', e => { e.stopPropagation(); setState('packed'); });
   unpackBtn.addEventListener('click', e => { e.stopPropagation(); setState('expanded'); });
