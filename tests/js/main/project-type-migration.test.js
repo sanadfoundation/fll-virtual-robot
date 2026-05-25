@@ -68,4 +68,6 @@ test('migrateLegacyTabKey: unrecognised legacy tab value falls back to default',
   const { context, storage } = makeMainEnv({ storage: { 'fll-vr-tab': 'garbage' } });
   context.migrateLegacyTabKey();
   assert.strictEqual(storage.get('fll-vr-project-type'), 'blocks');
+  assert.strictEqual(storage.has('fll-vr-tab'), false,
+    'garbage legacy key should still be retired');
 });
