@@ -148,6 +148,8 @@ function makeEditorDoc(idsExtra = []) {
     'editor-toolbar', 'editor-title-input', 'btn-editor-save',
     'btn-editor-load', 'btn-editor-playtest', 'btn-editor-exit',
     'editor-canvas-overlay', 'editor-right-panel',
+    // inspector
+    'editor-inspector-section', 'editor-inspector-body',
     // metadata
     'editor-meta-desc', 'editor-meta-difficulty', 'editor-meta-type',
     // steps

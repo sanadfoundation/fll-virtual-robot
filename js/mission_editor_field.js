@@ -57,8 +57,18 @@
         handleSvgClick({ _fieldPoint: { x: px, y: py } });
       });
       let dragging = false;
+      let resizing = false;
       svg.addEventListener('pointerdown', (ev) => {
         if (activeTool !== 'select') return;
+        // Check if click target is a resize handle.
+        const targetClass = ev.target && ev.target.classList;
+        if (targetClass && typeof targetClass.contains === 'function' && targetClass.contains('editor-resize-handle')) {
+          resizing = true;
+          if (svg.setPointerCapture && ev.pointerId !== undefined) {
+            try { svg.setPointerCapture(ev.pointerId); } catch (_e) {}
+          }
+          return;
+        }
         if (!app.editorState || !app.editorState.selection) return;
         dragging = true;
         if (svg.setPointerCapture && ev.pointerId !== undefined) {
@@ -66,16 +76,18 @@
         }
       });
       svg.addEventListener('pointermove', (ev) => {
-        if (!dragging) return;
+        if (!dragging && !resizing) return;
         if (typeof svg.getBoundingClientRect !== 'function') return;
         const rect = svg.getBoundingClientRect();
         if (!rect.width) return;
         const px = (ev.clientX - rect.left) * (FIELD_W_MM / rect.width);
         const pyTop = (ev.clientY - rect.top)  * (FIELD_H_MM / rect.height);
-        dragMoveToPoint({ x: px, y: FIELD_H_MM - pyTop });
+        const point = { x: px, y: FIELD_H_MM - pyTop };
+        if (resizing) resizeToPoint(point);
+        else dragMoveToPoint(point);
       });
-      svg.addEventListener('pointerup', () => { dragging = false; });
-      svg.addEventListener('pointercancel', () => { dragging = false; });
+      svg.addEventListener('pointerup',     () => { dragging = false; resizing = false; });
+      svg.addEventListener('pointercancel', () => { dragging = false; resizing = false; });
     }
 
     function ensurePalette() {
@@ -129,6 +141,36 @@
       }
       app.setEditorState(next);
     }
+
+    function resizeToPoint(point) {
+      const sel = app.editorState && app.editorState.selection;
+      if (!sel) return;
+      let next = app.editorState;
+      if (sel.kind === 'obstacle') {
+        const o = next.field.obstacles.find(x => x.id === sel.id);
+        if (!o) return;
+        const anchorX = o.x - o.w / 2;
+        const anchorY = o.y - o.h / 2;
+        const newW = Math.max(20, point.x - anchorX);
+        const newH = Math.max(20, point.y - anchorY);
+        next = MISSIONS.editor.state.moveObstacle(next, sel.id, {
+          x: anchorX + newW / 2,
+          y: anchorY + newH / 2,
+        });
+        next = MISSIONS.editor.state.resizeObstacle(next, sel.id, { w: newW, h: newH });
+      } else if (sel.kind === 'zone') {
+        const z = next.field.zones.find(x => x.id === sel.id);
+        if (!z) return;
+        const newW = Math.max(20, point.x - z.x);
+        const newH = Math.max(20, point.y - z.y);
+        next = MISSIONS.editor.state.resizeZone(next, sel.id, { w: newW, h: newH });
+      } else {
+        return;
+      }
+      app.setEditorState(next);
+    }
+
+    editor.field._test_resize = resizeToPoint;
 
     function handleElementClick(ev, kind, id) {
       if (activeTool !== 'select') return;  // tool palette governs add-modes
@@ -233,6 +275,42 @@
       }
       handle.addEventListener('click', (ev) => handleElementClick(ev, 'start', null));
       startGroup.appendChild(handle);
+
+      // Resize handles for the currently selected obstacle or zone.
+      // The handle sits at the math top-right corner of the rect. Drag to
+      // resize; the math bottom-left corner stays anchored.
+      if (state.selection) {
+        const sel = state.selection;
+        let anchorX = null, anchorY = null, cornerX = null, cornerY = null;
+        let kind = null, id = null;
+        if (sel.kind === 'obstacle') {
+          const o = state.field.obstacles.find(x => x.id === sel.id);
+          if (o) {
+            anchorX = o.x - o.w / 2; anchorY = o.y - o.h / 2;
+            cornerX = o.x + o.w / 2; cornerY = o.y + o.h / 2;
+            kind = 'obstacle'; id = o.id;
+          }
+        } else if (sel.kind === 'zone') {
+          const z = state.field.zones.find(x => x.id === sel.id);
+          if (z) {
+            anchorX = z.x; anchorY = z.y;
+            cornerX = z.x + z.w; cornerY = z.y + z.h;
+            kind = 'zone'; id = z.id;
+          }
+        }
+        if (anchorX !== null) {
+          const resizeHandle = createSvg('circle');
+          resizeHandle.setAttribute('cx', cornerX);
+          resizeHandle.setAttribute('cy', cornerY);
+          resizeHandle.setAttribute('r', 16);
+          resizeHandle.classList.add('editor-resize-handle');
+          resizeHandle.setAttribute('data-anchor-x', anchorX);
+          resizeHandle.setAttribute('data-anchor-y', anchorY);
+          resizeHandle.setAttribute('data-kind', kind);
+          resizeHandle.setAttribute('data-id', id);
+          startGroup.appendChild(resizeHandle);
+        }
+      }
     }
 
     function removeChildren(node) {
@@ -282,5 +360,5 @@
     }
   }
 
-  editor.field = { attach, _test_dragMove: null, _test_deleteSelected: null };
+  editor.field = { attach, _test_dragMove: null, _test_deleteSelected: null, _test_resize: null };
 })(typeof window !== 'undefined' ? window : globalThis);

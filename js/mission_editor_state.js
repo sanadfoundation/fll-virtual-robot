@@ -136,6 +136,20 @@
     return next;
   }
 
+  function setObstacleLabel(state, id, label) {
+    const next = dirty(state);
+    const o = next.field.obstacles.find(o => o.id === id);
+    if (o) o.label = label;
+    return next;
+  }
+
+  function setZoneColor(state, id, color) {
+    const next = dirty(state);
+    const z = next.field.zones.find(z => z.id === id);
+    if (z) z.color = color;
+    return next;
+  }
+
   function addStep(state) {
     const next = dirty(state);
     const id = shortId('s');
@@ -269,6 +283,7 @@
     addObstacle, moveObstacle, resizeObstacle, deleteObstacle,
     addZone, moveZone, resizeZone, deleteZone,
     setRobotStart, setSelection, setMeta,
+    setObstacleLabel, setZoneColor,
     addStep, editStep, deleteStep, reorderStep,
     serializeToMission, loadFromMission, validate,
     _clone: clone,

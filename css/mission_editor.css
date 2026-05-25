@@ -347,3 +347,47 @@ body[data-mode="editor"] .editor-overlay-svg { pointer-events: auto; }
   font-size: 11px;
   font-weight: 700;
 }
+
+/* Inspector — appears when a field element is selected. */
+.editor-inspector-section {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+}
+.inspector-id {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-family: var(--font-code);
+  padding: 0 16px 6px;
+  letter-spacing: 0.06em;
+}
+.inspector-color-row {
+  display: flex;
+  gap: 4px;
+}
+.inspector-color-swatch {
+  width: 22px; height: 22px;
+  border-radius: 5px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+.inspector-color-swatch[data-color="red"]    { background: #cf6b6b; }
+.inspector-color-swatch[data-color="green"]  { background: #7fbf6a; }
+.inspector-color-swatch[data-color="blue"]   { background: #5b8fc7; }
+.inspector-color-swatch[data-color="yellow"] { background: #d1b03b; }
+.inspector-color-swatch[data-color="orange"] { background: #e67e22; }
+.inspector-color-swatch[data-color="purple"] { background: #9b59b6; }
+.inspector-color-swatch.active {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 1px var(--amber);
+}
+
+/* Resize handles. */
+.editor-resize-handle {
+  fill: var(--amber);
+  stroke: #1a1206;
+  stroke-width: 2;
+  cursor: nwse-resize;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.4));
+}
+.editor-resize-handle:hover { filter: brightness(1.1) drop-shadow(0 1px 3px rgba(0,0,0,0.4)); }
