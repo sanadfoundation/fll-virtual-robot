@@ -23,6 +23,7 @@
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/myblocks.css">
   <link rel="stylesheet" href="css/missions.css">
+  <link rel="stylesheet" href="css/mission_editor.css">
 </head>
 <body>
 
@@ -126,6 +127,21 @@
   </div>
 </header>
 
+<!-- ── Editor toolbar (visible only when body[data-mode="editor"]) ─── -->
+<div class="editor-toolbar" id="editor-toolbar" hidden>
+  <div class="editor-toolbar-tag">
+    <span class="editor-mode-dot" aria-hidden="true"></span>
+    EDITOR MODE
+  </div>
+  <input type="text" id="editor-title-input" class="editor-title-input"
+         placeholder="Mission title" maxlength="80" aria-label="Mission title">
+  <button class="btn btn-mini amber" id="btn-editor-save"     type="button">💾 Save</button>
+  <button class="btn btn-mini"       id="btn-editor-load"     type="button">📂 Load</button>
+  <button class="btn btn-mini green" id="btn-editor-playtest" type="button">▶ Playtest</button>
+  <div class="spacer"></div>
+  <button class="btn btn-mini danger" id="btn-editor-exit"    type="button">✕ Exit Editor</button>
+</div>
+
 <!-- ── Main body ────────────────────────────────────────── -->
 <div class="app-body">
 
@@ -161,6 +177,7 @@
 
     <div class="canvas-wrap">
       <canvas id="robot-canvas"></canvas>
+      <div class="editor-canvas-overlay" id="editor-canvas-overlay" hidden></div>
       <div id="canvas-hover" hidden></div>
 
       <!-- Status toolbar: three pill buttons (Position / Motors / Sensors)
@@ -312,6 +329,45 @@
           <div class="watch-pane-list" id="watch-pane-list"></div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- ── Editor right panel (metadata + steps + condition picker) ── -->
+  <div class="editor-right-panel" id="editor-right-panel" hidden>
+    <div class="editor-meta-section">
+      <h4>Mission</h4>
+      <label class="editor-field">
+        <span>Description</span>
+        <textarea id="editor-meta-desc" rows="3" placeholder="Describe what the robot should do"></textarea>
+      </label>
+      <label class="editor-field">
+        <span>Type</span>
+        <select id="editor-meta-type">
+          <option value="mission">Mission (multi-step)</option>
+          <option value="obstacle_course">Obstacle Course</option>
+        </select>
+      </label>
+      <label class="editor-field">
+        <span>Difficulty</span>
+        <select id="editor-meta-difficulty">
+          <option value="beginner">Beginner</option>
+          <option value="intermediate">Intermediate</option>
+          <option value="advanced">Advanced</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="editor-steps-section">
+      <h4>
+        Steps
+        <button class="btn btn-mini" id="btn-add-step" type="button">＋ Add step</button>
+      </h4>
+      <ul class="editor-steps-list" id="editor-steps-list"></ul>
+    </div>
+
+    <div class="editor-cond-section" id="editor-cond-section" hidden>
+      <h4>Condition for selected step</h4>
+      <div class="editor-cond-workspace" id="editor-cond-workspace"></div>
     </div>
   </div>
 
