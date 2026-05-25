@@ -391,20 +391,24 @@
     //    re-init the def block (otherwise getDescendants would be empty
     //    because removeInput on the def detaches the whole next chain).
     if (def.getDescendants) {
-      for (const child of def.getDescendants(false)) {
-        if (child.type !== 'myblocks_arg_string_number' &&
-            child.type !== 'myblocks_arg_boolean') continue;
+      // Collect reporters first so we don't mutate the descendants array
+      // while iterating (dispose modifies the workspace state).
+      const reporters = def.getDescendants(false).filter(
+        b => b.type === 'myblocks_arg_string_number' ||
+             b.type === 'myblocks_arg_boolean');
+      for (const child of reporters) {
         const argId = child.argId_;
         if (argId && newArgIds.has(argId)) {
+          // Arg survives — update displayed name (cheap if unchanged).
           const newName = newNameByArgId[argId];
           if (newName && child.getFieldValue('VALUE') !== newName) {
             child.setFieldValue(newName, 'VALUE');
           }
         } else {
-          const out = child.outputConnection;
-          if (out && out.targetConnection) {
-            try { out.disconnect(); } catch (_e) {}
-          }
+          // Arg was removed — dispose the reporter. Leaving it (even
+          // disconnected) is dead code; if it were connected anywhere it'd
+          // emit an undefined identifier at codegen.
+          try { child.dispose(true, false); } catch (_e) {}
         }
       }
     }
