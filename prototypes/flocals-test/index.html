@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>f_locals smoke test — PyScript MicroPython</title>
+<link rel="stylesheet" href="https://pyscript.net/releases/2025.3.1/core.css">
+<script type="module" src="https://pyscript.net/releases/2025.3.1/core.js"></script>
+<style>
+  body {
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    background: #0b0f18; color: #e2e8f0;
+    margin: 0; padding: 24px;
+    font-size: 13px; line-height: 1.5;
+  }
+  h1 { font-size: 14px; color: #22d3ee; margin: 0 0 4px; }
+  p  { color: #94a3b8; font-size: 12px; margin: 0 0 20px; max-width: 720px; }
+  pre {
+    background: #111827; border: 1px solid #1e2d4a; border-radius: 8px;
+    padding: 16px; white-space: pre-wrap; word-break: break-word;
+    color: #e2e8f0;
+  }
+  .ok    { color: #22c55e; }
+  .fail  { color: #ef4444; }
+  .head  { color: #fbbf24; font-weight: bold; }
+  .dim   { color: #4b6280; }
+  #status { color: #fbbf24; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+
+<h1>f_locals smoke test — PyScript 2025.3.1 MicroPython</h1>
+<p>
+Checks whether an explicit Python watch list can read locals from inside an
+<code>async def main()</code> in this runtime. Each test prints its own
+pass/fail; the verdict at the bottom summarises whether the watch-list approach
+is viable.
+</p>
+
+<div id="status">Loading MicroPython runtime…</div>
+<pre id="out"></pre>
+
+<script type="mpy">
+import sys
+import asyncio
+from pyscript import document
+
+results = []
+
+def log(line, cls=''):
+    results.append((cls, str(line)))
+
+def head(title):
+    log('')
+    log('── ' + title + ' ──', 'head')
+
+# ─────────────────────────────────────────────────────────────────────────
+head('Test 1: sys._getframe availability')
+# ─────────────────────────────────────────────────────────────────────────
+has_getframe = hasattr(sys, '_getframe')
+log('hasattr(sys, "_getframe"): ' + str(has_getframe),
+    'ok' if has_getframe else 'fail')
+if has_getframe:
+    try:
+        f = sys._getframe(0)
+        log('sys._getframe(0) -> ' + str(type(f).__name__), 'ok')
+    except Exception as e:
+        log('sys._getframe(0) raised: ' + type(e).__name__ + ': ' + str(e), 'fail')
+
+# ─────────────────────────────────────────────────────────────────────────
+head('Test 2: read own f_locals (synchronous function)')
+# ─────────────────────────────────────────────────────────────────────────
+def test_own_frame():
+    x = 42
+    name = 'hello'
+    flag = True
+    try:
+        frame = sys._getframe(0)
+        if not hasattr(frame, 'f_locals'):
+            log('frame has no f_locals attribute', 'fail')
+            return
+        loc = frame.f_locals
+        log('f_locals type: ' + type(loc).__name__)
+        log('f_locals contents: ' + repr(loc))
+        # Did x, name, flag make it in?
+        try:
+            x_seen = 'x' in loc and loc['x'] == 42
+            n_seen = 'name' in loc and loc['name'] == 'hello'
+        except Exception as e:
+            log('lookup raised: ' + type(e).__name__ + ': ' + str(e), 'fail')
+            return
+        log("'x' present and == 42: " + str(x_seen), 'ok' if x_seen else 'fail')
+        log("'name' present and == 'hello': " + str(n_seen), 'ok' if n_seen else 'fail')
+    except Exception as e:
+        log('test failed: ' + type(e).__name__ + ': ' + str(e), 'fail')
+
+try:
+    test_own_frame()
+except Exception as e:
+    log('outer failure: ' + type(e).__name__ + ': ' + str(e), 'fail')
+
+# ─────────────────────────────────────────────────────────────────────────
+head("Test 3: read caller's f_locals (the bridge-call pattern)")
+# ─────────────────────────────────────────────────────────────────────────
+def caller_inspector():
+    """Stand-in for _bridge_call: walks up one frame and tries to read
+       the caller's locals. This is exactly the lookup the production
+       watch-list would do."""
+    try:
+        frame = sys._getframe(1)
+        if not hasattr(frame, 'f_locals'):
+            log("caller frame has no f_locals attribute", 'fail')
+            return None
+        return dict(frame.f_locals)
+    except Exception as e:
+        log('inspector raised: ' + type(e).__name__ + ': ' + str(e), 'fail')
+        return None
+
+def test_caller():
+    score = 99
+    ready = True
+    msg = 'hi'
+    snapshot = caller_inspector()
+    if snapshot is None:
+        return
+    log('caller f_locals: ' + repr(snapshot))
+    ok = (snapshot.get('score') == 99
+          and snapshot.get('ready') is True
+          and snapshot.get('msg') == 'hi')
+    log("caller locals readable: " + str(ok), 'ok' if ok else 'fail')
+
+try:
+    test_caller()
+except Exception as e:
+    log('outer failure: ' + type(e).__name__ + ': ' + str(e), 'fail')
+
+# ─────────────────────────────────────────────────────────────────────────
+head('Test 4: eval() against a frame namespace')
+# ─────────────────────────────────────────────────────────────────────────
+def test_eval():
+    score = 99
+    ready = True
+    items = [1, 2, 3]
+    try:
+        frame = sys._getframe(0)
+        g = frame.f_globals
+        l = frame.f_locals
+        cases = [
+            ('score', 99),
+            ('score * 2', 198),
+            ('ready and score > 50', True),
+            ('len(items)', 3),
+            ('items[0] + score', 100),
+        ]
+        for expr, expected in cases:
+            try:
+                got = eval(expr, g, l)
+                ok = (got == expected)
+                log("eval(" + repr(expr) + ") = " + repr(got)
+                    + ('  ✓' if ok else '  ✗ expected ' + repr(expected)),
+                    'ok' if ok else 'fail')
+            except Exception as e:
+                log("eval(" + repr(expr) + ") raised "
+                    + type(e).__name__ + ': ' + str(e), 'fail')
+        # NameError case
+        try:
+            got = eval('nope_undefined', g, l)
+            log("eval('nope_undefined') = " + repr(got)
+                + " (expected NameError!)", 'fail')
+        except NameError as e:
+            log("eval('nope_undefined') -> NameError: " + str(e) + '  ✓', 'ok')
+        except Exception as e:
+            log("eval('nope_undefined') raised "
+                + type(e).__name__ + " (expected NameError)", 'fail')
+    except Exception as e:
+        log('eval test failed: ' + type(e).__name__ + ': ' + str(e), 'fail')
+
+try:
+    test_eval()
+except Exception as e:
+    log('outer failure: ' + type(e).__name__ + ': ' + str(e), 'fail')
+
+# ─────────────────────────────────────────────────────────────────────────
+head('Test 5: async def main() — coroutine frame access')
+# ─────────────────────────────────────────────────────────────────────────
+# Two angles:
+#  5a) cr_frame on a suspended coroutine (read from outside)
+#  5b) sys._getframe(N) walked from a helper called inside main (read from
+#      inside, the way a bridge_call would)
+
+inspector_snapshot = None
+
+def bridge_call_stub():
+    """Simulates _bridge_call from inside main: walks up the frames
+       searching for the user's coroutine frame and snapshots its locals."""
+    global inspector_snapshot
+    frames = []
+    depth = 0
+    while True:
+        try:
+            f = sys._getframe(depth)
+            frames.append((depth, f))
+            depth += 1
+        except (ValueError, RuntimeError):
+            break
+        if depth > 20:
+            break
+    # Walk up looking for a frame whose locals include the marker we drop.
+    for d, f in frames:
+        try:
+            loc = f.f_locals
+        except Exception:
+            continue
+        if isinstance(loc, dict) and loc.get('_main_marker') == 'present':
+            inspector_snapshot = dict(loc)
+            return
+    log('could not find main frame in stack', 'fail')
+
+async def fake_main():
+    _main_marker = 'present'
+    count = 7
+    name = 'rover'
+    items = [10, 20, 30]
+    # Yield once, then trigger the stub — closer to the real pattern where
+    # a bridge call happens after some setup.
+    await asyncio.sleep_ms(1)
+    bridge_call_stub()
+    return (_main_marker, count, name, items)
+
+async def test_async():
+    global inspector_snapshot
+    coro = fake_main()
+
+    # 5a) Try cr_frame before driving the coro
+    log('has cr_frame: ' + str(hasattr(coro, 'cr_frame')))
+    if hasattr(coro, 'cr_frame'):
+        try:
+            fr = coro.cr_frame
+            log('cr_frame: ' + repr(fr))
+            if fr is not None:
+                log('cr_frame.f_locals (pre-run): ' + repr(getattr(fr, 'f_locals', '<no attr>')))
+        except Exception as e:
+            log('cr_frame access raised: ' + type(e).__name__ + ': ' + str(e), 'fail')
+
+    # 5b) Drive the coro — bridge_call_stub fires once we're inside it
+    try:
+        result = await coro
+        log('coro return: ' + repr(result))
+    except Exception as e:
+        log('await coro raised: ' + type(e).__name__ + ': ' + str(e), 'fail')
+
+    if inspector_snapshot is None:
+        log('inspector_snapshot is None — frame walk did not find main locals', 'fail')
+    else:
+        log('inspector_snapshot keys: ' + repr(sorted(inspector_snapshot.keys())))
+        wanted = {'_main_marker', 'count', 'name', 'items'}
+        got = set(inspector_snapshot.keys())
+        missing = wanted - got
+        if not missing:
+            log('all expected locals reachable from inside coro: ' + str(wanted), 'ok')
+        else:
+            log('missing locals: ' + repr(missing), 'fail')
+
+try:
+    asyncio.run(test_async())
+except Exception as e:
+    log('asyncio.run failed: ' + type(e).__name__ + ': ' + str(e), 'fail')
+
+# ─────────────────────────────────────────────────────────────────────────
+head('Verdict')
+# ─────────────────────────────────────────────────────────────────────────
+fails = sum(1 for cls, _ in results if cls == 'fail')
+oks   = sum(1 for cls, _ in results if cls == 'ok')
+log('PASS: ' + str(oks) + '   FAIL: ' + str(fails))
+if fails == 0:
+    log('Explicit Python watch list is viable: locals reachable, eval works.', 'ok')
+else:
+    log('Watch list is partial — see failures above. Fall-back: globals only.', 'fail')
+
+# ── Render ──────────────────────────────────────────────────────────────
+out = document.getElementById('out')
+out.innerHTML = ''
+for cls, line in results:
+    span = document.createElement('span')
+    if cls:
+        span.className = cls
+    span.textContent = line + '\n'
+    out.appendChild(span)
+document.getElementById('status').textContent = 'Done.'
+</script>
+
+</body>
+</html>
