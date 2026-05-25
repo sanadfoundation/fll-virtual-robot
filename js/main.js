@@ -653,41 +653,29 @@ function initCollapseToggle(left) {
 
 // ── Default Python code ───────────────────────────────────────────────────────
 
-const DEFAULT_PYTHON_CODE = `# FLL Virtual Robot — Mission: hit obstacle '1' on green, then obstacle '2' on red.
-# Port layout: A/B light motors (drive), C color, D distance, E force, F empty.
-from hub import port
-import motor_pair, color_sensor, distance_sensor, force_sensor, runloop
+const DEFAULT_PYTHON_CODE = `# FLL Virtual Robot — write your code inside main().
+#
+# Uncomment the imports you need:
+#   from hub import port               # port.A..F constants
+#   import motor_pair                  # pair() + move_for_degrees() + move_tank_for_time()
+#   import color_sensor                # color_sensor.color(port.C)
+#   import distance_sensor             # distance_sensor.distance(port.D)
+#   import force_sensor                # force_sensor.force(port.E)
+import runloop
+
 
 async def main():
-    # Pair the drive motors (left = port.A, right = port.B).
-    motor_pair.pair(motor_pair.PAIR_1, port.A, port.B)
+    # Example: pair the drive motors and move forward ~50 cm.
+    #   motor_pair.pair(motor_pair.PAIR_1, port.A, port.B)
+    #   await motor_pair.move_for_degrees(motor_pair.PAIR_1, 1000, 0, velocity=720)
+    #
+    # Example: pivot turn right 90°.
+    #   await motor_pair.move_tank_for_time(motor_pair.PAIR_1, 360, -360, 500)
+    #
+    # Example: read a sensor.
+    #   print('Color:', color_sensor.color(port.C))
+    pass
 
-    # From spawn (350, 163), drive 780 mm north to the row of upper boxes (y≈943).
-    await motor_pair.move_for_degrees(motor_pair.PAIR_1, 1596, 0, velocity=720)
-    print('Color under robot:', color_sensor.color(port.C))
-
-    # Turn right 90° (now heading east).
-    await motor_pair.move_tank_for_time(motor_pair.PAIR_1, 360, -360, 500)
-
-    # Drive 1350 mm east — through yellow (x≈1000), slams obstacle '1' on green (x≈1700).
-    await motor_pair.move_for_degrees(motor_pair.PAIR_1, 2762, 0, velocity=720)
-    print('Bumper force after hit:', force_sensor.force(port.E), 'N')
-    print('Distance ahead:', distance_sensor.distance(port.D), 'mm')
-
-    # Turn right 90° (now heading south).
-    await motor_pair.move_tank_for_time(motor_pair.PAIR_1, 360, -360, 500)
-
-    # Drive 600 mm south — line up with the red mission row (y≈343).
-    await motor_pair.move_for_degrees(motor_pair.PAIR_1, 1228, 0, velocity=720)
-
-    # Turn left 90° (now heading east).
-    await motor_pair.move_tank_for_time(motor_pair.PAIR_1, -360, 360, 500)
-
-    # Drive 300 mm east — slams obstacle '2' on red (x≈2000).
-    await motor_pair.move_for_degrees(motor_pair.PAIR_1, 614, 0, velocity=720)
-    print('Bumper force after hit:', force_sensor.force(port.E), 'N')
-
-    print('Mission complete!')
 
 runloop.run(main())
 `;
