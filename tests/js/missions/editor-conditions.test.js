@@ -52,3 +52,12 @@ test('conditions: deselecting hides the section', () => {
   app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, null));
   assert.strictEqual(doc.getElementById('editor-cond-section').hidden, true);
 });
+
+test('conditions: attaching defines all six predicate blocks', () => {
+  const { ctx } = setup();
+  // Defined-blocks map is populated by attach (via ensureBlockDefs).
+  const defined = ctx.Blockly._definedBlocks;
+  for (const t of ['cond_zone', 'cond_sensor', 'cond_contact', 'cond_not', 'cond_all_of', 'cond_any_of']) {
+    assert.ok(defined[t], `expected block type "${t}" to be defined`);
+  }
+});
