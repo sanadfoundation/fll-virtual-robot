@@ -3667,13 +3667,38 @@ function _registerSpikeMyBlocksFlyout(Blockly, workspace) {
     return xmlList;
   });
 
-  // Workspace change listener: when the selected block changes, walk up to
-  // its enclosing myblocks_definition (if any) and set focus. Falls through
-  // if the workspace stub doesn't dispatch SELECTED events (tests).
+  // Workspace change listener: tracks selection (for body-context flyout)
+  // AND cascade-deletes calls when their definition is removed (matches
+  // scratch-blocks' procedure delete behavior so we never leave dangling
+  // calls that reference a non-existent function).
   if (workspace.addChangeListener) {
     workspace.addChangeListener((ev) => {
       if (!ev || !ev.type) return;
-      if (Blockly.Events && ev.type !== Blockly.Events.SELECTED) return;
+      const E = Blockly.Events || {};
+
+      // Cascade-delete: a definition went away → wipe its call sites. We
+      // get the deleted definition's procId from the saved JSON (oldJson /
+      // oldXml) since the block itself no longer exists at event time.
+      if (ev.type === E.BLOCK_DELETE || ev.type === 'delete') {
+        const blockType = ev.oldJson && ev.oldJson.type;
+        if (blockType === 'myblocks_definition') {
+          const procId = ev.oldJson.extraState && ev.oldJson.extraState.procId;
+          if (procId) {
+            // Defer so the delete event finishes first — otherwise Blockly
+            // chokes on disposing blocks during its own event dispatch.
+            setTimeout(() => {
+              const calls = workspace.getAllBlocks(false).filter(
+                b => b.type === 'myblocks_call' && b.procId_ === procId);
+              for (const c of calls) {
+                try { c.dispose(true, true); } catch (_e) {}
+              }
+            }, 0);
+          }
+        }
+        return;
+      }
+
+      if (ev.type !== E.SELECTED) return;
       if (!ev.newElementId) { MB.setFocusedDefinitionProcId(null); return; }
       const ws = workspace;
       const block = ws.getBlockById && ws.getBlockById(ev.newElementId);
@@ -3825,7 +3850,29 @@ function generateBlocklyJS(workspace) {
     const finished = js.finish(parts.join(''));
     if (typeof finished === 'string') parts.length = 0, parts.push(finished);
   }
-  const body = parts.join('');
+  // Orphan-call defense: if a myblocks_call survives without its matching
+  // myblocks_definition (user deleted the def, or an .llsp3 came in
+  // partial), the call's generator still emits `await name(...)` — which
+  // would be a ReferenceError at runtime. Synthesize a no-op stub for
+  // each orphan proccode so the program still parses + runs.
+  const orphanStubs = [];
+  if (workspace.getAllBlocks && window.MyBlocks && window.MyBlocks.slugifyName && window.MyBlocks.derivedNameFromArgspec) {
+    const all = workspace.getAllBlocks(false);
+    const defProcIds = new Set(all.filter(b => b.type === 'myblocks_definition').map(b => b.procId_).filter(Boolean));
+    const seenStubs = new Set();
+    for (const b of all) {
+      if (b.type !== 'myblocks_call') continue;
+      if (defProcIds.has(b.procId_)) continue;
+      const spec = b.argspec_ || [];
+      const fn = window.MyBlocks.slugifyName(window.MyBlocks.derivedNameFromArgspec(spec));
+      if (seenStubs.has(fn)) continue;
+      seenStubs.add(fn);
+      const params = spec.filter(t => t.kind === 'arg')
+        .map(t => window.MyBlocks.slugifyName(t.name || 'arg'));
+      orphanStubs.push(`async function ${fn}(${params.join(', ')}) { /* orphan — definition was removed */ }\n`);
+    }
+  }
+  const body = orphanStubs.join('') + parts.join('');
 
   const userVars = (workspace.getAllVariables && workspace.getAllVariables()) || [];
   const userVarDecls = userVars

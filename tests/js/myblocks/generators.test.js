@@ -160,6 +160,47 @@ test('myblocks_definition generator: empty body produces a valid empty function'
   assert.strictEqual(code, 'async function do_nothing() {\n}\n');
 });
 
+test('generateBlocklyJS: orphan call (no matching definition) gets a no-op stub function declared at top scope', () => {
+  // If the user deletes a definition but a call remains (or a partially-
+  // loaded .llsp3 has only a call), the generated JS would emit
+  // `await name(...)` against an undefined function — ReferenceError at
+  // runtime. Defensively synthesize a stub so the program still parses.
+  const { env } = setup();
+  const js = env.Blockly.JavaScript;
+  const origBlockToCode = js.blockToCode;
+  const origInit  = js.init;
+  const origFinish= js.finish;
+  js.init   = () => {};
+  js.finish = (s) => s;
+  // Pretend the top-level walker generates code for one orphan call.
+  js.blockToCode = (blk) => {
+    if (blk.type === 'myblocks_call') return 'await orphan_proc(0);\n';
+    return '';
+  };
+  try {
+    const orphanCall = {
+      type: 'myblocks_call',
+      outputConnection: null,
+      procId_: 'orphan-proc-id',
+      argspec_: [{ kind: 'label', text: 'orphan proc' }],
+    };
+    const fakeWs = {
+      getTopBlocks:    () => [orphanCall],
+      getAllBlocks:    () => [orphanCall],
+      getAllVariables: () => [],
+    };
+    const out = env.window.generateBlocklyJS(fakeWs);
+    assert.ok(out.includes('async function orphan_proc'),
+      'stub declaration is synthesized for orphan call');
+    assert.ok(out.includes('await orphan_proc('),
+      'call site code is still present');
+  } finally {
+    js.blockToCode = origBlockToCode;
+    js.init   = origInit;
+    js.finish = origFinish;
+  }
+});
+
 test('myblocks_definition is in _SELF_REGISTERING_TOP_TYPES (emits at top scope, not in _hats wrapper)', () => {
   // generateBlocklyJS wraps non-hat top-level chains in `_hats.push(async () => {...})`.
   // A procedure definition must NOT be wrapped — it has to be a top-level
