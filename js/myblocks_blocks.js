@@ -164,10 +164,12 @@
         this.textElement_.setAttribute('fill', PILL_TEXT);
         this.textElement_.style.fill = PILL_TEXT;
       }
-      // Discoverability: 'grab' cursor + slight brighten on hover so the user
-      // sees that the pill responds to clicks. (Touch-device users miss this
-      // hover signal — see CLAUDE.md for the trade-off.)
-      this.fieldGroup_.style.cursor = 'grab';
+      // Discoverability: 'pointer' cursor + slight brighten on hover so the
+      // user sees that the pill responds to clicks. 'pointer' (the click-finger
+      // cursor) is the right signal here because the click synthesizes a new
+      // block — there's no drag-in-flight to suggest with 'grab'. (Touch-
+      // device users miss this hover signal — see CLAUDE.md for the trade-off.)
+      this.fieldGroup_.style.cursor = 'pointer';
       this.fieldGroup_.addEventListener('mouseenter', () => {
         if (this.pillEl_) this.pillEl_.setAttribute('fill', PILL_FILL_HOVER);
       });
@@ -191,8 +193,8 @@
       // Cursor re-applied here (and not just in initView) because Blockly
       // can re-attach / restyle fieldGroup_ across renders, dropping the
       // inline style we set at init time.
-      if (this.fieldGroup_ && this.fieldGroup_.style.cursor !== 'grab') {
-        this.fieldGroup_.style.cursor = 'grab';
+      if (this.fieldGroup_ && this.fieldGroup_.style.cursor !== 'pointer') {
+        this.fieldGroup_.style.cursor = 'pointer';
       }
       // Width tracks the text + padding; height matches Blockly's field height.
       const textWidth = (this.textElement_ && this.textElement_.getComputedTextLength)
@@ -267,10 +269,11 @@
     let added = false;
     for (const tok of spec) {
       if (tok.kind === 'label') {
-        // Editable text — clicking opens Blockly's text-input popup. Each
-        // label is a separate field so the user can rewrite any segment of
-        // the proccode independently.
-        input.appendField(new Blockly.FieldTextInput(tok.text || ''), 'LABEL' + labelIdx++);
+        // Non-editable label — the definition's name/labels are set once in
+        // the Make-a-block modal and locked thereafter. FieldLabelSerializable
+        // (rather than plain FieldLabel) preserves the value through XML/
+        // state round-trip even though click won't open an editor.
+        input.appendField(new Blockly.FieldLabelSerializable(tok.text || ''), 'LABEL' + labelIdx++);
       } else {
         // Click an arg pill to spawn a fresh body reporter for that arg at
         // the cursor — the drag-from-hat replacement (see CLAUDE.md). The
@@ -282,7 +285,7 @@
       added = true;
     }
     if (!added) {
-      input.appendField(new Blockly.FieldLabel('block name'), 'LABEL0');
+      input.appendField(new Blockly.FieldLabelSerializable('block name'), 'LABEL0');
     }
   }
 
