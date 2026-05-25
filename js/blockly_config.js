@@ -1983,6 +1983,55 @@ function registerGenerators(Blockly) {
   js['flippermoresensors_angularVelocity'] = (_b) => [`0`, ORDER_ATOMIC];
   js['flippermoresensors_orientation']     = (_b) => [`0`, ORDER_ATOMIC];
   js['flippermoresensors_motion']          = (_b) => [`0`, ORDER_ATOMIC];
+
+  // ── My Blocks ──────────────────────────────────────────────────────────────
+  // Reporter blocks just echo the slugified arg name — it's resolved to the
+  // surrounding function's parameter at runtime. Slugging is shared with
+  // the definition/call generators below so the names always line up.
+  const _slug = (n) => (window.MyBlocks && window.MyBlocks.slugifyName)
+    ? window.MyBlocks.slugifyName(n) : String(n || 'arg').replace(/[^a-z0-9_]/gi, '_');
+
+  js['myblocks_arg_string_number'] = (block) => {
+    return [_slug(block.getFieldValue('VALUE')), ORDER_ATOMIC];
+  };
+  js['myblocks_arg_boolean'] = (block) => {
+    return [_slug(block.getFieldValue('VALUE')), ORDER_ATOMIC];
+  };
+
+  // Call site: `await name(args);`. Default expressions for empty slots —
+  // boolean → `false`, string_number → `0` — match Scratch's argumentdefaults
+  // convention so unconnected slots don't error out at runtime.
+  js['myblocks_call'] = (block) => {
+    const spec = block.argspec_ || [];
+    const fnName = window.MyBlocks
+      ? window.MyBlocks.slugifyName(window.MyBlocks.derivedNameFromArgspec(spec))
+      : 'my_block';
+    const args = [];
+    let i = 0;
+    for (const tok of spec) {
+      if (tok.kind !== 'arg') continue;
+      const fallback = tok.argKind === 'boolean' ? 'false' : '0';
+      const expr = js.valueToCode(block, 'ARG' + i, ORDER_NONE) || fallback;
+      args.push(expr);
+      i++;
+    }
+    return `await ${fnName}(${args.join(', ')});\n`;
+  };
+
+  // Definition: `async function name(args) { body }`. Body is the next-block
+  // chain (statements connected below the hat). Top-level emission is
+  // suppressed via _SELF_REGISTERING_TOP_TYPES so the function appears at
+  // file scope, reachable from any call site.
+  js['myblocks_definition'] = (block) => {
+    const spec = block.argspec_ || [];
+    const fnName = window.MyBlocks
+      ? window.MyBlocks.slugifyName(window.MyBlocks.derivedNameFromArgspec(spec))
+      : 'my_block';
+    const params = spec.filter(t => t.kind === 'arg').map(t => _slug(t.name));
+    const next = block.getNextBlock ? block.getNextBlock() : null;
+    const body = next ? js.blockToCode(next) : '';
+    return `async function ${fnName}(${params.join(', ')}) {\n${body}}\n`;
+  };
 }
 
 // ── Toolbox XML ──────────────────────────────────────────────────────────────
@@ -2234,7 +2283,7 @@ const TOOLBOX_XML = `
   <sep></sep>
 
   <category name="VARIABLES" colour="${C_VARS}" custom="VARIABLE"></category>
-  <category name="MY BLOCKS"  colour="${C_MYBLOCKS}" custom="PROCEDURE"></category>
+  <category name="MY BLOCKS"  colour="${C_MYBLOCKS}" custom="MY_BLOCKS"></category>
 
   <!-- EXTENSIONS_PLACEHOLDER -->
 
@@ -3427,6 +3476,7 @@ function initBlockly(divId, themeName, initialXml) {
   if (host) host.appendChild(toggleBtn);
 
   _registerSpikeVariablesFlyout(Blockly, workspace);
+  _registerSpikeMyBlocksFlyout(Blockly, workspace);
 
   const xmlText = (typeof initialXml === 'string' && initialXml.trim()) ? initialXml : DEFAULT_BLOCKLY_XML;
   try {
@@ -3519,6 +3569,125 @@ function _registerSpikeVariablesFlyout(Blockly, workspace) {
     }
     return xmlList;
   });
+}
+
+// Replace Blockly's default PROCEDURE flyout with the SPIKE-style My Blocks
+// flow: a single "Make a Block" button at the top, then one call block for
+// every myblocks_definition on the workspace, then (when the user's focus is
+// inside a definition's body) that definition's arg reporters.
+//
+// Focus tracking lives on window.MyBlocks.setFocusedDefinitionProcId — the
+// initBlockly change listener calls it whenever the selection changes, and
+// the flyout reads it lazily when the toolbox category is opened.
+function _registerSpikeMyBlocksFlyout(Blockly, workspace) {
+  if (typeof window === 'undefined' || !window.MyBlocks) return;
+  const MB = window.MyBlocks;
+
+  // Focus state lives module-side so the flyout callback (a closure on this
+  // module) and the workspace listener (a closure on initBlockly) can
+  // share it.
+  if (typeof MB.getFocusedDefinitionProcId !== 'function') {
+    let focused = null;
+    MB.setFocusedDefinitionProcId = (id) => { focused = id || null; };
+    MB.getFocusedDefinitionProcId = () => focused;
+  }
+
+  workspace.registerButtonCallback('CREATE_SPIKE_MYBLOCK', (button) => {
+    const ws = button && button.getTargetWorkspace ? button.getTargetWorkspace() : workspace;
+    if (!MB.openMyBlocksModal) return;
+    MB.openMyBlocksModal(Blockly).then((result) => {
+      if (!result) return;
+      // Use Blockly's JSON deserialization pipeline rather than newBlock +
+      // loadExtraState — the latter mutates fields after initSvg, and
+      // appendField on an already-initialized block can leave the Zelos
+      // drawer with a half-built field (crashes in layoutField_ on a null
+      // SVG element). Deserialization runs init + loadExtraState in the
+      // right order so the block's first render sees the final field set.
+      const metrics = ws.getMetrics ? ws.getMetrics() : null;
+      const xOffset = ((metrics && metrics.viewLeft) || 0) + 40;
+      const yOffset = ((metrics && metrics.viewTop)  || 0) + 40;
+      Blockly.serialization.blocks.append({
+        type: 'myblocks_definition',
+        extraState: { procId: result.procId, argspec: result.argspec },
+        x: xOffset, y: yOffset,
+      }, ws);
+      // Refresh toolbox so the matching call block appears.
+      const tb = ws.getToolbox && ws.getToolbox();
+      if (tb && tb.refreshSelection) tb.refreshSelection();
+    });
+  });
+
+  workspace.registerToolboxCategoryCallback('MY_BLOCKS', (ws) => {
+    const xmlList = [];
+    const makeBtn = document.createElement('button');
+    makeBtn.setAttribute('text', 'Make a Block');
+    makeBtn.setAttribute('callbackKey', 'CREATE_SPIKE_MYBLOCK');
+    xmlList.push(makeBtn);
+
+    const defs = (ws.getAllBlocks ? ws.getAllBlocks(false) : []).filter(b => b.type === 'myblocks_definition');
+
+    // Body-context arg reporters for the currently focused definition.
+    const focusedId = MB.getFocusedDefinitionProcId && MB.getFocusedDefinitionProcId();
+    if (focusedId) {
+      const focusedDef = defs.find(d => d.procId_ === focusedId);
+      if (focusedDef) {
+        for (const tok of (focusedDef.argspec_ || [])) {
+          if (tok.kind !== 'arg') continue;
+          const type = tok.argKind === 'boolean'
+            ? 'myblocks_arg_boolean'
+            : 'myblocks_arg_string_number';
+          const repBlk = document.createElement('block');
+          repBlk.setAttribute('type', type);
+          // The mutation carries BOTH argid + name. The redundant name+<field>
+          // is intentional: domToMutation re-applies the name to the field so
+          // child ordering can't leave it blank.
+          const mut = document.createElement('mutation');
+          mut.setAttribute('argid', tok.argId || '');
+          mut.setAttribute('name',  tok.name  || '');
+          repBlk.appendChild(mut);
+          const f = document.createElement('field');
+          f.setAttribute('name', 'VALUE');
+          f.textContent = tok.name || '';
+          repBlk.appendChild(f);
+          xmlList.push(repBlk);
+        }
+      }
+    }
+
+    // Call block per definition, carrying the argspec via <mutation>.
+    for (const def of defs) {
+      const blk = document.createElement('block');
+      blk.setAttribute('type', 'myblocks_call');
+      const mut = document.createElement('mutation');
+      mut.setAttribute('procid', def.procId_ || '');
+      mut.setAttribute('argspec', JSON.stringify(def.argspec_ || []));
+      blk.appendChild(mut);
+      xmlList.push(blk);
+    }
+    return xmlList;
+  });
+
+  // Workspace change listener: when the selected block changes, walk up to
+  // its enclosing myblocks_definition (if any) and set focus. Falls through
+  // if the workspace stub doesn't dispatch SELECTED events (tests).
+  if (workspace.addChangeListener) {
+    workspace.addChangeListener((ev) => {
+      if (!ev || !ev.type) return;
+      if (Blockly.Events && ev.type !== Blockly.Events.SELECTED) return;
+      if (!ev.newElementId) { MB.setFocusedDefinitionProcId(null); return; }
+      const ws = workspace;
+      const block = ws.getBlockById && ws.getBlockById(ev.newElementId);
+      let cur = block;
+      while (cur) {
+        if (cur.type === 'myblocks_definition') {
+          MB.setFocusedDefinitionProcId(cur.procId_ || null);
+          return;
+        }
+        cur = cur.getParent ? cur.getParent() : null;
+      }
+      MB.setFocusedDefinitionProcId(null);
+    });
+  }
 }
 
 // SPIKE word-block decoration: a small curl glyph at the bottom-right of every
@@ -3624,6 +3793,10 @@ const _SELF_REGISTERING_TOP_TYPES = new Set([
   'flipperevents_whenTilted', 'flipperevents_whenOrientation', 'flipperevents_whenGesture',
   'flipperevents_whenButton', 'flipperevents_whenTimer', 'flipperevents_whenCondition',
   'event_whenbroadcastreceived',
+  // My Blocks definitions emit a top-level `async function name(args) {...}`
+  // — must not be wrapped in `_hats.push(...)` or the function disappears
+  // into a closure that call sites can't reach.
+  'myblocks_definition',
 ]);
 
 function generateBlocklyJS(workspace) {

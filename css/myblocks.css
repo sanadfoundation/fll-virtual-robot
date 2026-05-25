@@ -1,0 +1,202 @@
+/* css/myblocks.css
+ *
+ * SPIKE "Make a block" modal — DOM classes deliberately mirror the real
+ * editor's (.my-blocks, .my-blocks__content, .lls-modal__header, etc.) so
+ * an outside reader can A/B against the LEGO source.
+ *
+ * Numbers (700×450 card, 600×200 preview, 188×125 option cards, 14px
+ * footer, etc.) are taken from getComputedStyle() against
+ * spike.legoeducation.com/prime/project on 2026-05-24. Font falls back to
+ * the platform sans-serif since "Cera Pro" isn't free to embed.
+ */
+
+.my-blocks {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+  font: 400 12px/1.4 "Cera Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+.my-blocks__content {
+  position: relative;
+  width: 700px;
+  background: #fff;
+  border-radius: 5px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.11);
+  color: #000;
+}
+
+.my-blocks .lls-modal__cancel-button {
+  position: absolute;
+  top: 10px; right: 10px;
+  width: 24px; height: 28px;
+  background: none; border: 0;
+  color: #7c7c7c;
+  font-size: 22px; line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+.my-blocks .lls-modal__cancel-button:hover { color: #333; }
+
+.my-blocks .lls-modal__header {
+  padding: 20px 20px 0;
+  color: #555;
+  font-size: 14px;
+}
+
+.my-blocks__content__body {
+  padding: 0;
+}
+
+.my-blocks__content__workspace {
+  width: 600px;
+  height: 200px;
+  margin: 0 auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+}
+
+.myblocks-preview-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 18px 12px 30px;
+  background: #ff5d64;
+  border-radius: 8px 8px 8px 28px;  /* hat-block-ish silhouette */
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.08);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  max-width: 560px;
+  flex-wrap: wrap;
+}
+.myblocks-preview-label,
+.myblocks-preview-arg {
+  outline: none;
+  min-width: 20px;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.myblocks-preview-label[contenteditable="true"]:hover,
+.myblocks-preview-arg[contenteditable="true"]:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+.myblocks-preview-label[contenteditable="true"]:focus,
+.myblocks-preview-arg[contenteditable="true"]:focus {
+  background: rgba(255, 255, 255, 0.25);
+}
+.myblocks-preview-arg-string_number {
+  background: #fff;
+  color: #d0454d;
+  border-radius: 999px;
+  padding: 2px 12px;
+  font-weight: 700;
+}
+.myblocks-preview-arg-boolean {
+  background: #fff;
+  color: #d0454d;
+  font-weight: 700;
+  padding: 2px 14px;
+  clip-path: polygon(10% 0, 90% 0, 100% 50%, 90% 100%, 10% 100%, 0 50%);
+}
+.myblocks-preview-del {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border: 0;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  line-height: 1;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0;
+  margin-left: -2px;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.myblocks-preview-card:hover .myblocks-preview-del {
+  opacity: 1;
+}
+
+.my-blocks__content__seperator {
+  width: 600px;
+  height: 0;
+  margin: 0 auto;
+  border-top: 1px solid #e6e6e6;
+}
+
+.my-blocks__content__options {
+  width: 600px;
+  margin: 0 auto;
+  padding: 20px 0;
+  display: flex;
+  justify-content: space-between;
+}
+
+.my-blocks__content__options__option {
+  width: 188px;
+  height: 125px;
+  margin: 0 8px;
+  padding: 20px;
+  box-sizing: border-box;
+  text-align: center;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 120ms ease;
+}
+.my-blocks__content__options__option:hover {
+  background: #f6f6f6;
+}
+.my-blocks__content__options__option img {
+  display: block;
+  margin: 0 auto 8px;
+}
+.my-blocks__content__options__option__header {
+  font-size: 16px;
+  font-weight: 700;
+  color: #000;
+}
+.my-blocks__content__options__option__subheader {
+  font-size: 14px;
+  color: #000;
+}
+
+.my-blocks .lls-modal__footer {
+  display: flex;
+  padding: 15px 20px;
+  border-top: 1px solid #e6e6e6;
+}
+.my-blocks .lls-modal__button {
+  flex: 1 1 0;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: -0.5px;
+  color: #006cb7;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 12px;
+  user-select: none;
+}
+.my-blocks .lls-modal__button + .lls-modal__button {
+  border-left: 1px solid #e6e6e6;
+}
+.my-blocks .lls-modal__button:hover { color: #003e7d; }
+
+/* My Blocks blocks on the workspace + flyout — pink palette matching the
+ * existing C_MYBLOCKS constant in blockly_config.js. The default Blockly
+ * field paint is overridden so the editable name pills read as white-on-pink
+ * the way they do in SPIKE. */
+.blocklyEditableText > rect.blocklyFieldRect[fill] {
+  /* No-op: leave Blockly's default unless we need to tweak per-block */
+}
+.myblocks-arg.myblocks-arg-boolean,
+.myblocks-arg.myblocks-arg-string_number {
+  fill: #fff;
+}

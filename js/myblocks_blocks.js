@@ -1,0 +1,348 @@
+// js/myblocks_blocks.js
+//
+// SPIKE My Blocks — custom Blockly block types + mutator support.
+//
+// Five conceptual block types map to four user-facing Blockly registrations:
+//   myblocks_definition      — the hat that starts a custom-block body
+//   myblocks_call            — the call-site stack block
+//   myblocks_arg_string_number — round arg-reporter (in the body)
+//   myblocks_arg_boolean     — hex arg-reporter (in the body)
+//
+// The fifth (`procedures_prototype` in Scratch's model) is synthesised only
+// at LLSP3 export time and consumed at import time; we don't keep it as a
+// live Blockly block.
+//
+// State model: every definition and every call carries an `argspec_` (ordered
+// list of {kind:'label'|'arg', ...} tokens) and a `procId_` (uuid). Calls and
+// the definition link by procId, *not* by name — renaming labels doesn't
+// orphan call sites. Body arg-reporters link to the enclosing definition by
+// argId (an id minted per arg slot), so renaming an arg in the definition
+// just rewrites the displayed name in all reporters, no collision risk.
+//
+// The pure helpers (slugifyName, derivedNameFromArgspec, genId, seedArgspec,
+// makeArgToken) are exported on `window.MyBlocks` so the proccode helpers
+// and the modal can use them without going through Blockly.
+'use strict';
+(function (global) {
+  const MyBlocks = (global.MyBlocks = global.MyBlocks || {});
+
+  // 20-char alphabetic id, matching the scratch-blocks/SB3 id alphabet shape
+  // (real sb3 ids include more punctuation, but we never expose ours to the
+  // outside world — round-trip remaps them).
+  const ID_ALPHABET = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  function genId() {
+    let s = '';
+    for (let i = 0; i < 20; i++) {
+      s += ID_ALPHABET[Math.floor(Math.random() * ID_ALPHABET.length)];
+    }
+    return s;
+  }
+
+  // Turn a user-typed display name into a JS-identifier-safe slug. Used for
+  // the generated `async function <slug>(...)`. Pure: same input → same
+  // output, regardless of state.
+  function slugifyName(name) {
+    const raw = String(name || '').trim().toLowerCase();
+    if (raw === '') return 'my_block';
+    let s = raw.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    if (s === '') s = '_';
+    if (/^[0-9]/.test(s)) s = '_' + s;
+    return s;
+  }
+
+  // Compute the human-readable display name from an argspec by joining only
+  // the label tokens. We strip arg slots — they're not part of the procedure
+  // identifier from the user's perspective. If there are no labels (rare; an
+  // argspec that's all args) fall back to a default so we never name a
+  // procedure '' or stringify to undefined.
+  function derivedNameFromArgspec(argspec) {
+    const labels = (argspec || [])
+      .filter(t => t.kind === 'label')
+      .map(t => String(t.text || ''));
+    const joined = labels.join(' ').replace(/\s+/g, ' ').trim();
+    return joined === '' ? 'my_block' : joined;
+  }
+
+  // Initial argspec for a fresh definition — one editable label that reads
+  // "block name", matching SPIKE's modal placeholder.
+  function seedArgspec() {
+    return [{ kind: 'label', text: 'block name' }];
+  }
+
+  // Factory for the three things the modal can add: a number/text arg, a
+  // boolean arg, or a label. Mirrors SPIKE's three modal option cards.
+  function makeArgToken(kind, text) {
+    if (kind === 'label') {
+      return { kind: 'label', text: text !== undefined ? String(text) : 'label text' };
+    }
+    if (kind === 'boolean') {
+      return { kind: 'arg', argKind: 'boolean', name: 'boolean',
+               argId: genId(), defaultValue: 'false' };
+    }
+    // 'number' (the modal label is "Add an input — number or text")
+    return { kind: 'arg', argKind: 'string_number', name: 'number',
+             argId: genId(), defaultValue: '' };
+  }
+
+  MyBlocks.genId                 = genId;
+  MyBlocks.slugifyName           = slugifyName;
+  MyBlocks.derivedNameFromArgspec= derivedNameFromArgspec;
+  MyBlocks.seedArgspec           = seedArgspec;
+  MyBlocks.makeArgToken          = makeArgToken;
+
+  // ── Blockly block registrations ────────────────────────────────────────────
+  // Only run when Blockly is on the page (i.e. in the browser, not in Node
+  // unit tests). The pure helpers above stay available either way.
+  if (typeof global.Blockly === 'undefined') return;
+  const Blockly = global.Blockly;
+
+  // Colour matches the existing C_MYBLOCKS in blockly_config.js. Imported
+  // here as a literal so this module is loadable independently.
+  const C_MYBLOCKS = '#ff5d64';
+
+  function applyArgspecToDefinition(block) {
+    // Wipe any pre-existing inputs (mutator re-init pattern).
+    for (const inp of block.inputList.slice()) block.removeInput(inp.name);
+    const spec = block.argspec_ || [];
+    let input = block.appendDummyInput('ROW');
+    let labelIdx = 0;
+    let argIdx = 0;
+    let added = false;
+    for (const tok of spec) {
+      if (tok.kind === 'label') {
+        // Editable text — clicking opens Blockly's text-input popup. Each
+        // label is a separate field so the user can rewrite any segment of
+        // the proccode independently.
+        input.appendField(new Blockly.FieldTextInput(tok.text || ''), 'LABEL' + labelIdx++);
+      } else {
+        // On the definition block, args are non-editable name pills (you
+        // rename them via the definition's mutator/right-click menu, not by
+        // clicking the pill itself). Keep a stable field name keyed by argId
+        // so calls can find their slot after a mutation.
+        input.appendField(new Blockly.FieldLabel(tok.name || ''), 'ARG' + argIdx++);
+      }
+      added = true;
+    }
+    if (!added) {
+      input.appendField(new Blockly.FieldLabel('block name'), 'LABEL0');
+    }
+  }
+
+  function applyArgspecToCall(block) {
+    for (const inp of block.inputList.slice()) block.removeInput(inp.name);
+    const spec = block.argspec_ || [];
+    let labelIdx = 0;
+    let argIdx = 0;
+    block.setInputsInline(true);
+    let dummy = null;
+    for (const tok of spec) {
+      if (tok.kind === 'label') {
+        if (!dummy) dummy = block.appendDummyInput('LABEL' + labelIdx++);
+        dummy.appendField(new Blockly.FieldLabel(tok.text || ''));
+      } else {
+        const name = 'ARG' + argIdx++;
+        if (tok.argKind === 'boolean') {
+          block.appendValueInput(name).setCheck('Boolean');
+        } else {
+          block.appendValueInput(name).setCheck(['Number', 'String']);
+        }
+        dummy = null;
+      }
+    }
+    if (argIdx === 0 && labelIdx === 0) {
+      block.appendDummyInput('LABEL0').appendField(new Blockly.FieldLabel('block name'));
+    }
+  }
+
+  // Sweep the workspace for all calls whose procId matches the given
+  // definition and re-init their UI from the definition's argspec, preserving
+  // any plugged-in value blocks at matching slot indices.
+  function syncCallsToDefinition(workspace, def) {
+    if (!workspace || !def) return;
+    const procId = def.procId_;
+    if (!procId) return;
+    const calls = workspace.getAllBlocks(false).filter(
+      b => b.type === 'myblocks_call' && b.procId_ === procId);
+    for (const call of calls) {
+      // Snapshot existing value-input connections by slot index.
+      const oldConnections = [];
+      const oldInputs = call.inputList.filter(i => i.name && i.name.startsWith('ARG'));
+      for (const inp of oldInputs) {
+        const target = inp.connection && inp.connection.targetBlock();
+        oldConnections.push(target);
+      }
+      call.argspec_ = JSON.parse(JSON.stringify(def.argspec_ || []));
+      applyArgspecToCall(call);
+      // Re-attach. Slot indices align as long as args weren't reordered.
+      const newInputs = call.inputList.filter(i => i.name && i.name.startsWith('ARG'));
+      for (let i = 0; i < newInputs.length && i < oldConnections.length; i++) {
+        const target = oldConnections[i];
+        if (target && newInputs[i].connection) {
+          const outConn = target.outputConnection;
+          if (outConn) {
+            try { newInputs[i].connection.connect(outConn); } catch (_e) { /* type mismatch */ }
+          }
+        }
+      }
+    }
+  }
+
+  MyBlocks.applyArgspecToDefinition = applyArgspecToDefinition;
+  MyBlocks.applyArgspecToCall       = applyArgspecToCall;
+  MyBlocks.syncCallsToDefinition    = syncCallsToDefinition;
+
+  Blockly.Blocks['myblocks_definition'] = {
+    init() {
+      this.procId_ = genId();
+      this.argspec_ = seedArgspec();
+      // Colour MUST be set before fields are added: FieldTextInput's
+      // applyColour reaches into renderer constants (FULL_BLOCK_FIELDS) that
+      // aren't populated until initSvg, so doing setColour after the
+      // FieldTextInput is appended crashes during init().
+      this.setColour(C_MYBLOCKS);
+      this.setNextStatement(true);
+      this.setTooltip('Defines a custom block.');
+      applyArgspecToDefinition(this);
+    },
+    saveExtraState() {
+      return { procId: this.procId_ || '', argspec: this.argspec_ || [] };
+    },
+    loadExtraState(state) {
+      this.procId_  = (state && state.procId)  || this.procId_ || genId();
+      this.argspec_ = (state && state.argspec) || [];
+      applyArgspecToDefinition(this);
+    },
+    // Blockly's flyout still drives drag via XML, and its XML→state bridge
+    // doesn't convert lowercase mutation attributes to our camelCase keys
+    // (procid → procId, argspec stays a string). Implement domToMutation so
+    // drag-from-flyout populates extraState the same way as JSON load.
+    mutationToDom() {
+      const m = document.createElement('mutation');
+      m.setAttribute('procid', this.procId_ || '');
+      m.setAttribute('argspec', JSON.stringify(this.argspec_ || []));
+      return m;
+    },
+    domToMutation(xml) {
+      this.procId_ = xml.getAttribute('procid') || this.procId_ || genId();
+      try { this.argspec_ = JSON.parse(xml.getAttribute('argspec') || '[]'); }
+      catch (_e) { this.argspec_ = []; }
+      applyArgspecToDefinition(this);
+    },
+  };
+
+  Blockly.Blocks['myblocks_call'] = {
+    init() {
+      this.procId_ = '';
+      this.argspec_ = [];
+      // Colour must precede applyArgspecToCall — see note on
+      // myblocks_definition above. FieldLabel doesn't have the same
+      // applyColour issue but we set colour first for consistency.
+      this.setColour(C_MYBLOCKS);
+      this.setPreviousStatement(true);
+      this.setNextStatement(true);
+      this.setTooltip('Runs a custom block.');
+      applyArgspecToCall(this);
+    },
+    saveExtraState() {
+      return { procId: this.procId_ || '', argspec: this.argspec_ || [] };
+    },
+    loadExtraState(state) {
+      // Calls don't mint a procId — they inherit one from the matching
+      // definition. Empty procId here just means "unlinked"; the workspace
+      // change-listener (Phase C) reconnects when a matching def appears.
+      this.procId_  = (state && state.procId)  || '';
+      this.argspec_ = (state && state.argspec) || [];
+      applyArgspecToCall(this);
+    },
+    mutationToDom() {
+      const m = document.createElement('mutation');
+      m.setAttribute('procid', this.procId_ || '');
+      m.setAttribute('argspec', JSON.stringify(this.argspec_ || []));
+      return m;
+    },
+    domToMutation(xml) {
+      this.procId_ = xml.getAttribute('procid') || '';
+      try { this.argspec_ = JSON.parse(xml.getAttribute('argspec') || '[]'); }
+      catch (_e) { this.argspec_ = []; }
+      applyArgspecToCall(this);
+    },
+  };
+
+  // Body-side arg reporters. The displayed name lives in fields.VALUE and is
+  // resolved at runtime by walking up to the enclosing definition and looking
+  // up its argspec entry with the matching argId.
+  Blockly.Blocks['myblocks_arg_string_number'] = {
+    init() {
+      this.argId_ = '';
+      this.setColour(C_MYBLOCKS);
+      this.setOutput(true, ['Number', 'String']);
+      // FieldLabelSerializable (not FieldLabel) is required here: plain
+      // FieldLabel creates its <text> element from the value at init time
+      // and never refreshes it, so a post-init setValue (which is what
+      // domToMutation / drag-from-flyout does) leaves the displayed label
+      // blank. FieldLabelSerializable subclasses FieldLabel and properly
+      // updates the DOM on setValue.
+      this.appendDummyInput().appendField(new Blockly.FieldLabelSerializable(''), 'VALUE');
+    },
+    saveExtraState() {
+      return { argId: this.argId_ || '', name: this.getFieldValue('VALUE') || '' };
+    },
+    loadExtraState(state) {
+      this.argId_ = (state && state.argId) || '';
+      if (state && state.name) this.setFieldValue(String(state.name), 'VALUE');
+    },
+    mutationToDom() {
+      const m = document.createElement('mutation');
+      m.setAttribute('argid', this.argId_ || '');
+      m.setAttribute('name', this.getFieldValue('VALUE') || '');
+      return m;
+    },
+    domToMutation(xml) {
+      this.argId_ = xml.getAttribute('argid') || '';
+      // The mutation also carries the displayed name so we don't depend on
+      // <field> child ordering — Blockly v10 can clear the field if <mutation>
+      // is processed AFTER <field> (the field setter happens but a subsequent
+      // re-init wipes it). Re-applying here makes the order moot.
+      const name = xml.getAttribute('name');
+      if (name) this.setFieldValue(name, 'VALUE');
+    },
+  };
+
+  Blockly.Blocks['myblocks_arg_boolean'] = {
+    init() {
+      this.argId_ = '';
+      this.setColour(C_MYBLOCKS);
+      this.setOutput(true, 'Boolean');
+      // FieldLabelSerializable (not FieldLabel) is required here: plain
+      // FieldLabel creates its <text> element from the value at init time
+      // and never refreshes it, so a post-init setValue (which is what
+      // domToMutation / drag-from-flyout does) leaves the displayed label
+      // blank. FieldLabelSerializable subclasses FieldLabel and properly
+      // updates the DOM on setValue.
+      this.appendDummyInput().appendField(new Blockly.FieldLabelSerializable(''), 'VALUE');
+    },
+    saveExtraState() {
+      return { argId: this.argId_ || '', name: this.getFieldValue('VALUE') || '' };
+    },
+    loadExtraState(state) {
+      this.argId_ = (state && state.argId) || '';
+      if (state && state.name) this.setFieldValue(String(state.name), 'VALUE');
+    },
+    mutationToDom() {
+      const m = document.createElement('mutation');
+      m.setAttribute('argid', this.argId_ || '');
+      m.setAttribute('name', this.getFieldValue('VALUE') || '');
+      return m;
+    },
+    domToMutation(xml) {
+      this.argId_ = xml.getAttribute('argid') || '';
+      // The mutation also carries the displayed name so we don't depend on
+      // <field> child ordering — Blockly v10 can clear the field if <mutation>
+      // is processed AFTER <field> (the field setter happens but a subsequent
+      // re-init wipes it). Re-applying here makes the order moot.
+      const name = xml.getAttribute('name');
+      if (name) this.setFieldValue(name, 'VALUE');
+    },
+  };
+
+})(typeof window !== 'undefined' ? window : globalThis);

@@ -20,6 +20,9 @@ No build step, no package manager. Dependencies load from CDN.
 - **Blockly 10 API:** `Blockly.utils.xml.textToDom` (the old `Blockly.Xml.textToDom` was removed).
 - **MicroPython has no `traceback` module.** Errors surface as `ExcType: message`.
 - **A project is single-mode (Python or Blocks), chosen at creation and never switched.** `localStorage.fll-vr-project-type` is the source of truth; `switchMode(mode)` is a view-update + persist helper, not a user-facing toggle. The header carries a static `#project-type-badge`, not the old Blocks/Python tabs. Creating a Python project clears only `fll-vr-python-code`; creating a Blocks project clears only `fll-vr-blockly-xml`. The 📄 New button is a split-button dropdown — the popover is wired in `index.html` (open/close IIFE) and each menu item is wired in `js/main.js` to `handleNewProject(type)`. Legacy `fll-vr-tab` is migrated once at bootstrap via `migrateLegacyTabKey()` and then deleted.
+- **My Blocks are 5 opcodes, not 1.** `myblocks_definition` (hat) + `myblocks_call` (stack) + `myblocks_arg_string_number` / `_arg_boolean` (body reporters) live in our Blockly model. At LLSP3 export they expand into Scratch's 5 opcodes — `procedures_definition`, shadow `procedures_prototype` (carries the `proccode` mutation), `procedures_call`, and the two `argument_reporter_*` — matching the real Spike app's encoding for round-trip. `js/myblocks_proccode.js` parses/emits the `"rotate %s %b my function"` template; `js/llsp3_blocks.js` handles the bidirectional mapping.
+- **Definition↔call binding is by `procId` (UUID), not by name.** Renaming labels doesn't orphan call sites. Body reporters bind to defs by `argId` internally but degrade to by-name lookup at LLSP3 round-trip (Scratch only carries names on body reporters). Both indices are rebuilt at import time.
+- **`myblocks_definition` is in `_SELF_REGISTERING_TOP_TYPES`.** Its generator emits `async function name(args) { body }` at top scope — must NOT be wrapped in `_hats.push(...)` or call sites can't reach it.
 
 ## Field
 
@@ -43,3 +46,13 @@ No build step, no package manager. Dependencies load from CDN.
 1. Add a JSON definition to `SPIKE_BLOCKS`.
 2. Add a generator in `registerGenerators()` returning `await window.sim._animateTank(...)` (or `_animateSingleMotor`).
 3. Place the block in the appropriate `TOOLBOX_XML` category.
+
+## My Blocks (Scratch procedures)
+
+- `js/myblocks_proccode.js` — proccode↔argspec parser/emitter (pure, Node-testable).
+- `js/myblocks_blocks.js` — 4 Blockly block defs (definition, call, 2 arg reporters) + `applyArgspecToDefinition`/`applyArgspecToCall` UI builders + `syncCallsToDefinition` for live mutator sync.
+- `js/myblocks_modal.js` — `createModalState()` (pure controller) + `openMyBlocksModal(Blockly)` (DOM shell, returns a Promise of `{procId, argspec}` or null).
+- `css/myblocks.css` — modal styling matching SPIKE's `.my-blocks` palette/sizes.
+- `_registerSpikeMyBlocksFlyout(Blockly, workspace)` (in `blockly_config.js`) — the `MY_BLOCKS` toolbox category callback + `CREATE_SPIKE_MYBLOCK` button → opens modal → instantiates definition on workspace.
+- Round-trip mapping lives in `js/llsp3_blocks.js` (`buildMyBlocks*`, `emitMyBlocks*`, plus `findProtoFor` / `argspecFromProto` / `buildProccodeIndex`).
+- Tests in `tests/js/myblocks/` (pure helpers, generators, modal state, flyout callback) and `tests/js/llsp3/myblocks.test.js` (round-trip against `tests/fixtures/llsp3/myblocks-project.llsp3`).

@@ -21,6 +21,7 @@
 
   <!-- App styles -->
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/myblocks.css">
 </head>
 <body>
 
@@ -308,6 +309,13 @@
 <script src="js/force_sensor_logic.js"></script>
 <script src="js/ruler.js"></script>
 <script src="js/simulator.js"></script>
+<!-- My Blocks helpers must load BEFORE blockly_config.js so window.MyBlocks
+     is populated when registerGenerators / _registerSpikeMyBlocksFlyout
+     read it. Order within MyBlocks: proccode → blocks (which uses parseProccode)
+     → modal (which uses seedArgspec / makeArgToken). -->
+<script src="js/myblocks_proccode.js"></script>
+<script src="js/myblocks_blocks.js"></script>
+<script src="js/myblocks_modal.js"></script>
 <script src="js/blockly_config.js"></script>
 <script src="js/monaco_config.js"></script>
 <script src="js/llsp3_assets.js"></script>

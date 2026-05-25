@@ -413,6 +413,14 @@
   }
 
   function emitBlock(out, blkly, parentId, topLevel) {
+    // My Blocks redirects — return the scratch block id directly so callers
+    // (encodeInput, the recursive next-chain walk) wire to the synthesized
+    // procedures_* / argument_reporter_* opcode instead of our internal type.
+    if (blkly && blkly.type === 'myblocks_definition') return emitMyBlocksDefinition(out, blkly, parentId, topLevel);
+    if (blkly && blkly.type === 'myblocks_call')       return emitMyBlocksCall(out, blkly, parentId, topLevel);
+    if (blkly && blkly.type === 'myblocks_arg_string_number') return emitArgReporter(out, blkly, parentId, topLevel, 'argument_reporter_string_number');
+    if (blkly && blkly.type === 'myblocks_arg_boolean')       return emitArgReporter(out, blkly, parentId, topLevel, 'argument_reporter_boolean');
+
     const id = blkly.id || genSb3Id();
     const node = {
       opcode: blkly.type,
@@ -503,6 +511,120 @@
     return id;
   }
 
+  // ── My Blocks: Blockly state → sb3 ───────────────────────────────────────
+  function emitMyBlocksDefinition(out, blkly, parentId, topLevel) {
+    const id = blkly.id || genSb3Id();
+    const argspec = (blkly.extraState && blkly.extraState.argspec) || [];
+    const mut = global.MyBlocks
+      ? global.MyBlocks.emitProccode(argspec)
+      : { proccode: '', argumentnames: [], argumentdefaults: [], argumentids: [] };
+
+    // Synthesize the shadow prototype carrying the mutation. Scratch's
+    // prototype also holds shadow argument_reporter_* blocks for each arg
+    // (one per slot, plugged into prototype.inputs[<argumentid>]); these
+    // render the editable name pills on the definition's hat.
+    const protoId = genSb3Id();
+    const protoInputs = {};
+    const argTokens = argspec.filter(t => t.kind === 'arg');
+    for (const tok of argTokens) {
+      const reporterId = genSb3Id();
+      const opcode = tok.argKind === 'boolean'
+        ? 'argument_reporter_boolean'
+        : 'argument_reporter_string_number';
+      out[reporterId] = {
+        opcode, next: null, parent: protoId,
+        inputs: {}, fields: { VALUE: [tok.name || '', null] },
+        shadow: true, topLevel: false,
+      };
+      protoInputs[tok.argId] = [1, reporterId];
+    }
+    out[protoId] = {
+      opcode: 'procedures_prototype',
+      next: null, parent: id,
+      inputs: protoInputs, fields: {},
+      shadow: true, topLevel: false,
+      mutation: {
+        tagName: 'mutation', children: [],
+        proccode:         mut.proccode,
+        argumentids:      JSON.stringify(mut.argumentids),
+        argumentnames:    JSON.stringify(mut.argumentnames),
+        argumentdefaults: JSON.stringify(mut.argumentdefaults),
+        warp: 'false',
+      },
+    };
+
+    out[id] = {
+      opcode: 'procedures_definition',
+      next: null, parent: parentId,
+      inputs: { custom_block: [1, protoId] },
+      fields: {}, shadow: false, topLevel: !!topLevel,
+    };
+    if (topLevel) {
+      out[id].x = (blkly.x === undefined ? 0 : blkly.x);
+      out[id].y = (blkly.y === undefined ? 0 : blkly.y);
+    }
+
+    if (blkly.next && blkly.next.block) {
+      out[id].next = emitBlock(out, blkly.next.block, id, /* topLevel */ false);
+    }
+    return id;
+  }
+
+  function emitMyBlocksCall(out, blkly, parentId, topLevel) {
+    const id = blkly.id || genSb3Id();
+    const argspec = (blkly.extraState && blkly.extraState.argspec) || [];
+    const mut = global.MyBlocks
+      ? global.MyBlocks.emitProccode(argspec)
+      : { proccode: '', argumentnames: [], argumentdefaults: [], argumentids: [] };
+
+    out[id] = {
+      opcode: 'procedures_call',
+      next: null, parent: parentId,
+      inputs: {}, fields: {},
+      shadow: false, topLevel: !!topLevel,
+      mutation: {
+        tagName: 'mutation', children: [],
+        proccode:    mut.proccode,
+        argumentids: JSON.stringify(mut.argumentids),
+        warp: 'false',
+      },
+    };
+    if (topLevel) {
+      out[id].x = (blkly.x === undefined ? 0 : blkly.x);
+      out[id].y = (blkly.y === undefined ? 0 : blkly.y);
+    }
+
+    // Remap ARG0/ARG1/... → argumentids when encoding inputs. Scratch's
+    // call sites key inputs by argumentid, not by positional name.
+    let i = 0;
+    const argTokens = argspec.filter(t => t.kind === 'arg');
+    for (const tok of argTokens) {
+      const inpName = 'ARG' + i++;
+      const inp = (blkly.inputs || {})[inpName];
+      if (inp) out[id].inputs[tok.argId] = encodeInput(out, 'procedures_call', tok.argId, inp, id);
+    }
+
+    if (blkly.next && blkly.next.block) {
+      out[id].next = emitBlock(out, blkly.next.block, id, /* topLevel */ false);
+    }
+    return id;
+  }
+
+  function emitArgReporter(out, blkly, parentId, topLevel, opcode) {
+    const id = blkly.id || genSb3Id();
+    const name = (blkly.fields && blkly.fields.VALUE) || '';
+    out[id] = {
+      opcode, next: null, parent: parentId,
+      inputs: {}, fields: { VALUE: [String(name), null] },
+      shadow: !!blkly.shadow, topLevel: !!topLevel,
+    };
+    if (topLevel) {
+      out[id].x = (blkly.x === undefined ? 0 : blkly.x);
+      out[id].y = (blkly.y === undefined ? 0 : blkly.y);
+    }
+    return id;
+  }
+
   function encodeInput(out, parentOpcode, inputName, inp, parentId) {
     // Try to compress trivial shadow + no nested block to inline primitive.
     // Spike Prime strict-validates the Scratch 3 sb3 format and silently drops
@@ -577,15 +699,84 @@
     return Array.isArray(entry) && entry.length >= 2 && entry[1] != null;
   }
 
+  // ── My Blocks (procedures) round-trip helpers ─────────────────────────────
+  // Scratch encodes a custom block in three linked sb3 opcodes: the hat
+  // `procedures_definition`, an inline shadow `procedures_prototype` carrying
+  // the mutation (proccode/argumentnames/argumentdefaults/argumentids), and
+  // any number of `procedures_call` sites. We collapse the def + proto pair
+  // into a single `myblocks_definition` Blockly block whose `extraState`
+  // holds the parsed argspec; calls become `myblocks_call`, and the in-body
+  // `argument_reporter_string_number` / `_boolean` become typed arg-reporter
+  // blocks (`myblocks_arg_*`) bound by argId.
+  //
+  // Calls only carry proccode + argumentids in their mutation (no names or
+  // defaults). To rebuild a full argspec on the call side we look up the
+  // matching definition by proccode. The index below is rebuilt at the top
+  // of each `sb3BlocksToBlocklyState` call.
+  const PROCEDURE_OPCODES = new Set([
+    'procedures_definition',
+    'procedures_prototype',
+    'procedures_call',
+    'argument_reporter_string_number',
+    'argument_reporter_boolean',
+  ]);
+
+  function findProtoFor(sb3, defNode) {
+    const cb = defNode.inputs && defNode.inputs.custom_block;
+    if (!cb || !Array.isArray(cb) || typeof cb[1] !== 'string') return null;
+    return sb3[cb[1]];
+  }
+
+  function argspecFromProto(proto) {
+    if (!proto || !proto.mutation || !global.MyBlocks) return [];
+    const m = proto.mutation;
+    let names = [], defaults = [], ids = [];
+    try { names    = JSON.parse(m.argumentnames    || '[]'); } catch (_e) {}
+    try { defaults = JSON.parse(m.argumentdefaults || '[]'); } catch (_e) {}
+    try { ids      = JSON.parse(m.argumentids      || '[]'); } catch (_e) {}
+    return global.MyBlocks.parseProccode({
+      proccode: m.proccode || '',
+      argumentnames: names, argumentdefaults: defaults, argumentids: ids,
+    });
+  }
+
+  function buildProccodeIndex(sb3) {
+    const protoByDefId    = {};
+    const defIdByProccode = {};
+    const argspecByProtoId= {};
+    for (const [id, b] of Object.entries(sb3)) {
+      if (b.opcode !== 'procedures_definition') continue;
+      const proto = findProtoFor(sb3, b);
+      if (!proto || !proto.mutation) continue;
+      protoByDefId[id] = proto;
+      defIdByProccode[proto.mutation.proccode] = id;
+      argspecByProtoId[proto === sb3[proto.id] ? proto.id : 'unknown'] = argspecFromProto(proto);
+    }
+    // Walk-up table: parent id → enclosing definition id, for body
+    // reporter argId resolution (reporters bind to defs by walking up parents).
+    function defAncestorOf(blockId) {
+      let cur = sb3[blockId];
+      while (cur) {
+        if (cur.opcode === 'procedures_definition') return cur;
+        if (!cur.parent) return null;
+        cur = sb3[cur.parent];
+      }
+      return null;
+    }
+    return { protoByDefId, defIdByProccode, defAncestorOf };
+  }
+
   // ── sb3 blocks → Blockly serialization ───────────────────────────────────
   // `variables` is the sb3 variables map: `{ id: [name, value] }`. When
   // supplied, it is mirrored into Blockly's workspace-level `variables` array
   // so the workspace can resolve field_variable refs at load time.
   function sb3BlocksToBlocklyState(sb3Blocks, variables) {
     normalizeSb3Shadows(sb3Blocks);
+    const ctx = buildProccodeIndex(sb3Blocks);
     const tops = Object.entries(sb3Blocks)
       .filter(([_, b]) => b.topLevel === true)
-      .map(([id, _]) => buildBlocklyBlock(sb3Blocks, id));
+      .map(([id, _]) => buildBlocklyBlock(sb3Blocks, id, ctx))
+      .filter(Boolean);
     const state = { blocks: { languageVersion: 0, blocks: tops } };
     if (variables && typeof variables === 'object') {
       state.variables = Object.entries(variables).map(([id, entry]) => ({
@@ -595,8 +786,20 @@
     return state;
   }
 
-  function buildBlocklyBlock(sb3, id) {
+  function buildBlocklyBlock(sb3, id, ctx) {
+    ctx = ctx || buildProccodeIndex(sb3);
     const sb = sb3[id];
+    if (!sb) return null;
+
+    // My Blocks intercepts — see PROCEDURE_OPCODES comment above. Returning
+    // null for procedures_prototype causes decodeInput (which may reach it
+    // through the definition's custom_block input) to drop the slot.
+    if (sb.opcode === 'procedures_prototype') return null;
+    if (sb.opcode === 'procedures_definition') return buildMyBlocksDefinition(sb3, id, ctx);
+    if (sb.opcode === 'procedures_call')       return buildMyBlocksCall(sb3, id, ctx);
+    if (sb.opcode === 'argument_reporter_string_number') return buildArgReporter(sb3, id, 'myblocks_arg_string_number', ctx);
+    if (sb.opcode === 'argument_reporter_boolean')       return buildArgReporter(sb3, id, 'myblocks_arg_boolean',       ctx);
+
     const blkly = {
       type: sb.opcode,
       id,
@@ -631,17 +834,108 @@
         fields[name] = demoted;
         continue;
       }
-      const built = decodeInput(sb3, value);
+      const built = decodeInput(sb3, value, ctx);
       if (built) inputs[name] = built;
     }
     if (Object.keys(fields).length) blkly.fields = fields;
     if (Object.keys(inputs).length) blkly.inputs = inputs;
 
     if (sb.next) {
-      blkly.next = { block: buildBlocklyBlock(sb3, sb.next) };
-      delete blkly.next.block.x;
-      delete blkly.next.block.y;
+      const nextBlock = buildBlocklyBlock(sb3, sb.next, ctx);
+      if (nextBlock) {
+        blkly.next = { block: nextBlock };
+        delete blkly.next.block.x;
+        delete blkly.next.block.y;
+      }
     }
+    return blkly;
+  }
+
+  // ── My Blocks: sb3 → Blockly state ───────────────────────────────────────
+  function buildMyBlocksDefinition(sb3, id, ctx) {
+    const sb = sb3[id];
+    const proto = findProtoFor(sb3, sb);
+    const argspec = argspecFromProto(proto);
+    const blkly = {
+      type: 'myblocks_definition',
+      id,
+      extraState: { procId: id, argspec },
+    };
+    if (sb.topLevel) { blkly.x = sb.x || 0; blkly.y = sb.y || 0; }
+    if (sb.next) {
+      const nextBlock = buildBlocklyBlock(sb3, sb.next, ctx);
+      if (nextBlock) {
+        blkly.next = { block: nextBlock };
+        delete blkly.next.block.x;
+        delete blkly.next.block.y;
+      }
+    }
+    return blkly;
+  }
+
+  function buildMyBlocksCall(sb3, id, ctx) {
+    const sb = sb3[id];
+    const proccode = sb.mutation && sb.mutation.proccode;
+    const procId = (ctx && ctx.defIdByProccode && ctx.defIdByProccode[proccode]) || '';
+    const proto = procId && ctx.protoByDefId ? ctx.protoByDefId[procId] : null;
+    const argspec = proto ? argspecFromProto(proto) : [];
+
+    const blkly = { type: 'myblocks_call', id, extraState: { procId, argspec } };
+    if (sb.topLevel) { blkly.x = sb.x || 0; blkly.y = sb.y || 0; }
+
+    // Remap call inputs keyed by argumentid → ARG0/ARG1/... so the Blockly
+    // block (which appendValueInputs them as ARG<n>) can wire them up.
+    const inputs = {};
+    let i = 0;
+    for (const tok of argspec) {
+      if (tok.kind !== 'arg') continue;
+      const slot = (sb.inputs || {})[tok.argId];
+      if (slot) {
+        const built = decodeInput(sb3, slot, ctx);
+        if (built) inputs['ARG' + i] = built;
+      }
+      i++;
+    }
+    if (Object.keys(inputs).length) blkly.inputs = inputs;
+
+    if (sb.next) {
+      const nextBlock = buildBlocklyBlock(sb3, sb.next, ctx);
+      if (nextBlock) {
+        blkly.next = { block: nextBlock };
+        delete blkly.next.block.x;
+        delete blkly.next.block.y;
+      }
+    }
+    return blkly;
+  }
+
+  function buildArgReporter(sb3, id, blocklyType, ctx) {
+    const sb = sb3[id];
+    const name = (sb.fields && sb.fields.VALUE && sb.fields.VALUE[0]) || '';
+    // Resolve argId by walking up to the enclosing definition's argspec and
+    // matching by name. If the reporter isn't inside a definition (e.g. an
+    // orphan), argId stays empty — the block still renders the name.
+    let argId = '';
+    if (ctx && ctx.defAncestorOf) {
+      const def = ctx.defAncestorOf(id);
+      if (def) {
+        const proto = findProtoFor(sb3, def);
+        if (proto && proto.mutation) {
+          try {
+            const names = JSON.parse(proto.mutation.argumentnames || '[]');
+            const ids   = JSON.parse(proto.mutation.argumentids   || '[]');
+            const idx = names.indexOf(name);
+            if (idx >= 0) argId = ids[idx] || '';
+          } catch (_e) { /* malformed mutation */ }
+        }
+      }
+    }
+    const blkly = {
+      type: blocklyType, id,
+      fields: { VALUE: name },
+      extraState: { argId },
+    };
+    if (sb.topLevel) { blkly.x = sb.x || 0; blkly.y = sb.y || 0; }
     return blkly;
   }
 
@@ -667,7 +961,7 @@
     return fieldEntry[0];
   }
 
-  function decodeInput(sb3, value) {
+  function decodeInput(sb3, value, ctx) {
     // value is one of:
     //   [1, idOrPrimitive]       — shadow only
     //   [2, blockId]             — block only
@@ -707,7 +1001,8 @@
       }
       const ref = sb3[slot];
       if (!ref) return null;
-      const blk = buildBlocklyBlock(sb3, slot);
+      const blk = buildBlocklyBlock(sb3, slot, ctx);
+      if (!blk) return null;
       delete blk.x; delete blk.y;
       return blk;
     }
