@@ -709,9 +709,11 @@ class RobotSimulator {
     ctx.fill();
     ctx.stroke();
 
-    // Hub brick (Spike Prime Large Hub = ~114 × 108 mm)
-    const hw = 110 * s;
-    const hh = 108 * s;
+    // Hub brick. Spike Prime Technic Large Hub = L88 × W56 × H32 mm (LEGO
+    // techspecs_techniclargehub.pdf). The hub's long axis runs front-to-back
+    // on the robot, so length → body-local Y, width → body-local X.
+    const hw = 56 * s;
+    const hh = 88 * s;
     ctx.fillStyle = '#a8a8c0';
     ctx.strokeStyle = '#7070a0';
     ctx.lineWidth = 1 * s;
