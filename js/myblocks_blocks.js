@@ -133,7 +133,14 @@
   // tracks text-width changes (e.g. after a rename).
   const PILL_FILL = '#d0454d';
   const PILL_TEXT = '#ffffff';
-  const PILL_PAD_X = 8;
+  // Horizontal padding inside the pill. Wider than typical Blockly fields
+  // because the hex/oval ends visually eat ~height/2 each side, so the
+  // *usable* center for short single-letter names ("j", "k") collapses
+  // without generous breathing room.
+  const PILL_PAD_X = 16;
+  // Minimum pill width — even a 1-character name gets a recognizable shape
+  // (roughly 2× height so the oval reads as a "pill", not a circle).
+  const PILL_MIN_W = 40;
 
   class FieldArgPillSpawn extends Blockly.FieldLabelSerializable {
     constructor(text, slotIdx, argKind) {
@@ -175,7 +182,7 @@
         ? this.textElement_.getComputedTextLength()
         : Math.max((this.getDisplayText_() || '').length * 7, 20);
       const height = (this.constants_ && this.constants_.FIELD_TEXT_HEIGHT) || 14;
-      const w = Math.max(textWidth + PILL_PAD_X * 2, height + 4);
+      const w = Math.max(textWidth + PILL_PAD_X * 2, PILL_MIN_W);
       if (this.argKind_ === 'boolean') {
         // Hexagon (flat-top): chevron points at the left/right midpoints.
         const slant = height / 2;
