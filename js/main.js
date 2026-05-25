@@ -49,15 +49,15 @@ window.appendOutput = appendOutput;
 
 // ── Persistence ──────────────────────────────────────────────────────────────
 
-const THEME_KEY   = 'fll-vr-theme';
-const SPEED_KEY   = 'fll-vr-speed';
-const UNITS_KEY   = 'fll-vr-units';
-const PYCODE_KEY  = 'fll-vr-python-code';
-const BLOCKLY_KEY = 'fll-vr-blockly-xml';
-const TAB_KEY     = 'fll-vr-tab';
-const NAME_KEY    = 'fll-vr-project-name';
-const DIRTY_KEY        = 'fll-vr-dirty';
-const PROJECT_TYPE_KEY = 'fll-vr-project-type';
+const THEME_KEY          = 'fll-vr-theme';
+const SPEED_KEY          = 'fll-vr-speed';
+const UNITS_KEY          = 'fll-vr-units';
+const PYCODE_KEY         = 'fll-vr-python-code';
+const BLOCKLY_KEY        = 'fll-vr-blockly-xml';
+const TAB_KEY            = 'fll-vr-tab';
+const NAME_KEY           = 'fll-vr-project-name';
+const DIRTY_KEY          = 'fll-vr-dirty';
+const PROJECT_TYPE_KEY   = 'fll-vr-project-type';
 
 const DEFAULT_THEME        = 'light';
 const DEFAULT_SPEED        = 1;
@@ -94,7 +94,7 @@ function setLoadedManifest(m) { loadedManifest = m; }
 
 function getProjectType() {
   const stored = lsGet(PROJECT_TYPE_KEY);
-  return (stored === 'python' || stored === 'blocks') ? stored : DEFAULT_PROJECT_TYPE;
+  return VALID_PROJECT_TYPES.includes(stored) ? stored : DEFAULT_PROJECT_TYPE;
 }
 
 function setProjectType(type) {
