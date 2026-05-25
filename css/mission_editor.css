@@ -249,13 +249,18 @@ body[data-mode="editor"] .editor-overlay-svg { pointer-events: auto; }
 
 .editor-step-row {
   display: grid;
-  grid-template-columns: 1fr 60px 1fr 28px;
-  gap: 4px;
+  grid-template-columns: 1fr 50px 1fr 24px 24px 24px;
+  gap: 3px;
   align-items: center;
   padding: 6px;
   background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: 6px;
+  cursor: pointer;
+}
+.editor-step-row.selected {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 1px var(--amber);
 }
 .editor-step-row input {
   background: var(--surface3);
@@ -278,3 +283,17 @@ body[data-mode="editor"] .editor-overlay-svg { pointer-events: auto; }
   cursor: pointer;
 }
 .step-delete-btn:hover { color: var(--red); border-color: var(--red); }
+.step-up-btn, .step-down-btn {
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--text-mid);
+  width: 24px; height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 11px;
+}
+.step-up-btn:hover, .step-down-btn:hover {
+  color: var(--amber);
+  border-color: var(--amber);
+}

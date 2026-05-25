@@ -80,3 +80,46 @@ test('steps: editing the hint input updates state', () => {
   hintInput._fire('input', { target: hintInput });
   assert.strictEqual(app.editorState.steps[0].hint, 'Drive east 1200mm');
 });
+
+test('steps: clicking up arrow moves the step earlier', () => {
+  const { doc, app } = setup();
+  app.enterEditor();
+  doc.getElementById('btn-add-step')._click();
+  doc.getElementById('btn-add-step')._click();
+  const [a, b] = app.editorState.steps;
+  // Click the second row's up button.
+  const rows = doc.getElementById('editor-steps-list').children;
+  rows[1].querySelector('.step-up-btn')._click();
+  assert.deepStrictEqual(app.editorState.steps.map(s => s.id), [b.id, a.id]);
+});
+
+test('steps: clicking down arrow moves the step later', () => {
+  const { doc, app } = setup();
+  app.enterEditor();
+  doc.getElementById('btn-add-step')._click();
+  doc.getElementById('btn-add-step')._click();
+  const [a, b] = app.editorState.steps;
+  const rows = doc.getElementById('editor-steps-list').children;
+  rows[0].querySelector('.step-down-btn')._click();
+  assert.deepStrictEqual(app.editorState.steps.map(s => s.id), [b.id, a.id]);
+});
+
+test('steps: clicking a row selects it', () => {
+  const { doc, app } = setup();
+  app.enterEditor();
+  doc.getElementById('btn-add-step')._click();
+  const id = app.editorState.steps[0].id;
+  const row = doc.getElementById('editor-steps-list').children[0];
+  row._fire('click', { target: row });
+  assert.deepStrictEqual(app.editorState.selection, { kind: 'step', id });
+});
+
+test('steps: selected row gets .selected class', () => {
+  const { ctx, doc, app } = setup();
+  app.enterEditor();
+  doc.getElementById('btn-add-step')._click();
+  const id = app.editorState.steps[0].id;
+  app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'step', id }));
+  const row = doc.getElementById('editor-steps-list').children[0];
+  assert.ok(row.classList.contains('selected'));
+});

@@ -23,15 +23,20 @@
       if (!list) return;
       clearList();
       if (!state) return;
+      const selection = state.selection;
       for (const step of state.steps) {
-        list.appendChild(renderRow(step));
+        list.appendChild(renderRow(step, selection));
       }
     }
 
-    function renderRow(step) {
+    function renderRow(step, selection) {
       const row = doc.createElement('li');
       row.classList.add('editor-step-row');
       row.setAttribute('data-id', step.id);
+
+      if (selection && selection.kind === 'step' && selection.id === step.id) {
+        row.classList.add('selected');
+      }
 
       const title = doc.createElement('input');
       title.classList.add('step-title-input');
@@ -61,6 +66,30 @@
           app.editorState, step.id, { hint: e.target.value }));
       });
 
+      const up = doc.createElement('button');
+      up.classList.add('step-up-btn');
+      up.setAttribute('type', 'button');
+      up.textContent = '↑';
+      up.addEventListener('click', (e) => {
+        if (e && e.stopPropagation) e.stopPropagation();
+        e._handled = true;
+        const i = app.editorState.steps.findIndex(s => s.id === step.id);
+        if (i > 0) app.setEditorState(MISSIONS.editor.state.reorderStep(app.editorState, step.id, i - 1));
+      });
+
+      const down = doc.createElement('button');
+      down.classList.add('step-down-btn');
+      down.setAttribute('type', 'button');
+      down.textContent = '↓';
+      down.addEventListener('click', (e) => {
+        if (e && e.stopPropagation) e.stopPropagation();
+        e._handled = true;
+        const i = app.editorState.steps.findIndex(s => s.id === step.id);
+        if (i < app.editorState.steps.length - 1) {
+          app.setEditorState(MISSIONS.editor.state.reorderStep(app.editorState, step.id, i + 1));
+        }
+      });
+
       const del = doc.createElement('button');
       del.classList.add('step-delete-btn');
       del.setAttribute('type', 'button');
@@ -69,9 +98,18 @@
         app.setEditorState(MISSIONS.editor.state.deleteStep(app.editorState, step.id));
       });
 
+      row.addEventListener('click', (ev) => {
+        if (ev._handled) return;
+        if (ev.target && (ev.target.tag === 'input' || ev.target.tag === 'button')) return;
+        app.setEditorState(MISSIONS.editor.state.setSelection(
+          app.editorState, { kind: 'step', id: step.id }));
+      });
+
       row.appendChild(title);
       row.appendChild(points);
       row.appendChild(hint);
+      row.appendChild(up);
+      row.appendChild(down);
       row.appendChild(del);
       return row;
     }
