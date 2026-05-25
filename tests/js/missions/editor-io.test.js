@@ -80,6 +80,35 @@ test('attach: clicking the Save button triggers a download with the title as fil
   assert.match(downloads[0].filename, /^my-mission(.*)\.llmission$/i);
 });
 
+test('attach: dropping a .llmission file loads it', async () => {
+  const ctx = env();
+  const doc = require('../mocks/editor-dom').makeEditorDoc(['editor-file-open-input']);
+  ctx.document = doc;
+  const app = ctx.MISSIONS.app.create();
+  const mission = {
+    schema_version: 1, id: 'drop', title: 'Dropped', type: 'mission', difficulty_tier: 'beginner',
+    field: { robot_start: { x: 0, y: 0, heading: 0 },
+             zones: [{ id: 'z', shape: 'rect', x: 0, y: 0, w: 1, h: 1, color: 'red' }],
+             obstacles: [] },
+    steps: [{ id: 'a', title: 'a', points: 1, condition: { kind: 'zone', subject: 'robot', zone: 'z' } }],
+    scoring: { kind: 'step_sum' },
+  };
+  const bytes = await ctx.MISSIONS.editor.io.writeBundle(mission);
+  ctx.MISSIONS.editor.io.attach(app, doc, {});
+  // Synthesize a drop event with a file-like object.
+  const fakeFile = {
+    name: 'drop.llmission',
+    arrayBuffer: async () => bytes.buffer,
+  };
+  doc.body._fire('drop', {
+    preventDefault: () => {},
+    dataTransfer: { files: [fakeFile] },
+  });
+  await new Promise(r => setTimeout(r, 100));
+  assert.strictEqual(app.mode, 'editor');
+  assert.strictEqual(app.editorState.title, 'Dropped');
+});
+
 test('attach: clicking Load opens file picker; selecting a file loads it', async () => {
   const ctx = env();
   const doc = require('../mocks/editor-dom').makeEditorDoc(['editor-file-open-input']);

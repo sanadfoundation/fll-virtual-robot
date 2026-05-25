@@ -67,6 +67,23 @@
       });
     }
 
+    const body = doc.body;
+    if (body) {
+      body.addEventListener('dragover', (ev) => {
+        if (ev && ev.preventDefault) ev.preventDefault();
+        if (ev && ev.dataTransfer) ev.dataTransfer.dropEffect = 'copy';
+      });
+      body.addEventListener('drop', async (ev) => {
+        if (ev && ev.preventDefault) ev.preventDefault();
+        const files = ev && ev.dataTransfer && ev.dataTransfer.files;
+        if (!files || !files.length) return;
+        const file = files[0];
+        if (!/\.llmission$/i.test(file.name || '')) return;
+        const buf = await file.arrayBuffer();
+        await loadBytesIntoEditor(app, new Uint8Array(buf));
+      });
+    }
+
     async function loadBytesIntoEditor(app, bytes) {
       try {
         const { mission } = await readBundle(bytes);
