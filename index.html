@@ -47,12 +47,15 @@
        always visible. file-open-input is the hidden <input type=file> the
        Open button trips. IDs are preserved so llsp3_ui.js wiring is intact. -->
   <div class="file-actions" id="file-actions">
-    <input type="text" id="project-name" class="project-name-input" placeholder="Untitled-Project" maxlength="64" title="Project name">
+    <div class="project-name-field">
+      <span class="project-type-badge" id="project-type-badge" data-type="blocks" aria-live="polite" title="Blocks project">🧱</span>
+      <input type="text" id="project-name" class="project-name-input" placeholder="Untitled-Project" maxlength="64" aria-label="Project name">
+    </div>
     <input type="file" id="file-open-input" accept=".llsp3" style="display:none">
     <div class="new-menu" id="new-menu">
       <button class="btn btn-icon-file" id="btn-new" type="button"
               aria-haspopup="true" aria-expanded="false"
-              title="New project" aria-label="New project">📄<span class="new-menu-caret" aria-hidden="true">▾</span></button>
+              title="New project" aria-label="New project">📄</button>
       <div class="new-menu-pop" id="new-menu-pop" role="menu" aria-labelledby="btn-new">
         <button class="new-menu-item" id="btn-new-python" role="menuitem" type="button">
           <span aria-hidden="true">🐍</span> New Python project
@@ -64,10 +67,6 @@
     </div>
     <button class="btn btn-icon-file" id="btn-open" type="button" title="Open .llsp3 file" aria-label="Open project">📂</button>
     <button class="btn btn-icon-file" id="btn-save" type="button" title="Save project" aria-label="Save project">💾</button>
-  </div>
-
-  <div class="mode-indicator">
-    <span class="project-type-badge" id="project-type-badge" data-type="blocks" aria-live="polite">🧱 Blocks project</span>
   </div>
 
   <div class="spacer"></div>

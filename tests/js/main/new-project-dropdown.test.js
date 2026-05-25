@@ -89,20 +89,33 @@ test('handleNewProject: throws on unknown type', () => {
   assert.throws(() => context.handleNewProject('word-blocks'), /unknown project type/i);
 });
 
-test('switchMode("python"): updates project-type-badge text and dataset', () => {
+test('switchMode("python"): updates project-type-badge icon, dataset, and title', () => {
   const { context, elementsById } = makeMainEnv();
   context.switchMode('python', { persist: false });
   const badge = elementsById['project-type-badge'];
   assert.strictEqual(badge.dataset.type, 'python');
-  assert.match(badge.textContent, /python/i);
+  assert.strictEqual(badge.textContent, '🐍');
+  assert.match(badge.title, /python/i);
 });
 
-test('switchMode("blocks"): updates project-type-badge text and dataset', () => {
+test('switchMode("blocks"): updates project-type-badge icon, dataset, and title', () => {
   const { context, elementsById } = makeMainEnv();
+  // Without Blockly defined, switchMode sets title to "Blockly failed to load".
+  // We want to exercise the happy path here; inject a minimal Blockly global.
+  context.Blockly = {};
   context.switchMode('blocks', { persist: false });
   const badge = elementsById['project-type-badge'];
   assert.strictEqual(badge.dataset.type, 'blocks');
-  assert.match(badge.textContent, /blocks/i);
+  assert.strictEqual(badge.textContent, '🧱');
+  assert.match(badge.title, /blocks project/i);
+});
+
+test('switchMode("blocks"): title says "Blockly failed to load" when Blockly is missing', () => {
+  const { context, elementsById } = makeMainEnv();
+  // No Blockly in vm context — typeof Blockly === 'undefined' branch fires.
+  context.switchMode('blocks', { persist: false });
+  const badge = elementsById['project-type-badge'];
+  assert.strictEqual(badge.title, 'Blockly failed to load');
 });
 
 test('DOMContentLoaded: btn-new-python click → handleNewProject("python")', () => {

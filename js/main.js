@@ -283,10 +283,10 @@ function switchMode(mode, options) {
 
   if (badge) {
     badge.dataset.type = m;
-    badge.textContent  = m === 'python' ? '🐍 Python project' : '🧱 Blocks project';
+    badge.textContent  = m === 'python' ? '🐍' : '🧱';
     badge.title = (m === 'blocks' && typeof Blockly === 'undefined')
       ? 'Blockly failed to load'
-      : '';
+      : (m === 'python' ? 'Python project' : 'Blocks project');
   }
 
   if (!options || options.persist !== false) setProjectType(m);

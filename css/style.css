@@ -131,27 +131,35 @@ header h1 .fll  { color: var(--amber); }
 header h1 .sep  { color: var(--border2); margin: 0 4px; font-weight: 400; }
 header h1 .sub  { color: var(--text-mid); font-weight: 600; }
 
-/* ── Mode indicator ─────────────────────────────────────── */
-.mode-indicator {
+/* ── Project name field (icon adornment + input) ──────────
+   The project-type badge is rendered as a left-side icon inside the
+   project-name field rather than a separate header element. switchMode
+   writes the emoji into #project-type-badge and the type name into
+   its title attribute. */
+.project-name-field {
   display: inline-flex;
-  align-items: center;
+  align-items: stretch;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
 }
+.project-name-field:focus-within { border-color: var(--blue); }
 
 .project-type-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 8px;
-  background: var(--surface2);
+  justify-content: center;
+  padding: 0 8px;
+  font-size: 14px;
+  line-height: 1;
+  border-right: 1px solid var(--border);
+  background: transparent;
   color: var(--text-mid);
-  font: 700 12px var(--font-ui);
-  letter-spacing: 0.04em;
-  border: 1px solid var(--border2);
   user-select: none;
 }
-.project-type-badge[data-type="python"] { color: var(--cyan); border-color: var(--cyan); }
-.project-type-badge[data-type="blocks"] { color: var(--amber); border-color: var(--amber); }
+.project-type-badge[data-type="python"] { color: var(--cyan); }
+.project-type-badge[data-type="blocks"] { color: var(--amber); }
 
 /* ── Spacer ────────────────────────────────────────────── */
 .spacer { flex: 1; }
@@ -247,9 +255,8 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
   opacity: 0.7;
 }
 .project-name-input {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  background: transparent;
+  border: none;
   padding: 4px 10px;
   font-size: 13px;
   color: var(--text);
@@ -259,7 +266,6 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
 }
 .project-name-input:focus {
   outline: none;
-  border-color: var(--blue);
 }
 
 /* ── File-controls cluster (Open + Save) ───────────────────────────────── */
@@ -2136,13 +2142,6 @@ header h1 {
    The legacy single-click behaviour (clearing both buffers) is replaced
    by per-type clears in handleNewProject(type). */
 .new-menu { position: relative; display: inline-flex; }
-
-.new-menu-caret {
-  display: inline-block;
-  margin-left: 4px;
-  font-size: 10px;
-  opacity: 0.7;
-}
 
 .new-menu-pop {
   display: none;
