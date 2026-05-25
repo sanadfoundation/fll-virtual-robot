@@ -375,7 +375,7 @@ function handleStop() {
 // different project type and clearing it would surprise a user who flips
 // between projects). Confirms first if there are unsaved changes.
 function handleNewProject(type) {
-  if (type === undefined) throw new Error('project type required');
+  if (type == null) throw new Error('project type required');
   if (!VALID_PROJECT_TYPES.includes(type)) {
     throw new Error('unknown project type: ' + type);
   }
@@ -733,9 +733,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-reset').addEventListener('click', handleReset);
   document.getElementById('btn-defaults').addEventListener('click', handleDefaults);
   document.getElementById('btn-theme').addEventListener('click', toggleTheme);
-
-  const newBtn = document.getElementById('btn-new');
-  if (newBtn) newBtn.addEventListener('click', handleNewProject);
 
   const speedSlider = document.getElementById('speed-slider');
   if (speedSlider) speedSlider.addEventListener('input', e => updateSpeed(e.target.value));

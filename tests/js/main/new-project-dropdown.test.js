@@ -66,6 +66,19 @@ test('handleNewProject: when dirty and user declines confirm → no-op', () => {
   assert.strictEqual(storage.get('fll-vr-dirty'), '1');
 });
 
+test('handleNewProject: when not dirty, skips the confirm dialog', () => {
+  const { context, window, storage } = makeMainEnv({
+    storage: { 'fll-vr-python-code': 'old\n' },
+  });
+  let confirmCalls = 0;
+  window.confirm = () => { confirmCalls++; return true; };
+  context.handleNewProject('python');
+  assert.strictEqual(confirmCalls, 0,
+    'clean project must not prompt for confirmation');
+  assert.strictEqual(storage.has('fll-vr-python-code'), false,
+    'clean-path still clears the python buffer');
+});
+
 test('handleNewProject: throws when called without a type', () => {
   const { context } = makeMainEnv({ confirm: true });
   assert.throws(() => context.handleNewProject(), /project type required/i);
