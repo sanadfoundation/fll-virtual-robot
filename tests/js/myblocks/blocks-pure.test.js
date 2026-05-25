@@ -124,3 +124,59 @@ test('makeArgToken: label without text uses "label text"', () => {
   assert.deepStrictEqual(makeArgToken('label'), { kind: 'label', text: 'label text' });
 });
 
+// ── spawnDescriptorForArg ────────────────────────────────────────────────────
+// Used by the click-to-spawn FieldArgPillSpawn: given an argspec and a 0-based
+// "arg slot index" (counting only arg tokens, not labels), produce the block
+// type + argId + name the field should spawn on click.
+
+test('spawnDescriptorForArg: string_number arg at slot 0', () => {
+  const { spawnDescriptorForArg } = loadModule();
+  const spec = [
+    { kind: 'label', text: 'rotate ' },
+    { kind: 'arg', argKind: 'string_number', name: 'angle', argId: 'aid-A' },
+    { kind: 'label', text: ' by ' },
+    { kind: 'arg', argKind: 'boolean', name: 'direction', argId: 'aid-B' },
+  ];
+  assert.deepStrictEqual(spawnDescriptorForArg(spec, 0), {
+    type: 'myblocks_arg_string_number',
+    argId: 'aid-A',
+    name: 'angle',
+  });
+});
+
+test('spawnDescriptorForArg: boolean arg at slot 1', () => {
+  const { spawnDescriptorForArg } = loadModule();
+  const spec = [
+    { kind: 'label', text: 'rotate ' },
+    { kind: 'arg', argKind: 'string_number', name: 'angle', argId: 'aid-A' },
+    { kind: 'arg', argKind: 'boolean', name: 'direction', argId: 'aid-B' },
+  ];
+  assert.deepStrictEqual(spawnDescriptorForArg(spec, 1), {
+    type: 'myblocks_arg_boolean',
+    argId: 'aid-B',
+    name: 'direction',
+  });
+});
+
+test('spawnDescriptorForArg: out-of-range slot returns null', () => {
+  const { spawnDescriptorForArg } = loadModule();
+  const spec = [{ kind: 'label', text: 'no args' }];
+  assert.strictEqual(spawnDescriptorForArg(spec, 0), null);
+  assert.strictEqual(spawnDescriptorForArg(spec, 1), null);
+  assert.strictEqual(spawnDescriptorForArg([], 0), null);
+});
+
+test('spawnDescriptorForArg: skips label tokens when indexing args', () => {
+  // Slot indexing counts only arg tokens; labels in between are skipped.
+  const { spawnDescriptorForArg } = loadModule();
+  const spec = [
+    { kind: 'label', text: 'a' },
+    { kind: 'label', text: 'b' },
+    { kind: 'arg', argKind: 'boolean', name: 'first', argId: 'id-1' },
+    { kind: 'label', text: 'c' },
+    { kind: 'arg', argKind: 'string_number', name: 'second', argId: 'id-2' },
+  ];
+  assert.strictEqual(spawnDescriptorForArg(spec, 0).name, 'first');
+  assert.strictEqual(spawnDescriptorForArg(spec, 1).name, 'second');
+});
+

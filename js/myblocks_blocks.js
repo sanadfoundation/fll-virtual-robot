@@ -84,11 +84,33 @@
              argId: genId(), defaultValue: '' };
   }
 
+  // Click-to-spawn helper for the definition hat's arg pills. Given an
+  // argspec and a 0-based "arg slot index" (counting only arg tokens,
+  // skipping labels), produces the descriptor a custom field's mousedown
+  // handler uses to mint a fresh body reporter on the workspace.
+  function spawnDescriptorForArg(argspec, slotIdx) {
+    if (!Array.isArray(argspec) || !Number.isInteger(slotIdx) || slotIdx < 0) return null;
+    let i = 0;
+    for (const tok of argspec) {
+      if (tok.kind !== 'arg') continue;
+      if (i === slotIdx) {
+        return {
+          type: tok.argKind === 'boolean' ? 'myblocks_arg_boolean' : 'myblocks_arg_string_number',
+          argId: tok.argId || '',
+          name:  tok.name  || '',
+        };
+      }
+      i++;
+    }
+    return null;
+  }
+
   MyBlocks.genId                 = genId;
   MyBlocks.slugifyName           = slugifyName;
   MyBlocks.derivedNameFromArgspec= derivedNameFromArgspec;
   MyBlocks.seedArgspec           = seedArgspec;
   MyBlocks.makeArgToken          = makeArgToken;
+  MyBlocks.spawnDescriptorForArg = spawnDescriptorForArg;
 
   // ── Blockly block registrations ────────────────────────────────────────────
   // Only run when Blockly is on the page (i.e. in the browser, not in Node
@@ -99,6 +121,58 @@
   // Colour matches the existing C_MYBLOCKS in blockly_config.js. Imported
   // here as a literal so this module is loadable independently.
   const C_MYBLOCKS = '#ff5d64';
+
+  // FieldArgPillSpawn: clickable arg-name pill on the definition hat. On
+  // click, mints a fresh body reporter for this arg and places it at the
+  // user's click coordinate. Mimics SPIKE's drag-from-hat gesture as a
+  // click-to-spawn — same destination, one click instead of one continuous
+  // drag. We avoid Blockly.Gesture internals (not a stable public surface)
+  // by handing the new block off to the user as a workspace-resident block
+  // they can then drag normally.
+  class FieldArgPillSpawn extends Blockly.FieldLabelSerializable {
+    constructor(text, slotIdx) {
+      super(text);
+      this.slotIdx_ = slotIdx;
+      this.EDITABLE = true;       // so Blockly registers a click handler
+      this.SERIALIZABLE = true;   // we want the displayed name persisted
+    }
+    showEditor_(opt_e) {
+      const parent = this.sourceBlock_;
+      if (!parent || parent.type !== 'myblocks_definition') return;
+      const spec = parent.argspec_ || [];
+      const desc = spawnDescriptorForArg(spec, this.slotIdx_);
+      if (!desc) return;
+      const ws = parent.workspace;
+      if (!ws || ws.isFlyout) return;
+      // Place the new reporter at the field's screen position, converted
+      // to workspace coordinates. The user can drag from there into a slot.
+      const pillRect = (this.fieldGroup_ && this.fieldGroup_.getBoundingClientRect)
+        ? this.fieldGroup_.getBoundingClientRect()
+        : { left: 0, top: 0, width: 0, height: 0 };
+      const wsXY = screenToWorkspace(ws, pillRect.left, pillRect.top);
+      Blockly.serialization.blocks.append({
+        type: desc.type,
+        extraState: { argId: desc.argId, name: desc.name },
+        fields:     { VALUE: desc.name },
+        x: wsXY.x, y: wsXY.y,
+      }, ws);
+    }
+  }
+
+  function screenToWorkspace(ws, screenX, screenY) {
+    // Blockly v10: workspace.getInverseScreenCTM() returns an SVG matrix
+    // that maps screen → workspace coordinates. The CTM accounts for the
+    // injection div offset, current scroll, and zoom level.
+    if (!ws.getInverseScreenCTM) return { x: 0, y: 0 };
+    const svg = ws.getParentSvg && ws.getParentSvg();
+    if (!svg) return { x: 0, y: 0 };
+    const pt = svg.createSVGPoint();
+    pt.x = screenX;
+    pt.y = screenY;
+    const m = ws.getInverseScreenCTM();
+    const r = pt.matrixTransform(m);
+    return { x: r.x, y: r.y };
+  }
 
   function applyArgspecToDefinition(block) {
     // Wipe any pre-existing inputs (mutator re-init pattern).
@@ -115,11 +189,11 @@
         // the proccode independently.
         input.appendField(new Blockly.FieldTextInput(tok.text || ''), 'LABEL' + labelIdx++);
       } else {
-        // On the definition block, args are non-editable name pills (you
-        // rename them via the definition's mutator/right-click menu, not by
-        // clicking the pill itself). Keep a stable field name keyed by argId
-        // so calls can find their slot after a mutation.
-        input.appendField(new Blockly.FieldLabel(tok.name || ''), 'ARG' + argIdx++);
+        // Click an arg pill to spawn a fresh body reporter for that arg at
+        // the cursor — the drag-from-hat replacement (see CLAUDE.md). The
+        // slot index counts only arg tokens, matching spawnDescriptorForArg.
+        input.appendField(new FieldArgPillSpawn(tok.name || '', argIdx), 'ARG' + argIdx);
+        argIdx++;
       }
       added = true;
     }
