@@ -6,7 +6,7 @@ window.registerSpikeCompletions = function(monaco) {
 
   const SPIKE_API = {
     motor: {
-      doc: 'Control individual motors on specified ports.',
+      doc: 'Control individual motors on specified ports.\n\nHardware (LEGO tech specs): Technic Medium / Large Angular Motor. Rotation sensor 360 counts/rev (1° resolution, ±3° accuracy, 100 Hz update). No-load speed 185 RPM (Medium) / 175 RPM (Large) ≈ 1110 / 1050 deg/sec. Rated speed (max efficiency) 135 RPM ≈ 810 deg/sec.',
       members: {
         run_for_degrees: {
           sig: 'motor.run_for_degrees(port, degrees, velocity=360, *, stop=BRAKE, acceleration=1000, deceleration=1000)',
@@ -132,7 +132,7 @@ window.registerSpikeCompletions = function(monaco) {
     },
 
     color_sensor: {
-      doc: 'Read color, reflection, and RGBI from the Color Sensor.',
+      doc: 'Read color, reflection, and RGBI from the Color Sensor.\n\nHardware (LEGO tech specs): 100 Hz sample rate, optimal reading distance ~16 mm. Hardware is calibrated to reliably detect 8 LEGO colors (white, blue, black, green, yellow, red, medium azur, bright reddish violet); the Spike Prime API surfaces the wider 12-value `color.*` palette via classification.',
       members: {
         color: {
           sig: 'color_sensor.color(port) -> int',
@@ -141,7 +141,7 @@ window.registerSpikeCompletions = function(monaco) {
         },
         reflection: {
           sig: 'color_sensor.reflection(port) -> int',
-          doc: 'Return the reflected light intensity (0–100).',
+          doc: 'Return the reflected light intensity (0–100).\n\n0 = non-reflective / nothing, 100 = very reflective. Best at ~16 mm from surface.',
           params: ['port'],
         },
         rgbi: {
@@ -153,11 +153,11 @@ window.registerSpikeCompletions = function(monaco) {
     },
 
     distance_sensor: {
-      doc: 'Measure distance and control the sensor face LEDs.',
+      doc: 'Measure distance and control the sensor face LEDs.\n\nHardware (LEGO tech specs): ultrasonic, range 50–2000 mm ±20 mm, beam (entrance angle) ±35°, 1 mm resolution, 100 Hz sample rate. Fast-distance mode: 50–300 mm ±15 mm. Four white LED segments (4000 K) around the sensor "eyes," individually controllable 0–100%.',
       members: {
         distance: {
           sig: 'distance_sensor.distance(port) -> int',
-          doc: 'Return distance to nearest object in mm. Returns –1 if no object detected.',
+          doc: 'Return distance to nearest object in mm (50–2000 mm range, ±20 mm). Returns –1 if no object detected, or if the object is closer than 50 mm (ultrasonic blind zone).',
           params: ['port'],
         },
         clear: {
@@ -184,21 +184,21 @@ window.registerSpikeCompletions = function(monaco) {
     },
 
     force_sensor: {
-      doc: 'Detect force and button presses.',
+      doc: 'Detect force and button presses.\n\nHardware (LEGO tech specs): force range 2.5–10 N (saturates at 10 N), 0.1 N resolution, ±0.65 N accuracy. Touch sensing activation 0.5–1.0 N, activation depth 0–2 mm; force-sensing activation depth 2–8 mm. 100 Hz sample rate (internal force-filter / peak mode runs at 1 kHz).',
       members: {
         force: {
           sig: 'force_sensor.force(port) -> int',
-          doc: 'Return force in decinewtons (0–100).',
+          doc: 'Return force in decinewtons, 0–100 (i.e. 0.0–10.0 N in 0.1 N steps). Saturates at 100 (10 N).',
           params: ['port'],
         },
         pressed: {
           sig: 'force_sensor.pressed(port) -> bool',
-          doc: 'Return True if the button is pressed.',
+          doc: 'Return True if the button is pressed (≥0.5 N activation force).',
           params: ['port'],
         },
         raw: {
           sig: 'force_sensor.raw(port) -> int',
-          doc: 'Return the raw sensor value.',
+          doc: 'Return the raw ADC sensor value (0–4095).',
           params: ['port'],
         },
       },
@@ -215,7 +215,7 @@ window.registerSpikeCompletions = function(monaco) {
     },
 
     hub: {
-      doc: 'Access hub hardware: light_matrix, sound, motion_sensor, button, light.',
+      doc: 'Access hub hardware: light_matrix, sound, motion_sensor, button, light.\n\nHardware (LEGO tech specs): Technic Large Hub. 6 LPF2 ports A–F (E and F prepared for "high-speed"). 5×5 white LED matrix (10-step dimming per LED). Six-axis IMU (3-axis accelerometer + 3-axis gyroscope). Speaker max 12-bit / 16 kHz mono. Bluetooth 4.2 Classic + BLE. 100 MHz Cortex-M4, 320 KB RAM, 1 MB flash, 32 MB storage; embedded MicroPython. 88 × 56 × 32 mm, 63 g (no battery).',
       members: {
         device_uuid: { sig: 'hub.device_uuid() -> str', doc: 'Return the hub device UUID.', params: [] },
         hardware_id: { sig: 'hub.hardware_id() -> str', doc: 'Return the hardware ID string.', params: [] },
@@ -226,7 +226,7 @@ window.registerSpikeCompletions = function(monaco) {
     },
 
     'hub.light_matrix': {
-      doc: '5×5 LED matrix on the hub.',
+      doc: '5×5 LED matrix on the hub.\n\nHardware (LEGO tech specs): 25 individually-programmable white LEDs, each dimmable in 10 discrete steps. The API accepts 0–100 brightness; firmware quantizes to 10 levels.',
       constants: {
         IMAGE_HEART: '1', IMAGE_HEART_SMALL: '2', IMAGE_HAPPY: '3', IMAGE_SMILE: '4',
         IMAGE_SAD: '5', IMAGE_CONFUSED: '6', IMAGE_ANGRY: '7', IMAGE_ASLEEP: '8',
@@ -324,7 +324,7 @@ window.registerSpikeCompletions = function(monaco) {
     },
 
     'hub.motion_sensor': {
-      doc: 'Inertial measurement unit (IMU) on the hub.',
+      doc: 'Inertial measurement unit (IMU) on the hub.\n\nHardware (LEGO tech specs): six-axis IMU — three-axis accelerometer plus three-axis gyroscope. Supports tilt/orientation, angular velocity, and gestures (tap, double-tap, shake, free-fall).',
       members: {
         tilt_angles: {
           sig: 'hub.motion_sensor.tilt_angles() -> tuple[int, int, int]',

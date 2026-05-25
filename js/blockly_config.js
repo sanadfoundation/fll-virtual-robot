@@ -1230,8 +1230,16 @@ const _SOUND_NOTES = {
   [_sndVal('Motor Start')]:   50,
   [_sndVal('Beep')]:          65,
 };
-const _WHEEL_CIRC_MM = Math.PI * 56;
-const _MM_PER_MS_AT_100 = 0.9;
+// Wheel diameter assumption. The Spike Prime kit ships two common drive
+// wheels — the small 56×28 mm (part 32019) and the big balloon 88×26 mm
+// (part 49295). Pick whichever the team's robot uses and keep this in lockstep
+// with WHEEL_DIA_MM in js/simulator.js.
+const _WHEEL_DIA_MM     = 56;
+const _WHEEL_CIRC_MM    = Math.PI * _WHEEL_DIA_MM;
+// Linear mm/ms when the (-1..1) wheel command is ±1. Derived from wheel
+// circumference so it tracks the LEGO Spike Prime tech specs:
+//   1000 deg/sec × (π × D mm / 360 deg) / 1000 ms/s = π × D / 360.
+const _MM_PER_MS_AT_100 = Math.PI * _WHEEL_DIA_MM / 360;
 
 // Map LEGO word-block colour index → simulator colour token. The simulator
 // emits 'magenta' / 'azure' / 'red' etc. from `_colorAtPosition`. LEGO
@@ -3969,7 +3977,7 @@ function generateBlocklyJS(workspace) {
     `var _motorSpeed    = 75;`,
     `var _movePairL     = 'A';`,
     `var _movePairR     = 'B';`,
-    `var _moveRotMM     = ${(Math.PI * 56).toFixed(4)};`,  // default 17.6 cm wheel circumference in mm
+    `var _moveRotMM     = ${_WHEEL_CIRC_MM.toFixed(4)};`,  // wheel circumference mm — tracks _WHEEL_DIA_MM
     `var _distMoved     = 0;`,
     `var _timerMs       = performance.now();`,
     `var _stopMethod    = '0';`,

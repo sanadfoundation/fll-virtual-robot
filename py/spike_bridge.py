@@ -147,6 +147,15 @@ def _require(port, expected_kind, op):
 
 
 class motor:
+    """Individual-motor API for the SPIKE Prime Technic Angular Motors.
+
+    Hardware reference (LEGO tech specs):
+    - Rotation sensor: 360 counts/rev (1° resolution), ±3° accuracy, 100 Hz update.
+    - No-load speed: 185 RPM (Medium) / 175 RPM (Large) — ≈1110 / 1050 deg/sec.
+    - Max-efficiency speed (rated): 135 RPM ≈ 810 deg/sec at 3.5 Ncm (Medium) / 8 Ncm (Large).
+    - Stall torque: 18 Ncm (Medium) / 25 Ncm (Large).
+    - `velocity` arguments are degrees per second; negative reverses direction.
+    """
     # Stop-mode constants
     COAST       = 0
     BRAKE       = 1
@@ -326,6 +335,18 @@ class motor_pair:
 
 
 class color_sensor:
+    """Technic Color Sensor API.
+
+    Hardware reference (LEGO tech specs):
+    - 100 Hz sample rate, optimal reading distance ~16 mm.
+    - Reflectivity: 0 (non-reflective) – 100 (very reflective).
+    - Ambient light: 0 (dark) – 100 (bright).
+    - Hardware reliably distinguishes 8 LEGO-classified colors (white, blue,
+      black, green, yellow, red, medium azur, bright reddish violet); the API
+      reports the wider 12-value `color.*` palette.
+    - LED output: 3 white LEDs (4000 K), 0–100% in 1% steps. Cannot be driven
+      while the sensor is in color or light-sensing mode.
+    """
     @staticmethod
     def color(port):
         _require(port, 'color_sensor', 'color_sensor.color')
@@ -344,10 +365,22 @@ class color_sensor:
 
 
 class distance_sensor:
+    """Technic Distance Sensor API.
+
+    Hardware reference (LEGO tech specs):
+    - Ultrasonic; 100 Hz sample rate.
+    - Distance range: 50–2000 mm ±20 mm, 1 mm resolution.
+    - Fast-distance mode: 50–300 mm ±15 mm.
+    - Entrance (beam) angle: ±35° (varies with distance).
+    - Four white LED segments (4000 K) around the "eyes," individually 0–100%.
+    - Below the 50 mm blind zone the sensor reports no object (returns -1 here).
+    """
     @staticmethod
     def distance(port):
         _require(port, 'distance_sensor', 'distance_sensor.distance')
         v = int(_state.get('distance_mm', 300))
+        # Tech spec: 50–2000 mm range; below 50 mm is the ultrasonic blind
+        # zone (the simulator returns the OOR sentinel 9999 in both cases).
         return v if v < 9999 else -1
 
     @staticmethod
@@ -369,8 +402,17 @@ class distance_sensor:
 
 
 class force_sensor:
-    """Force sensor API. Port C is wired to 'force_sensor' in the canonical
-    config; calls on other ports raise via _require()."""
+    """Technic Force Sensor API. Port E is wired to 'force_sensor' in the
+    canonical config; calls on other ports raise via _require().
+
+    Hardware reference (LEGO tech specs):
+    - Touch sensing: 0.5–1.0 N activation force, activation depth 0–2 mm
+      (binary output).
+    - Tap sensing: 0–3 output covering single tap, quick tap, press-and-hold.
+    - Force sensing: 2.5–10 N range, 0.1 N steps, ±0.65 N accuracy; output
+      capped at 10 N. Activation depth 2–8 mm.
+    - 100 Hz sample rate (internal peak / force-filter mode runs at 1 kHz).
+    """
 
     @staticmethod
     def force(port):
@@ -515,6 +557,18 @@ class _Light:
 
 
 class _Hub:
+    """SPIKE Prime Technic Large Hub.
+
+    Hardware reference (LEGO tech specs):
+    - 6 LPF2 input/output ports A–F (E and F prepared for "high-speed").
+    - 5×5 white LED matrix; each LED individually dimmable in 10 steps.
+    - Six-axis IMU: three-axis accelerometer + three-axis gyroscope.
+    - Three-button interface: Center (power + program select + RGB LED), Left, Right.
+    - Speaker: 12-bit, 16 kHz mono.
+    - Bluetooth 4.2 Classic + BLE, USB.
+    - 100 MHz Cortex-M4, 320 KB RAM, 1 MB flash, 32 MB storage.
+    - 88 × 56 × 32 mm, 63 g (without battery).
+    """
     def __init__(self):
         self.light_matrix  = _LightMatrix()
         self.sound         = _Speaker()

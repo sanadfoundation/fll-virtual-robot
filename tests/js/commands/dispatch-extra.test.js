@@ -108,8 +108,10 @@ test('motor_time: defaults time_ms to 1000 when omitted', async () => {
   const calls = withTankStub(sim);
   await sim._execCmd({ type: 'motor_time', port: 'A', velocity: 500 });
   assert.strictEqual(calls.length, 1);
-  // 500/1000 normalized × MM_PER_MS_100 (0.9) × 1000 ms = 450 mm of wheel travel.
-  assert.ok(close(calls[0].distMM, 450), `distMM=${calls[0].distMM}`);
+  // 500/1000 normalized × MM_PER_MS_100 (π·56/360 ≈ 0.4887) × 1000 ms
+  // ≈ 244.35 mm of wheel travel.
+  const expected = (500 / 1000) * (Math.PI * 56 / 360) * 1000;
+  assert.ok(close(calls[0].distMM, expected), `distMM=${calls[0].distMM}, expected≈${expected}`);
 });
 
 // ── hub_display (set bitmap) ────────────────────────────────────────────────

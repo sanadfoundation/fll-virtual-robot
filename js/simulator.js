@@ -23,16 +23,35 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
 
 const FIELD_W_MM  = 2362;
 const FIELD_H_MM  = 1143;
-const WHEEL_DIA_MM  = 56;
-const WHEEL_CIRC_MM = Math.PI * WHEEL_DIA_MM;
+// Wheel geometry. The Spike Prime kit ships two common drive wheels and the
+// rest of the model (linear speed, deg↔mm conversions, turn timing) scales
+// linearly with diameter. Pick ONE assumption — the team's actual robot
+// build — and keep it consistent everywhere:
+//   - Spike "small" / Technic 56×28 mm (part 32019) → WHEEL_DIA_MM = 56, WHEEL_WIDTH_MM = 28
+//   - Spike "big balloon" 88×26 mm (part 49295)    → WHEEL_DIA_MM = 88, WHEEL_WIDTH_MM = 26
+// Mirrored in js/blockly_config.js as _WHEEL_CIRC_MM and _MM_PER_MS_AT_100 —
+// update both files together. The wheel visual at _drawRobot derives from
+// these constants too so swapping just here is sufficient.
+const WHEEL_DIA_MM    = 56;
+const WHEEL_WIDTH_MM  = 28;
+const WHEEL_CIRC_MM   = Math.PI * WHEEL_DIA_MM;
 const TRACK_W_MM    = 112;  // center-to-center
 const ROBOT_BODY_W  = 160;  // body width without wheels
 const ROBOT_BODY_H  = 200;  // body front-to-back
 const BUMPER_DEPTH_MM = 10;   // front-to-back
 const BUMPER_WIDTH_MM = 30;   // lateral
-const MM_PER_MS_100 = 0.9;  // robot speed at 100% (mm per ms)
-const DIST_SENSOR_MAX_MM    = 2000;  // matches LEGO Spike hardware spec
-const DIST_SENSOR_OOR_VALUE = 9999;  // wire sentinel; py/spike_bridge.py:308 maps ≥9999 → -1
+// Linear speed when leftV/rightV == 1.0. The model treats velocity command
+// 1000 deg/sec (the bridge divides cmd.velocity by 1000) as the reference
+// "full speed," so this is mm-per-ms at that command:
+//   1000 deg/sec × (π × 56 mm / 360 deg) × (1 s / 1000 ms) = π × 56 / 360.
+// That puts full-speed linear motion at ~488 mm/s, which is the physically
+// honest value for a 56 mm wheel driven by a Spike Prime angular motor (LEGO
+// tech specs: no-load 175 RPM Large / 185 RPM Medium ⇒ 513 / 542 mm/s; rated
+// 135 RPM ⇒ 396 mm/s — see docs/HARDWARE-SPECS.md).
+const MM_PER_MS_100 = Math.PI * WHEEL_DIA_MM / 360;
+const DIST_SENSOR_MIN_MM    = 50;    // LEGO tech spec: ultrasonic blind below 50 mm
+const DIST_SENSOR_MAX_MM    = 2000;  // LEGO tech spec: range 50–2000 mm ±20 mm
+const DIST_SENSOR_OOR_VALUE = 9999;  // wire sentinel; py/spike_bridge.py:351 maps ≥9999 → -1
 
 // ── Port configuration ──────────────────────────────────────────────────────
 // Mirror of py/spike_bridge.py _PORT_CONFIG. Customization will replace this
@@ -676,8 +695,8 @@ class RobotSimulator {
 
     const bw = ROBOT_BODY_W * s;
     const bh = ROBOT_BODY_H * s;
-    const ww = 28 * s;   // wheel width (Spike Prime 56×28 wheel)
-    const wh = 56 * s;   // wheel diameter
+    const ww = WHEEL_WIDTH_MM * s;  // wheel width
+    const wh = WHEEL_DIA_MM   * s;  // wheel diameter
     const wInset = 12 * s;
 
     // Shadow
@@ -1793,7 +1812,15 @@ class RobotSimulator {
     return [128, 128, 128];
   }
 
-  getDistanceSensorValue()    { this._updateDistanceSensor(); return this.robot.sensors.distanceMM; }
+  getDistanceSensorValue() {
+    // LEGO ultrasonic spec: 50–2000 mm, blind below 50 mm. Report OOR in
+    // the blind zone so user code sees the same -1 return path it would on
+    // real hardware. The raw distanceMM is left untouched so the ray renderer
+    // still draws the true geometric hit for debugging.
+    this._updateDistanceSensor();
+    const d = this.robot.sensors.distanceMM;
+    return d < DIST_SENSOR_MIN_MM ? DIST_SENSOR_OOR_VALUE : d;
+  }
   getDistanceSensorPresence() { this._updateDistanceSensor(); return this.robot.sensors.distanceMM < 100; }
   getForceSensorValue() {
     return window.forceSensorLogic.forceToReadings(this.robot.sensors.forceN).dn;

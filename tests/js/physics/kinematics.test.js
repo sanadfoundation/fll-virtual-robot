@@ -55,7 +55,10 @@ test('steeringToWheels: zero speed produces zero output regardless of steering',
 // Math y-up: positive angVel ⇒ heading INCREASES (CCW = left turn).
 // Right turn (left wheel faster) ⇒ rightSpd-leftSpd < 0 ⇒ angVel < 0.
 
-const SPEED   = 900;   // mm/s, matches MM_PER_MS_100 * 1000
+// MM_PER_MS_100 in the simulator derives from wheel geometry:
+// π × 56 / 360 ≈ 0.4887 mm/ms ⇒ SPEED ≈ 488.69 mm/s. Recompute here so the
+// test stays in lockstep with any future wheel-diameter change.
+const SPEED   = (Math.PI * 56 / 360) * 1000;  // mm/s, matches MM_PER_MS_100 * 1000
 const TRACK_W = 112;   // mm, matches simulator constant
 
 test('wheelsToBodyVelocity: straight forward at heading 0 → +x only', () => {
@@ -111,11 +114,11 @@ test('wheelsToBodyVelocity: heading π/2 (north, math-y-up) drives +y', () => {
 
 // ── computeMoveDuration ──────────────────────────────────────────────────────
 
-const MM_PER_MS_100 = 0.9;
+const MM_PER_MS_100 = Math.PI * 56 / 360;  // ≈0.4887, matches simulator
 
-test('computeMoveDuration: 200 mm at full speed, 1× ⇒ 222.22 ms', () => {
+test('computeMoveDuration: 200 mm at full speed, 1× ⇒ 200/MM_PER_MS_100 ms', () => {
   const d = k.computeMoveDuration(200, 1, 1, MM_PER_MS_100);
-  assert.ok(close(d, 200 / 0.9, 1e-9), `d=${d}`);
+  assert.ok(close(d, 200 / MM_PER_MS_100, 1e-9), `d=${d}`);
 });
 
 test('computeMoveDuration: speedMult 2 halves the duration', () => {
