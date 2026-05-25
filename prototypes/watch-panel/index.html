@@ -151,13 +151,18 @@
 
   .console-wrap {
     background: var(--surface); border-top: 1px solid var(--border);
-    height: 88px; padding: 8px 14px; flex-shrink: 0;
+    height: 88px; flex-shrink: 0;
+    display: flex; align-items: stretch;
+  }
+  .console-output-pane {
+    flex: 1;
+    padding: 8px 14px;
     font-family: var(--font-code); font-size: 12px; color: var(--text-mid);
     overflow: auto;
   }
-  .console-wrap .line { display: block; padding: 1px 0; }
-  .console-wrap .line.info { color: var(--cyan); }
-  .console-wrap .line.warn { color: var(--amber); }
+  .console-output-pane .line { display: block; padding: 1px 0; }
+  .console-output-pane .line.info { color: var(--cyan); }
+  .console-output-pane .line.warn { color: var(--amber); }
 
   /* ════════════════════════════════════════════════════════════════════════
      ── LAYOUT A: Overlay card on the canvas ────────────────────────────── */
@@ -263,6 +268,27 @@
   .watch-empty {
     padding: 10px 12px; font-size: 11px; color: var(--text-dim); font-style: italic;
   }
+
+  /* ── LAYOUT D: Split console — variables share the bottom strip ─────── */
+  .watch-split {
+    width: 38%; min-width: 220px;
+    display: none; flex-direction: column;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+  }
+  .watch-split.visible { display: flex; }
+  .watch-split-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 14px;
+    font-size: 10px; font-weight: 800; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+  }
+  .watch-split-head .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--amber); box-shadow: 0 0 6px var(--amber);
+  }
+  .watch-split-list { flex: 1; padding: 2px 0; overflow: auto; }
 </style>
 </head>
 <body>
@@ -273,6 +299,7 @@
     <button data-layout="overlay" class="active">Overlay card</button>
     <button data-layout="band">Status band</button>
     <button data-layout="drawer">Editor drawer</button>
+    <button data-layout="split">Split console</button>
   </div>
   <button id="theme-btn" title="Toggle theme">🌙</button>
   <button id="run-btn">▶ Run mock</button>
@@ -385,8 +412,16 @@
       </div>
     </div>
 
-    <div class="console-wrap" id="console">
-      <span class="line info">[Init] Prototype loaded. Hit ▶ Run mock to see the panel update.</span>
+    <div class="console-wrap" id="console-wrap">
+      <div class="console-output-pane" id="console">
+        <span class="line info">[Init] Prototype loaded. Hit ▶ Run mock to see the panel update.</span>
+      </div>
+      <div class="watch-split" id="split-host">
+        <div class="watch-split-head">
+          <span class="dot"></span> Variables
+        </div>
+        <div class="watch-split-list" id="split-list"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -400,9 +435,11 @@
   const overlayHost = $('overlay-host');
   const bandHost = $('band-host');
   const drawerHost = $('drawer-host');
+  const splitHost = $('split-host');
   const overlayList = $('overlay-list');
   const bandList = $('band-list');
   const drawerList = $('drawer-list');
+  const splitList = $('split-list');
 
   const formatValue = (v) => {
     if (typeof v === 'number')  return Number.isInteger(v) ? String(v) : v.toFixed(3);
@@ -420,10 +457,12 @@
     overlayHost.classList.toggle('visible', layout === 'overlay' && visible);
     bandHost.classList.toggle('visible',    layout === 'band'    && visible);
     drawerHost.classList.toggle('visible',  layout === 'drawer'  && visible);
+    splitHost.classList.toggle('visible',   layout === 'split'   && visible);
 
-    if (layout === 'overlay') renderRowList(overlayList, entries);
-    else if (layout === 'band') renderBand(bandList, entries);
-    else if (layout === 'drawer') renderRowList(drawerList, entries);
+    if (layout === 'overlay')      renderRowList(overlayList, entries);
+    else if (layout === 'band')    renderBand(bandList, entries);
+    else if (layout === 'drawer')  renderRowList(drawerList, entries);
+    else if (layout === 'split')   renderRowList(splitList, entries);
   }
 
   function renderRowList(container, entries) {
