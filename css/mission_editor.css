@@ -391,3 +391,23 @@ body[data-mode="editor"] .editor-overlay-svg { pointer-events: auto; }
   filter: drop-shadow(0 1px 3px rgba(0,0,0,0.4));
 }
 .editor-resize-handle:hover { filter: brightness(1.1) drop-shadow(0 1px 3px rgba(0,0,0,0.4)); }
+
+/* When a step is selected, the right panel widens to give the Blockly
+   condition workspace a usable area. The canvas area (.panel-right) takes
+   the remaining horizontal space (it's flex:1 in .app-body). */
+.editor-right-panel.has-condition-open {
+  flex: 0 0 600px;
+  max-width: 600px;
+  min-width: 580px;
+}
+
+/* The workspace itself needs more vertical room with the wider panel. */
+.editor-right-panel.has-condition-open .editor-cond-workspace {
+  height: 400px;
+}
+
+/* Make the right panel scroll its content when there's a lot of UI active
+   (meta + steps + condition section). */
+.editor-right-panel {
+  overflow-y: auto;
+}

@@ -269,37 +269,48 @@
       }
     }
 
+    const panel = doc.getElementById('editor-right-panel');
+
     function showForStep(step) {
       if (!section) return;
       section.hidden = false;
+      if (panel && panel.classList) panel.classList.add('has-condition-open');
       ensureWorkspace();
       if (!workspace) return;
       suppressNextChange = true;
       workspace.clear();
       if (Blockly && Blockly.serialization && Blockly.serialization.workspaces &&
           typeof Blockly.serialization.workspaces.load === 'function') {
-        // Production: real Blockly path.
         const state = conditionToWorkspaceState(step.condition);
         try {
           Blockly.serialization.workspaces.load(state, workspace);
         } catch (e) {
-          // Bad condition state shouldn't break the editor; just leave the
-          // workspace empty and log.
           if (typeof console !== 'undefined' && console.warn) {
             console.warn('mission editor: failed to load condition into workspace', e);
           }
         }
       } else if (typeof workspace._setBlocks === 'function') {
-        // Test stub path.
         const blocks = conditionToBlocks(step.condition);
         workspace._setBlocks(blocks);
       }
       suppressNextChange = false;
       updateLiveDropdowns(app.editorState);
+      // Force Blockly to recompute its layout against the now-larger container.
+      if (Blockly && typeof Blockly.svgResize === 'function') {
+        try { Blockly.svgResize(workspace); } catch (_e) {}
+      }
+      // CSS transition can take a frame to settle; retry once.
+      if (Blockly && typeof Blockly.svgResize === 'function' &&
+          typeof setTimeout === 'function') {
+        setTimeout(() => {
+          try { Blockly.svgResize(workspace); } catch (_e) {}
+        }, 50);
+      }
     }
 
     function hide() {
       if (section) section.hidden = true;
+      if (panel && panel.classList) panel.classList.remove('has-condition-open');
     }
 
     app.onChange(({ mode, editorState }) => {
