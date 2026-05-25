@@ -136,6 +136,16 @@
     return next;
   }
 
+  function setMeta(state, patch) {
+    const next = dirty(state);
+    if (patch.description     !== undefined) next.description     = patch.description;
+    if (patch.title           !== undefined) next.title           = patch.title;
+    if (patch.author          !== undefined) next.author          = patch.author;
+    if (patch.type            !== undefined) next.type            = patch.type;
+    if (patch.difficulty_tier !== undefined) next.difficulty_tier = patch.difficulty_tier;
+    return next;
+  }
+
   function setSelection(state, sel) {
     const next = clone(state);
     next.selection = sel ? { ...sel } : null;
@@ -202,7 +212,7 @@
     createBlank, newId,
     addObstacle, moveObstacle, resizeObstacle, deleteObstacle,
     addZone, moveZone, resizeZone, deleteZone,
-    setRobotStart, setSelection,
+    setRobotStart, setSelection, setMeta,
     serializeToMission, loadFromMission,
     _clone: clone,
   };

@@ -66,6 +66,9 @@
     if (MISSIONS.editor && MISSIONS.editor.field && MISSIONS.editor.field.attach) {
       MISSIONS.editor.field.attach(app, doc);
     }
+    if (MISSIONS.editor && MISSIONS.editor.meta && MISSIONS.editor.meta.attach) {
+      MISSIONS.editor.meta.attach(app, doc);
+    }
 
     // Wire the header 🎯 button: open a blank editor on click.
     const missionsBtn = doc.getElementById('btn-missions');
