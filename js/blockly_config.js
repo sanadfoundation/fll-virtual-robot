@@ -1312,9 +1312,11 @@ function registerGenerators(Blockly) {
   // Per BACKLOG / audit 2026-05-13 follow-up: must scope to the chosen
   // PORT, not call sim.stop() (which sets isRunning=false and kills the
   // whole program — including any concurrent motor that wasn't named).
+  // _motorStopAndAwait (not _execCmd) so the next block doesn't run until
+  // the in-flight start_motor has actually unwound — see issue #47.
   js['flippermotor_motorStop'] = (block) => {
     const port = block.getFieldValue('PORT');
-    return `await window.sim._execCmd({type:'motor_stop', port:'${port}'});\n`;
+    return `await window.sim._motorStopAndAwait('${port}');\n`;
   };
 
   js['flippermotor_motorSetSpeed'] = (block) => {
@@ -1334,6 +1336,9 @@ function registerGenerators(Blockly) {
 
   // ── Movement ───────────────────────────────────────────────────────────────
 
+  // _runPairMotion (not _animateTank directly) so the motion goes through
+  // _runMotion — resets _motionAborted from a prior stop and credits both
+  // wheels' encoders via the pair descriptor. See issue #47.
   js['flippermove_move'] = (block) => {
     const dir  = moveDir(block.getFieldValue('DIRECTION'));
     const unit = block.getFieldValue('UNIT');
@@ -1344,12 +1349,12 @@ function registerGenerators(Blockly) {
     else if (unit === 'rotations') distMM = `(${v} * _moveRotMM)`;
     else if (unit === 'degrees')  distMM = `((${v} / 360) * _moveRotMM)`;
     else                         distMM = `(${v} * _moveSpeed/100 * ${_MM_PER_MS_AT_100} * 1000)`;
-    return `_distMoved += ${distMM} / 10;\nawait window.sim._animateTank(_moveSpeed/100*${dir}, _moveSpeed/100*${dir}, ${distMM});\n`;
+    return `_distMoved += ${distMM} / 10;\nawait window.sim._runPairMotion(_movePairL, _movePairR, _moveSpeed/100*${dir}, _moveSpeed/100*${dir}, ${distMM});\n`;
   };
 
   js['flippermove_startMove'] = (block) => {
     const dir = moveDir(block.getFieldValue('DIRECTION'));
-    return `window.sim._animateTank(_moveSpeed/100*${dir}, _moveSpeed/100*${dir}, 5000);\n`;
+    return `window.sim._runPairMotion(_movePairL, _movePairR, _moveSpeed/100*${dir}, _moveSpeed/100*${dir}, 5000);\n`;
   };
 
   js['flippermove_steer'] = (block) => {
@@ -1360,12 +1365,12 @@ function registerGenerators(Blockly) {
     if (unit === 'rotations')      distMM = `(${v} * _moveRotMM)`;
     else if (unit === 'degrees')   distMM = `((${v} / 360) * _moveRotMM)`;
     else                           distMM = `(${v} * _moveSpeed/100 * ${_MM_PER_MS_AT_100} * 1000)`;
-    return `{ const _s = (${steer})/100; _distMoved += ${distMM} / 10; await window.sim._animateTank(_moveSpeed/100*(1+_s), _moveSpeed/100*(1-_s), ${distMM}); }\n`;
+    return `{ const _s = (${steer})/100; _distMoved += ${distMM} / 10; await window.sim._runPairMotion(_movePairL, _movePairR, _moveSpeed/100*(1+_s), _moveSpeed/100*(1-_s), ${distMM}); }\n`;
   };
 
   js['flippermove_startSteer'] = (block) => {
     const steer = String(Number(block.getFieldValue('STEERING')) || 0);
-    return `{ const _s = (${steer})/100; window.sim._animateTank(_moveSpeed/100*(1+_s), _moveSpeed/100*(1-_s), 5000); }\n`;
+    return `{ const _s = (${steer})/100; window.sim._runPairMotion(_movePairL, _movePairR, _moveSpeed/100*(1+_s), _moveSpeed/100*(1-_s), 5000); }\n`;
   };
 
   js['flippermove_stopMove'] = (_block) => `window.sim.stop();\nawait window.sim._sleep(50);\n`;

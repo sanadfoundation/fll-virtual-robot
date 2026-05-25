@@ -234,8 +234,12 @@ class RobotSimulator {
     // flip the flag when their pair_id / port matches _activeMotion.
     // pair: pair_id of an active pair motion (else null); ports: motor letters
     // this motion is driving (a pair's left+right, or a single motor's port).
+    // _motionPromise: settles when the current motion finishes. Blockly's
+    // _motorStopAndAwait / _pairStopAndAwait await it so the program waits
+    // for actual termination before running the next block.
     this._activeMotion  = null;
     this._motionAborted = false;
+    this._motionPromise = null;
 
     // Force-sensor pipeline state. emaN is the smoothed physics force in Newtons;
     // manualStartMs is the timestamp the user pressed the Hub-panel button (null
@@ -1506,13 +1510,55 @@ class RobotSimulator {
   // duration of the awaited motion. The 'stop' / 'motor_stop' command
   // handlers look at the descriptor to decide whether to flip the flag,
   // and _animateTank's loop reads the flag each iteration.
+  // _motionPromise is exposed so Blockly's _motorStopAndAwait /
+  // _pairStopAndAwait can wait for an in-flight motion to fully unwind
+  // before the next block runs.
   async _runMotion(descriptor, fn) {
     this._activeMotion  = descriptor;
     this._motionAborted = false;
-    try {
-      await fn();
-    } finally {
-      this._activeMotion = null;
+    const settled = (async () => {
+      try {
+        await fn();
+      } finally {
+        this._activeMotion = null;
+        if (this._motionPromise === settled) this._motionPromise = null;
+      }
+    })();
+    this._motionPromise = settled;
+    await settled;
+  }
+
+  // Blockly's move/steer generators emit calls into this helper so the
+  // motion goes through _runMotion (resets the abort flag, sets a pair
+  // descriptor so encoders accumulate on both wheels).
+  async _runPairMotion(leftPort, rightPort, leftV, rightV, distMM) {
+    const descriptor = {
+      pair: null,
+      ports: [leftPort, rightPort],
+      leftPort,
+      rightPort,
+    };
+    await this._runMotion(descriptor, () => this._animateTank(leftV, rightV, distMM));
+  }
+
+  // Blockly's stop generators emit calls into these so the program waits
+  // for the in-flight motion (typically a fire-and-forget start_motor or
+  // startMove) to actually unwind before the next block runs.
+  async _motorStopAndAwait(port) {
+    if (this._activeMotion && this._activeMotion.ports.indexOf(port) !== -1) {
+      this._motionAborted = true;
+    }
+    if (this._motionPromise) {
+      try { await this._motionPromise; } catch (_) { /* swallow */ }
+    }
+  }
+
+  async _pairStopAndAwait() {
+    // Blockly tracks the pair via _movePairL/_movePairR locals — there's no
+    // pair_id at this layer. Whatever motion is in flight is the one to stop.
+    if (this._activeMotion) this._motionAborted = true;
+    if (this._motionPromise) {
+      try { await this._motionPromise; } catch (_) { /* swallow */ }
     }
   }
 

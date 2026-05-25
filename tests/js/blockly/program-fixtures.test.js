@@ -140,6 +140,29 @@ const PROGRAM_FIXTURES = [
         'motor stop should NOT kill the whole sim (regression for the audit bug)');
     },
   },
+  {
+    name: 'issue #47: start_motor → motor_stop → move forward runs the move',
+    blocks: [
+      // Reproduces issue #47: a fire-and-forget single-motor animation, then
+      // motor_stop, then a pair-based forward move. Pre-fix, the stale
+      // _motionAborted flag left by motor_stop poisoned the next motion and
+      // the forward move silently no-op'd.
+      { type: 'flippermotor_motorStartDirection',
+        fields: { PORT: 'A', DIRECTION: 'counterclockwise' } },
+      { type: 'flippermotor_motorStop',
+        fields: { PORT: 'A' } },
+      { type: 'flippermove_move',
+        fields: { DIRECTION: 'forward', VALUE: '2', UNIT: 'rotations' } },
+    ],
+    assert(sim) {
+      // The forward move should run, so port B (right wheel — not touched
+      // by the prior single-motor start) accumulates ~720° (2 rotations).
+      const bDeg = Math.abs(sim.robot.motors.B || 0);
+      assert.ok(bDeg > 600,
+        `port B should accumulate ~720° from the forward move, got ${bDeg}° ` +
+        '(pre-fix, the stale abort flag broke the move and B stayed near 0)');
+    },
+  },
 ];
 
 // ── Driver ──────────────────────────────────────────────────────────────────

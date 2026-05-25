@@ -166,7 +166,11 @@ const SIM_SINGLE_MOTOR_GENERATORS = [
   'flippermotor_motorStartDirection',
 ];
 
-test('movement generators emit window.sim._animateTank', () => {
+test('movement generators emit window.sim._runPairMotion', () => {
+  // Per issue #47, move/steer generators route through _runPairMotion (not
+  // _animateTank directly) so the motion goes through _runMotion — which
+  // resets _motionAborted from a prior stop and sets a pair descriptor so
+  // both wheels' encoders accumulate.
   const { Blockly } = setupGenerators();
   const block = makeBlock();
   for (const name of SIM_TANK_GENERATORS) {
@@ -174,8 +178,8 @@ test('movement generators emit window.sim._animateTank', () => {
     assert.ok(typeof fn === 'function', `${name} not registered`);
     const code = fn(block);
     const codeStr = Array.isArray(code) ? code[0] : code;
-    assert.ok(codeStr.includes('window.sim._animateTank'),
-      `${name} should emit _animateTank, got: ${codeStr.slice(0, 100)}`);
+    assert.ok(codeStr.includes('window.sim._runPairMotion'),
+      `${name} should emit _runPairMotion, got: ${codeStr.slice(0, 100)}`);
   }
 });
 
