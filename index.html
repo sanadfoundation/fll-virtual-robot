@@ -125,106 +125,133 @@
     </button>
   </div>
 
-  <!-- Right panel: Ports band, canvas, Position band, console. Ports and
-       Position are always-visible status rows that flank the canvas. -->
+  <!-- Right panel: canvas + console. Status (Position, Motors, Sensors) is
+       overlaid on the canvas top-left as a packing toolbar (see
+       .canvas-toolbar below). The toolbar collapses into a single circle on
+       demand so the canvas can use the full panel height. -->
   <div class="panel-right">
 
-    <!-- Always-visible Ports status band (sits ABOVE the canvas, full width).
-         Two sections: Motors (A/B drive motors) and Sensors (C color, D
-         distance, E force). IDs preserved so simulator.js writes the same
-         elements. The force tile is itself the press-and-hold button —
-         main.js binds pointer events on #port-force-E exactly as before. -->
-    <div class="canvas-status canvas-status-ports" id="canvas-ports">
-      <div class="cstat-group" id="cstat-motors">
-        <span class="cstat-section-label">Motors</span>
+    <div class="canvas-wrap">
+      <canvas id="robot-canvas"></canvas>
+      <div id="canvas-hover" hidden></div>
+
+      <!-- Status toolbar: three pill buttons (Position / Motors / Sensors)
+           that open anchored popovers, plus a circle handle that packs the
+           row into a single matching circle. Both the pack handle (inside
+           the pills row) and the unpack handle (the single circle shown
+           when packed) share .canvas-circle styling so they read as the
+           same control in two states. data-state on .canvas-toolbar drives
+           the cross-fade between the two layers. -->
+      <div class="canvas-toolbar" id="canvas-toolbar" data-state="expanded">
+
+        <div class="canvas-toolbar-pills" role="toolbar" aria-label="Robot status">
+          <button class="canvas-pill" id="pb-position" type="button" aria-haspopup="true" aria-expanded="false" data-active="false">
+            <span class="pip" aria-hidden="true"></span>
+            📍 Position
+          </button>
+          <button class="canvas-pill" id="pb-motors" type="button" aria-haspopup="true" aria-expanded="false" data-active="false">
+            <span class="pip" aria-hidden="true"></span>
+            🛞 Motors <span class="label-port">A · B</span>
+          </button>
+          <button class="canvas-pill" id="pb-sensors" type="button" aria-haspopup="true" aria-expanded="false" data-active="false">
+            <span class="pip" aria-hidden="true"></span>
+            🎯 Sensors <span class="label-port">C · D · E</span>
+          </button>
+          <button class="canvas-circle canvas-circle-pack" id="canvas-pack-handle" type="button" aria-label="Pack status toolbar" title="Collapse status toolbar">
+            <span class="canvas-circle-icon" aria-hidden="true">‹</span>
+          </button>
+        </div>
+
+        <button class="canvas-circle canvas-circle-unpack" id="canvas-unpack-handle" type="button" aria-label="Unpack status toolbar" title="Show Position / Motors / Sensors" data-active="false">
+          <span class="canvas-circle-icon canvas-circle-dots" aria-hidden="true">
+            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+          </span>
+        </button>
+      </div>
+
+      <!-- Popovers. Anchored under the pills row when expanded; force-closed
+           by the pack action. Chip / pose IDs are unchanged so the
+           simulator's writes (port-value-A..E, color-swatch, port-force-
+           fill-E, sp-x/y/heading/yaw) keep working. The force chip is still
+           a <button> so main.js's pointer bindings on #port-force-E find it
+           in its new home. -->
+      <div class="canvas-pop" id="pop-position" role="region" aria-label="Position">
+        <span class="canvas-pop-title">Position</span>
+        <div class="cstat-pose" title="Horizontal position from the left edge of the field">
+          <span class="cstat-pose-label">X</span>
+          <span class="cstat-pose-value" id="sp-x">—</span>
+        </div>
+        <div class="cstat-pose" title="Vertical position from the bottom edge of the field">
+          <span class="cstat-pose-label">Y</span>
+          <span class="cstat-pose-value" id="sp-y">—</span>
+        </div>
+        <div class="cstat-pose" title="Direction the robot is facing (0° = east, 90° = north)">
+          <span class="cstat-pose-label">Heading</span>
+          <span class="cstat-pose-value" id="sp-heading">—</span>
+        </div>
+        <div class="cstat-pose" title="Net rotation since the last reset_yaw_angle() call">
+          <span class="cstat-pose-label">Yaw</span>
+          <span class="cstat-pose-value" id="sp-yaw">—</span>
+        </div>
+      </div>
+
+      <div class="canvas-pop" id="pop-motors" role="region" aria-label="Motors">
+        <span class="canvas-pop-title">Motors</span>
         <div class="cstat-chip" id="port-row-A" title="Light motor on port A — left drive wheel; value is current rotation">
-          <span class="cstat-chip-icon" aria-hidden="true">🛞</span>
+          <span class="cstat-chip-icon" aria-hidden="true">A</span>
           <span class="cstat-chip-meta">
             <span class="cstat-chip-head">
               <span class="cstat-chip-role">Left</span>
-              <span class="cstat-chip-port">A</span>
             </span>
             <span class="cstat-chip-value" id="port-value-A">0°/s  0.0↻</span>
           </span>
         </div>
         <div class="cstat-chip" id="port-row-B" title="Light motor on port B — right drive wheel; value is current rotation">
-          <span class="cstat-chip-icon" aria-hidden="true">🛞</span>
+          <span class="cstat-chip-icon" aria-hidden="true">B</span>
           <span class="cstat-chip-meta">
             <span class="cstat-chip-head">
               <span class="cstat-chip-role">Right</span>
-              <span class="cstat-chip-port">B</span>
             </span>
             <span class="cstat-chip-value" id="port-value-B">0°/s  0.0↻</span>
           </span>
         </div>
       </div>
-      <div class="cstat-divider" aria-hidden="true"></div>
-      <div class="cstat-group" id="cstat-sensors">
-        <span class="cstat-section-label">Sensors</span>
+
+      <div class="canvas-pop" id="pop-sensors" role="region" aria-label="Sensors">
+        <span class="canvas-pop-title">Sensors</span>
         <div class="cstat-chip cstat-chip-color" id="port-row-C" title="Color sensor on port C — reads the colour under the robot">
-          <span class="cstat-chip-icon" aria-hidden="true">🎨</span>
+          <span class="cstat-chip-icon" aria-hidden="true">C</span>
           <span class="cstat-chip-meta">
             <span class="cstat-chip-head">
               <span class="cstat-chip-role">Color</span>
-              <span class="cstat-chip-port">C</span>
             </span>
             <span class="cstat-chip-value" id="port-value-C">none</span>
           </span>
           <span class="sensor-color-swatch" id="color-swatch"></span>
         </div>
         <div class="cstat-chip" id="port-row-D" title="Distance sensor on port D — reads how far the nearest object is">
-          <span class="cstat-chip-icon" aria-hidden="true">📏</span>
+          <span class="cstat-chip-icon" aria-hidden="true">D</span>
           <span class="cstat-chip-meta">
             <span class="cstat-chip-head">
               <span class="cstat-chip-role">Distance</span>
-              <span class="cstat-chip-port">D</span>
             </span>
             <span class="cstat-chip-value" id="port-value-D">—</span>
           </span>
         </div>
-        <!-- Force tile is the press-and-hold button itself. port-force-fill-E
+        <!-- Force chip is the press-and-hold button itself. port-force-fill-E
              is the bottom progress bar that simulator.js animates. -->
         <button class="cstat-chip cstat-chip-force" id="port-force-E" type="button"
                 title="Force sensor on port E — press &amp; hold to apply force"
                 aria-label="Apply force on the sensor at port E">
-          <span class="cstat-chip-icon" aria-hidden="true">👇</span>
+          <span class="cstat-chip-icon" aria-hidden="true">E</span>
           <span class="cstat-chip-meta">
             <span class="cstat-chip-head">
               <span class="cstat-chip-role">Force</span>
-              <span class="cstat-chip-port">E</span>
             </span>
             <span class="cstat-chip-value" id="port-value-E">0.0 N</span>
           </span>
           <span class="port-force-fill" id="port-force-fill-E"></span>
         </button>
-      </div>
-    </div>
-
-    <div class="canvas-wrap">
-      <canvas id="robot-canvas"></canvas>
-      <div id="canvas-hover" hidden></div>
-    </div>
-
-    <!-- Always-visible Position status band (sits BELOW the canvas, above the
-         console). simulator.js's _updateSensorPanel writes into
-         sp-x/sp-y/sp-heading/sp-yaw. -->
-    <div class="canvas-status canvas-status-position" id="canvas-position">
-      <span class="cstat-section-label">Position</span>
-      <div class="cstat-pose" title="Horizontal position from the left edge of the field">
-        <span class="cstat-pose-label">X</span>
-        <span class="cstat-pose-value" id="sp-x">—</span>
-      </div>
-      <div class="cstat-pose" title="Vertical position from the bottom edge of the field">
-        <span class="cstat-pose-label">Y</span>
-        <span class="cstat-pose-value" id="sp-y">—</span>
-      </div>
-      <div class="cstat-pose" title="Direction the robot is facing (0° = east, 90° = north)">
-        <span class="cstat-pose-label">Heading</span>
-        <span class="cstat-pose-value" id="sp-heading">—</span>
-      </div>
-      <div class="cstat-pose" title="Net rotation since the last reset_yaw_angle() call">
-        <span class="cstat-pose-label">Yaw</span>
-        <span class="cstat-pose-value" id="sp-yaw">—</span>
       </div>
     </div>
 
@@ -330,6 +357,97 @@
     apply(next);
     localStorage.setItem(KEY, next ? '1' : '0');
   });
+})();
+
+// Canvas status toolbar — Position / Motors / Sensors pills with anchored
+// popovers, plus a pack/unpack toggle that cross-fades the pill row into a
+// single circle. Only one popover open at a time. Outside-click and Escape
+// close them. Packing force-closes any open popover. The unpack circle
+// pulses a green ring when any underlying value changes so the user knows
+// when to unpack and look.
+(function () {
+  const pairs = [
+    ['pb-position', 'pop-position'],
+    ['pb-motors',   'pop-motors'],
+    ['pb-sensors',  'pop-sensors'],
+  ];
+  const buttons   = pairs.map(([b, _]) => document.getElementById(b));
+  const pops      = pairs.map(([_, p]) => document.getElementById(p));
+  const toolbar   = document.getElementById('canvas-toolbar');
+  const packBtn   = document.getElementById('canvas-pack-handle');
+  const unpackBtn = document.getElementById('canvas-unpack-handle');
+  if (!toolbar || !packBtn || !unpackBtn || buttons.some(b => !b) || pops.some(p => !p)) return;
+  const STATE_KEY = 'fll-canvas-toolbar-state';
+
+  function closeAllPops() {
+    pops.forEach((p, i) => {
+      p.classList.remove('open');
+      buttons[i].setAttribute('aria-expanded', 'false');
+    });
+  }
+  function openOnly(i) {
+    pops.forEach((p, j) => {
+      const open = i === j;
+      p.classList.toggle('open', open);
+      buttons[j].setAttribute('aria-expanded', String(open));
+    });
+  }
+  function setState(state) {
+    toolbar.setAttribute('data-state', state);
+    if (state === 'packed') closeAllPops();
+    localStorage.setItem(STATE_KEY, state);
+  }
+  setState(localStorage.getItem(STATE_KEY) === 'packed' ? 'packed' : 'expanded');
+
+  packBtn.addEventListener('click', e => { e.stopPropagation(); setState('packed'); });
+  unpackBtn.addEventListener('click', e => { e.stopPropagation(); setState('expanded'); });
+
+  pairs.forEach((_, i) => {
+    buttons[i].addEventListener('click', e => {
+      e.stopPropagation();
+      if (toolbar.getAttribute('data-state') === 'packed') return;
+      pops[i].classList.contains('open') ? closeAllPops() : openOnly(i);
+    });
+  });
+
+  document.addEventListener('click', e => {
+    if (buttons.some(b => b.contains(e.target))) return;
+    if (pops.some(p => p.contains(e.target))) return;
+    closeAllPops();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAllPops(); });
+
+  // Activity indicators. Each pill lights its own pip when its underlying
+  // values change; the unpack circle lights its outer ring whenever any
+  // value changes (so it works as a status indicator while packed).
+  const watchers = [
+    { btn: buttons[0], ids: ['sp-x'] },
+    { btn: buttons[1], ids: ['port-value-A', 'port-value-B'] },
+    { btn: buttons[2], ids: ['port-value-C', 'port-value-D', 'port-value-E'] },
+  ];
+  const last = watchers.map(w => w.ids.map(id => (document.getElementById(id) || {}).textContent || ''));
+  let circleTimer;
+  setInterval(() => {
+    let anyChanged = false;
+    watchers.forEach((w, i) => {
+      let changed = false;
+      w.ids.forEach((id, k) => {
+        const cur = (document.getElementById(id) || {}).textContent || '';
+        if (cur !== last[i][k]) { changed = true; last[i][k] = cur; }
+      });
+      if (changed) {
+        anyChanged = true;
+        w.btn.setAttribute('data-active', 'true');
+        clearTimeout(w._t);
+        w._t = setTimeout(() => w.btn.setAttribute('data-active', 'false'), 700);
+      }
+    });
+    if (anyChanged) {
+      unpackBtn.setAttribute('data-active', 'true');
+      clearTimeout(circleTimer);
+      circleTimer = setTimeout(() => unpackBtn.setAttribute('data-active', 'false'), 700);
+    }
+  }, 250);
 })();
 </script>
 

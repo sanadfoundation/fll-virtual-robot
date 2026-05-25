@@ -2599,3 +2599,245 @@ header h1 {
   overflow: hidden;
   visibility: hidden;
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   CANVAS STATUS TOOLBAR — three top-left popover pills + pack/unpack circle
+   ──────────────────────────────────────────────────────────────────────
+   The Ports band (Motors/Sensors above the canvas) and Position band (below
+   the canvas) were replaced by a floating toolbar overlaid on the canvas
+   top-left. Three pills (Position / Motors / Sensors) open anchored
+   popovers; a circle handle on the right of the row collapses the whole
+   thing into a single matching circle so the canvas can use the full panel
+   height. The pack handle and the unpack circle share .canvas-circle
+   styling — same shape, same size, same chrome — so the toggle reads as
+   one control in two states.
+
+   data-state on .canvas-toolbar drives the cross-fade between the two
+   layers. The popovers and the simulator-written chip/pose nodes
+   (port-value-*, sp-*, color-swatch, port-force-fill-E) live inside the
+   popovers, so writes from simulator.js continue to update the same IDs.
+   ──────────────────────────────────────────────────────────────────── */
+
+.canvas-toolbar {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 3;
+  height: 38px;
+  font-family: var(--font-ui);
+}
+
+/* Layer 1: the expanded pill row (3 pills + pack handle) */
+.canvas-toolbar-pills {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition:
+    opacity .22s cubic-bezier(.4, 0, .2, 1),
+    transform .22s cubic-bezier(.4, 0, .2, 1);
+  transform-origin: left center;
+}
+.canvas-toolbar[data-state="packed"] .canvas-toolbar-pills {
+  opacity: 0;
+  transform: scale(0.4) translateX(-24px);
+  pointer-events: none;
+}
+
+/* Pill button — opens its popover anchored below */
+.canvas-pill {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: var(--shadow-panel);
+  transition: border-color .12s, color .12s, background .12s;
+  white-space: nowrap;
+}
+.canvas-pill:hover {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+.canvas-pill:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.canvas-pill[aria-expanded="true"] {
+  background: var(--surface3);
+  border-color: var(--amber);
+  color: var(--amber);
+  box-shadow: inset 0 0 0 1px var(--amber), var(--shadow-panel);
+}
+.canvas-pill .pip {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  box-shadow: 0 0 0 1px var(--surface) inset;
+  flex-shrink: 0;
+}
+.canvas-pill[data-active="true"] .pip {
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+}
+.canvas-pill .label-port {
+  color: var(--text-dim);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  font-size: 10px;
+  text-transform: uppercase;
+  margin-left: 4px;
+}
+
+/* Circle handle — used in two places. .canvas-circle-pack lives at the end
+   of the pills row (collapse trigger). .canvas-circle-unpack is the single
+   shown-when-packed circle (expand trigger). Same base shape so the toggle
+   reads as one control in two states. */
+.canvas-circle {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  cursor: pointer;
+  box-shadow: var(--shadow-panel);
+  display: grid;
+  place-items: center;
+  color: var(--text-mid);
+  font-family: var(--font-ui);
+  transition: border-color .12s, color .12s, background .12s, transform .14s;
+}
+.canvas-circle:hover {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+.canvas-circle:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.canvas-circle-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  font-size: 16px;
+  font-weight: 800;
+}
+.canvas-circle-dots {
+  gap: 3px;
+}
+.canvas-circle-dots .dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Pack handle sits in flow at the end of the pills row */
+.canvas-circle-pack {
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+.canvas-circle-pack .canvas-circle-icon {
+  font-size: 18px;
+  margin-top: -2px;        /* optical centring for the chevron glyph */
+}
+
+/* Unpack circle is overlaid on the same origin as the pills row, cross-
+   faded by data-state. */
+.canvas-circle-unpack {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  transform: scale(0.4);
+  pointer-events: none;
+  transform-origin: left center;
+  transition:
+    opacity .22s cubic-bezier(.4, 0, .2, 1),
+    transform .22s cubic-bezier(.4, 0, .2, 1),
+    border-color .12s, color .12s, background .12s;
+  color: var(--text);
+}
+.canvas-toolbar[data-state="packed"] .canvas-circle-unpack {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
+/* Activity ring around the unpack circle — lit briefly when any underlying
+   value changes so the user can tell to unpack and inspect. */
+.canvas-circle-unpack::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  transition: border-color .25s, box-shadow .25s;
+  pointer-events: none;
+}
+.canvas-circle-unpack[data-active="true"]::after {
+  border-color: var(--green);
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.55);
+}
+
+/* Popovers anchored under the pills row */
+.canvas-pop {
+  position: absolute;
+  top: 60px;
+  left: 14px;
+  min-width: 260px;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: var(--shadow-panel);
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 4;
+  font-family: var(--font-ui);
+}
+.canvas-pop.open { display: flex; }
+.canvas-pop-title {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: var(--text-dim);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Chips inside popovers — full width and stacked. Reuses .cstat-chip /
+   .cstat-pose visuals from the retired band UI. */
+.canvas-pop .cstat-chip { width: 100%; min-height: 44px; }
+.canvas-pop .cstat-pose {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 8px 4px;
+  border-right: none;
+  border-bottom: 1px solid var(--border);
+  width: 100%;
+  min-width: 0;
+}
+.canvas-pop .cstat-pose:last-child { border-bottom: none; }
+.canvas-pop .cstat-pose-label { margin-bottom: 0; }
+
+/* The port-letter badge: the icon tile carries the port letter (A..E) as a
+   bold mono keycap rather than an emoji. */
+.canvas-pop .cstat-chip-icon {
+  font-family: var(--font-code);
+  font-weight: 800;
+  font-size: 15px;
+  color: #0f172a;
+  letter-spacing: 0;
+}
