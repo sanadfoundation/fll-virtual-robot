@@ -56,14 +56,17 @@ const PYCODE_KEY  = 'fll-vr-python-code';
 const BLOCKLY_KEY = 'fll-vr-blockly-xml';
 const TAB_KEY     = 'fll-vr-tab';
 const NAME_KEY    = 'fll-vr-project-name';
-const DIRTY_KEY   = 'fll-vr-dirty';
+const DIRTY_KEY        = 'fll-vr-dirty';
+const PROJECT_TYPE_KEY = 'fll-vr-project-type';
 
-const DEFAULT_THEME = 'light';
-const DEFAULT_SPEED = 1;
-const DEFAULT_UNITS = 'cm';
-const VALID_UNITS   = ['cm', 'mm', 'in'];
-const DEFAULT_TAB   = 'blocks';
-const DEFAULT_NAME  = 'Untitled-Project';
+const DEFAULT_THEME        = 'light';
+const DEFAULT_SPEED        = 1;
+const DEFAULT_UNITS        = 'cm';
+const VALID_UNITS          = ['cm', 'mm', 'in'];
+const DEFAULT_TAB          = 'blocks';
+const DEFAULT_NAME         = 'Untitled-Project';
+const DEFAULT_PROJECT_TYPE = 'blocks';
+const VALID_PROJECT_TYPES  = ['python', 'blocks'];
 
 function lsGet(key) {
   try { return localStorage.getItem(key); } catch (e) { return null; }
@@ -88,6 +91,18 @@ function setProjectName(name) {
   lsSet(NAME_KEY, projectName);
 }
 function setLoadedManifest(m) { loadedManifest = m; }
+
+function getProjectType() {
+  const stored = lsGet(PROJECT_TYPE_KEY);
+  return (stored === 'python' || stored === 'blocks') ? stored : DEFAULT_PROJECT_TYPE;
+}
+
+function setProjectType(type) {
+  if (!VALID_PROJECT_TYPES.includes(type)) {
+    throw new Error('unknown project type: ' + type);
+  }
+  lsSet(PROJECT_TYPE_KEY, type);
+}
 
 // ── Theme ────────────────────────────────────────────────────────────────────
 
