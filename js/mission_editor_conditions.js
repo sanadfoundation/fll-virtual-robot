@@ -53,6 +53,44 @@
     },
   ];
 
+  function zoneOptions(state) {
+    const zones = (state && state.field && state.field.zones) || [];
+    if (zones.length === 0) return [['(no zones yet)', '']];
+    return zones.map(z => [`${z.color || z.id}`, z.id]);
+  }
+
+  function obstacleOptions(state) {
+    const obs = (state && state.field && state.field.obstacles) || [];
+    if (obs.length === 0) return [['(no obstacles yet)', '']];
+    return obs.map(o => [o.id, o.id]);
+  }
+
+  function conditionToBlocks(cond) {
+    if (!cond || !cond.kind) return [];
+    function buildOne(c) {
+      switch (c.kind) {
+        case 'zone':
+          return { type: 'cond_zone', fields: { ZONE: c.zone || '' }, children: {}, parent: null };
+        case 'sensor':
+          return { type: 'cond_sensor', fields: { PORT: c.port, OP: c.op, VALUE: String(c.value) }, children: {}, parent: null };
+        case 'contact':
+          return { type: 'cond_contact', fields: { OBSTACLE: c.obstacle || '' }, children: {}, parent: null };
+        case 'not':
+          return { type: 'cond_not', fields: {}, children: { OF: buildOne(c.of) }, parent: null };
+        case 'all_of':
+        case 'any_of':
+          return {
+            type: c.kind === 'all_of' ? 'cond_all_of' : 'cond_any_of',
+            fields: {}, children: { OF: (c.of || []).map(buildOne) }, parent: null,
+          };
+        default:
+          return null;
+      }
+    }
+    const root = buildOne(cond);
+    return root ? [root] : [];
+  }
+
   let blocksRegistered = false;
   function ensureBlockDefs(Blockly) {
     if (blocksRegistered || !Blockly) return;
@@ -73,7 +111,7 @@
       if (workspace || !Blockly || !container) return workspace;
       workspace = Blockly.inject(container, { toolbox: null, readOnly: false });
       workspace.addChangeListener(() => {
-        if (suppressNextChange) { suppressNextChange = false; return; }
+        if (suppressNextChange) return;
         syncToState();
       });
       return workspace;
@@ -118,7 +156,12 @@
       if (!section) return;
       section.hidden = false;
       ensureWorkspace();
-      // Load blocks for the step's current condition (Task 20).
+      if (!workspace) return;
+      suppressNextChange = true;
+      workspace.clear();
+      const blocks = conditionToBlocks(step.condition);
+      workspace._setBlocks(blocks);
+      suppressNextChange = false;
     }
 
     function hide() {
@@ -138,5 +181,5 @@
     });
   }
 
-  editor.conditions = { attach };
+  editor.conditions = { attach, _zoneOptions: zoneOptions, _obstacleOptions: obstacleOptions };
 })(typeof window !== 'undefined' ? window : globalThis);

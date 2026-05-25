@@ -133,3 +133,48 @@ test('generator: not wraps an inner block', () => {
   assert.deepStrictEqual(app.editorState.steps[0].condition,
     { kind: 'not', of: { kind: 'zone', subject: 'robot', zone: 'green' } });
 });
+
+test('loadIntoWorkspace: selecting a step with an existing condition populates the workspace', () => {
+  const { ctx, app } = setup();
+  app.enterEditor();
+  app.setEditorState(ctx.MISSIONS.editor.state.addZone(app.editorState, { x: 100, y: 100 }));
+  const zid = app.editorState.field.zones[0].id;
+  app.setEditorState(ctx.MISSIONS.editor.state.addStep(app.editorState));
+  const sid = app.editorState.steps[0].id;
+  app.setEditorState(ctx.MISSIONS.editor.state.editStep(app.editorState, sid, {
+    condition: { kind: 'zone', subject: 'robot', zone: zid },
+  }));
+  app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'step', id: sid }));
+  const ws = ctx.Blockly._lastWorkspace();
+  const top = ws.getTopBlocks();
+  assert.strictEqual(top.length, 1);
+  assert.strictEqual(top[0].type, 'cond_zone');
+  assert.strictEqual(top[0].fields.ZONE, zid);
+});
+
+test('dropdowns: zone dropdown options reflect placed zones', () => {
+  const { ctx, app } = setup();
+  app.enterEditor();
+  app.setEditorState(ctx.MISSIONS.editor.state.addZone(app.editorState, { x: 0, y: 0 }));
+  app.setEditorState(ctx.MISSIONS.editor.state.addZone(app.editorState, { x: 200, y: 200 }));
+  app.setEditorState(ctx.MISSIONS.editor.state.addStep(app.editorState));
+  const id = app.editorState.steps[0].id;
+  app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'step', id }));
+  const opts = ctx.MISSIONS.editor.conditions._zoneOptions(app.editorState);
+  assert.strictEqual(opts.length, 2);
+  for (const [label, value] of opts) {
+    assert.strictEqual(typeof label, 'string');
+    assert.strictEqual(typeof value, 'string');
+  }
+});
+
+test('dropdowns: obstacle dropdown options reflect placed obstacles', () => {
+  const { ctx, app } = setup();
+  app.enterEditor();
+  app.setEditorState(ctx.MISSIONS.editor.state.addObstacle(app.editorState, { x: 0, y: 0 }));
+  app.setEditorState(ctx.MISSIONS.editor.state.addStep(app.editorState));
+  const id = app.editorState.steps[0].id;
+  app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'step', id }));
+  const opts = ctx.MISSIONS.editor.conditions._obstacleOptions(app.editorState);
+  assert.strictEqual(opts.length, 1);
+});
