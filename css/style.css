@@ -951,7 +951,7 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
 
 /* ── Watch pane ─────────────────────────────────────────────────────── */
 .watch-pane {
-  width: 38%;
+  width: 0;
   min-width: 0;
   background: var(--surface);
   border-left: 1px solid var(--border);
@@ -959,6 +959,10 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
   flex-direction: column;
   overflow: hidden;
   transition: width 200ms ease-out;
+}
+
+.watch-pane.visible {
+  width: 38%;
 }
 
 .watch-pane-head {
@@ -1025,7 +1029,6 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
 .console-content-row.empty .watch-pane { display: none; }
 
 #console-output {
-  flex: 1;
   line-height: 1.75;
   background: var(--bg);
 }
@@ -1876,7 +1879,7 @@ header h1 {
   width: 8px;
   height: 8px;
 }
-#console-output {
+.console-output-pane {
   font-size: 13px;
   line-height: 1.7;
   padding: 10px 16px;

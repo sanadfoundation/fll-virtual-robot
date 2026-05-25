@@ -50,8 +50,8 @@
     renderScheduled = false;
     if (!_ensureDom()) return;
 
-    const row = pane.parentElement;
-    if (row && row.classList) row.classList.toggle('empty', state.size === 0);
+    const contentRow = pane.parentElement;
+    if (contentRow && contentRow.classList) contentRow.classList.toggle('empty', state.size === 0);
 
     if (state.size === 0) {
       // Clear list and slide pane out.
