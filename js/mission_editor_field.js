@@ -248,8 +248,36 @@
       }
     });
 
+    function deleteSelected() {
+      const sel = app.editorState && app.editorState.selection;
+      if (!sel) return;
+      let next = app.editorState;
+      if (sel.kind === 'obstacle') {
+        next = MISSIONS.editor.state.deleteObstacle(next, sel.id);
+      } else if (sel.kind === 'zone') {
+        next = MISSIONS.editor.state.deleteZone(next, sel.id);
+      } else {
+        return;  // start can't be deleted
+      }
+      next = MISSIONS.editor.state.setSelection(next, null);
+      app.setEditorState(next);
+    }
+
     editor.field._test_dragMove = dragMoveToPoint;
+    editor.field._test_deleteSelected = deleteSelected;
+
+    if (doc.addEventListener) {
+      doc.addEventListener('keydown', (ev) => {
+        if (app.mode !== 'editor') return;
+        if (ev.key === 'Delete' || ev.key === 'Backspace') {
+          // Don't steal Delete from text inputs (title, description, step inputs).
+          const tag = (ev.target && ev.target.tagName && ev.target.tagName.toLowerCase()) || '';
+          if (tag === 'input' || tag === 'textarea') return;
+          deleteSelected();
+        }
+      });
+    }
   }
 
-  editor.field = { attach, _test_dragMove: null };
+  editor.field = { attach, _test_dragMove: null, _test_deleteSelected: null };
 })(typeof window !== 'undefined' ? window : globalThis);

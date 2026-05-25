@@ -165,3 +165,33 @@ test('drag: when nothing is selected, _test_dragMove is a no-op', () => {
   ctx.MISSIONS.editor.field._test_dragMove({ x: 100, y: 100 });
   assert.strictEqual(app.editorState, before);
 });
+
+test('delete: pressing Delete while an obstacle is selected removes it', () => {
+  const { ctx, doc, app } = setup();
+  app.enterEditor();
+  app.setEditorState(ctx.MISSIONS.editor.state.addObstacle(app.editorState, { x: 100, y: 100 }));
+  const id = app.editorState.field.obstacles[0].id;
+  app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'obstacle', id }));
+  ctx.MISSIONS.editor.field._test_deleteSelected();
+  assert.strictEqual(app.editorState.field.obstacles.length, 0);
+  assert.strictEqual(app.editorState.selection, null);
+});
+
+test('delete: pressing Delete while a zone is selected removes it', () => {
+  const { ctx, app } = setup();
+  app.enterEditor();
+  app.setEditorState(ctx.MISSIONS.editor.state.addZone(app.editorState, { x: 100, y: 100 }));
+  const id = app.editorState.field.zones[0].id;
+  app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'zone', id }));
+  ctx.MISSIONS.editor.field._test_deleteSelected();
+  assert.strictEqual(app.editorState.field.zones.length, 0);
+});
+
+test('delete: robot start cannot be deleted', () => {
+  const { ctx, app } = setup();
+  app.enterEditor();
+  app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'start', id: null }));
+  const beforeStart = app.editorState.field.robot_start;
+  ctx.MISSIONS.editor.field._test_deleteSelected();
+  assert.deepStrictEqual(app.editorState.field.robot_start, beforeStart);
+});
