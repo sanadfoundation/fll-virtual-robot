@@ -429,8 +429,14 @@
     const calls = workspace.getAllBlocks(false).filter(
       b => b.type === 'myblocks_call' && b.procId_ === def.procId_);
     for (const call of calls) {
-      // Snapshot real (non-shadow) connected blocks by argId.
+      // Snapshot connected blocks by argId. We include shadows in the
+      // snapshot — Blockly's connection.disconnect() sometimes leaves the
+      // shadow as a real-looking free block on the workspace, and we want
+      // to clean those up too when their arg is removed. Disposing an
+      // already-auto-disposed shadow is a no-op (wrapped in try/catch).
+      // Real blocks (non-shadow) get reconnected by argId or stay free.
       const snapshotByArgId = {};
+      const snapshotIsShadow = {};
       const oldArgInputs = call.inputList.filter(i => i.name && i.name.startsWith('ARG'));
       for (let i = 0; i < oldArgInputs.length; i++) {
         const inp = oldArgInputs[i];
@@ -439,7 +445,10 @@
           try { inp.connection.disconnect(); } catch (_e) {}
         }
         const argId = oldArgTokens[i] && oldArgTokens[i].argId;
-        if (target && !target.isShadow() && argId) snapshotByArgId[argId] = target;
+        if (target && argId) {
+          snapshotByArgId[argId] = target;
+          snapshotIsShadow[argId] = target.isShadow();
+        }
       }
       call.argspec_ = JSON.parse(JSON.stringify(newArgspec));
       applyArgspecToCall(call);
@@ -447,19 +456,24 @@
       const newArgInputs = call.inputList.filter(i => i.name && i.name.startsWith('ARG'));
       const newArgTokens = newArgspec.filter(t => t.kind === 'arg');
       // Re-attach by argId — match handles rename + reorder identically.
+      // Skip shadows: they don't represent user-supplied values; the new
+      // slot already has its own shadow set up via setShadowState below.
       for (let i = 0; i < newArgInputs.length; i++) {
         const tok = newArgTokens[i];
         if (!tok || !tok.argId) continue;
         const saved = snapshotByArgId[tok.argId];
-        if (!saved) continue;
+        if (!saved || snapshotIsShadow[tok.argId]) continue;
         const out = saved.outputConnection;
         if (out && newArgInputs[i].connection) {
           try { newArgInputs[i].connection.connect(out); } catch (_e) {}
+          delete snapshotByArgId[tok.argId];
         }
-        delete snapshotByArgId[tok.argId];
       }
-      // Anything left in snapshotByArgId belonged to a removed arg.
-      // Literal primitives → dispose; everything else → free on workspace.
+      // Anything left in snapshotByArgId either:
+      //  - belonged to a removed arg (id has no new slot), OR
+      //  - was a shadow whose slot still exists (no longer needed — the new
+      //    setShadowState below will install a fresh shadow).
+      // In both cases: dispose if literal primitive, leave free otherwise.
       for (const argId of Object.keys(snapshotByArgId)) {
         const blk = snapshotByArgId[argId];
         if (PRIMITIVE_LITERAL_TYPES.has(blk.type)) {
