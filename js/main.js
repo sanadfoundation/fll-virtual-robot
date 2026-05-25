@@ -765,6 +765,7 @@ const DEFAULT_PYTHON_CODE = `# FLL Virtual Robot — write your code inside main
 #   import color_sensor                # color_sensor.color(port.C)
 #   import distance_sensor             # distance_sensor.distance(port.D)
 #   import force_sensor                # force_sensor.force(port.E)
+#   from sim import watch              # simulator-only: show variables live in the Variables panel
 import runloop
 
 
@@ -778,6 +779,14 @@ async def main():
     #
     # Example: read a sensor.
     #   print('Color:', color_sensor.color(port.C))
+    #
+    # Example: watch a variable live (simulator only — appears in the
+    # Variables panel next to the console output).
+    #   score = 0
+    #   for i in range(5):
+    #       score = score + 10
+    #       watch('score', score)
+    #       await runloop.sleep_ms(200)
     pass
 
 
