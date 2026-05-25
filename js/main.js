@@ -104,6 +104,14 @@ function setProjectType(type) {
   lsSet(PROJECT_TYPE_KEY, type);
 }
 
+function migrateLegacyTabKey() {
+  if (lsGet(PROJECT_TYPE_KEY)) return;          // already migrated
+  const legacy = lsGet(TAB_KEY);
+  const type = (legacy === 'python' || legacy === 'blocks') ? legacy : DEFAULT_PROJECT_TYPE;
+  lsSet(PROJECT_TYPE_KEY, type);
+  if (legacy !== null) lsRemove(TAB_KEY);
+}
+
 // ── Theme ────────────────────────────────────────────────────────────────────
 
 function currentTheme() {
