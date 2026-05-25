@@ -2130,6 +2130,60 @@ header h1 {
 }
 .settings-pop.open { display: block; }
 
+/* ── New-project split-button + popover menu ─────────────────────────────
+   Modelled on .settings-pop. Floats below the New (📄) button, closes on
+   outside-click and Escape, and offers explicit per-type project creation.
+   The legacy single-click behaviour (clearing both buffers) is replaced
+   by per-type clears in handleNewProject(type). */
+.new-menu { position: relative; display: inline-flex; }
+
+.new-menu-caret {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+.new-menu-pop {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 220px;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 24px 48px rgba(0,0,0,0.45), 0 4px 12px rgba(0,0,0,0.25);
+  z-index: 60;
+  animation: settings-pop-in 0.18s ease-out;
+}
+:root[data-theme="light"] .new-menu-pop {
+  box-shadow: 0 20px 40px rgba(15,23,42,0.18), 0 4px 10px rgba(15,23,42,0.10);
+}
+.new-menu-pop.open { display: block; }
+
+.new-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  font: 600 13px var(--font-ui);
+  color: var(--text-mid);
+  text-align: left;
+  cursor: pointer;
+}
+.new-menu-item:hover,
+.new-menu-item:focus-visible {
+  background: var(--surface2);
+  color: var(--text);
+  outline: none;
+}
+
 @keyframes settings-pop-in {
   from { opacity: 0; transform: translateY(-6px); }
   to   { opacity: 1; transform: translateY(0); }
