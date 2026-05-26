@@ -97,6 +97,24 @@ const COLOR_INT_MAP = {
   azure: 4, turquoise: 5, green: 6, yellow: 7, orange: 8, red: 9, white: 10,
 };
 
+// Centre-button RGB LED palette. Indexed by the `color.*` integer (0–10), with
+// 0/BLACK and -1/UNKNOWN both meaning "off". Hex values mirror the swatches in
+// the Blockly centre-button color strip (`STRIP_COLORS` in blockly_config.js)
+// so the on-robot LED matches what the student picked in the toolbox.
+const CENTRE_BTN_HEX = {
+  0:  null,        // BLACK / off
+  1:  '#ff80c0',   // MAGENTA  (Blockly: "pink")
+  2:  '#b066d8',   // PURPLE   (Blockly: "violet")
+  3:  '#1d6dd1',   // BLUE
+  4:  '#6db3e6',   // AZURE    (Blockly: "light blue")
+  5:  '#25b9d8',   // TURQUOISE (Blockly: "cyan")
+  6:  '#1a9c4a',   // GREEN
+  7:  '#f7c911',   // YELLOW
+  8:  '#f08020',   // ORANGE
+  9:  '#d12a2a',   // RED
+  10: '#ffffff',   // WHITE
+};
+
 // 5×5 pixel font for hub.light_matrix.write. Each entry is 25 bits, rows
 // top-to-bottom (matches the display index layout: row r, col c → idx r*5+c).
 // Audit 2026-05-13 §4.9: before this table, _showText filled every-other
@@ -208,6 +226,8 @@ function makeRobotState() {
       forceN:         0,
     },
     display: Array(25).fill(0), // 5×5 matrix brightness
+    // hub.light.color(POWER, …) — int from the `color` module (0..10), 0 = off.
+    centreLight: 0,
   };
 }
 
@@ -744,6 +764,35 @@ class RobotSimulator {
     ctx.roundRect(-hw/2, -hh/2, hw, hh, 7*s);
     ctx.fill();
     ctx.stroke();
+
+    // Centre power button (RGB LED). Drawn on the chassis behind the hub
+    // brick — the light-grey strip between the hub back edge and the chassis
+    // back edge. Body-local +Y is toward the back of the robot (`ctx.rotate`
+    // uses heading + 90°, so +Y maps to canvas-down when heading=north).
+    // The chassis spans -bh/2..+bh/2 and the hub brick -hh/2..+hh/2, so
+    // positioning at (hh/2 + bh/2)/2 places the LED midway in that strip.
+    {
+      const btnR  = 11 * s;
+      const btnY  = (hh + bh) / 4;
+      const hex   = CENTRE_BTN_HEX[r.centreLight] || null;
+      // Unlit state mirrors the real Spike hub: a translucent off-white
+      // plastic button with the LED dark behind it. Lit state takes the
+      // palette hex with a matching glow.
+      ctx.fillStyle   = hex || '#f4f4f4';
+      ctx.strokeStyle = '#7a7a8a';
+      ctx.lineWidth   = 1 * s;
+      if (hex) {
+        ctx.shadowColor   = hex;
+        ctx.shadowBlur    = 10 * s;
+        ctx.shadowOffsetY = 0;
+      }
+      ctx.beginPath();
+      ctx.arc(0, btnY, btnR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur  = 0;
+    }
 
     // LED matrix (5×5)
     const dotR   = 2.5 * s;
@@ -1283,6 +1332,20 @@ class RobotSimulator {
       case 'hub_pixel':
         if (cmd.x >= 0 && cmd.x < 5 && cmd.y >= 0 && cmd.y < 5) {
           this.robot.display[cmd.y * 5 + cmd.x] = cmd.brightness;
+          this._dirty = true;
+        }
+        break;
+
+      case 'hub_light':
+        // light: 0=POWER, 1=CONNECT (LEGO hub.light.POWER/CONNECT).
+        // Only POWER drives the visible centre button; CONNECT is the
+        // Bluetooth pairing indicator and has no on-canvas representation.
+        if ((cmd.light | 0) === 0) {
+          const c = cmd.color | 0;
+          // Anything outside the documented 0..10 range (including -1/UNKNOWN
+          // and stray values) is rendered as "off" so the picker can't mint a
+          // hex code that has no defined meaning.
+          this.robot.centreLight = (c >= 0 && c <= 10) ? c : 0;
           this._dirty = true;
         }
         break;

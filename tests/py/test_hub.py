@@ -105,6 +105,35 @@ class TestHubButton(unittest.TestCase):
         self.assertEqual(sb.hub.button.RIGHT, 2)
 
 
+class TestHubLight(unittest.TestCase):
+
+    def setUp(self):
+        mock_js.bridge_mock.install()
+
+    def test_light_constants(self):
+        self.assertEqual(sb.hub.light.POWER,   0)
+        self.assertEqual(sb.hub.light.CONNECT, 1)
+
+    def test_color_dispatches_hub_light_command(self):
+        sb.hub.light.color(sb.hub.light.POWER, sb.color.GREEN)
+        self.assertEqual(mock_js.bridge_mock.all(), [
+            {'type': 'hub_light', 'light': 0, 'color': 6},
+        ])
+
+    def test_color_passes_unknown_through(self):
+        # The simulator clamps unknown ints to 0 (off); the bridge stays a
+        # pass-through so we don't lose information at the boundary.
+        sb.hub.light.color(sb.hub.light.POWER, sb.color.UNKNOWN)
+        self.assertEqual(mock_js.bridge_mock.all()[0]['color'], -1)
+
+    def test_color_off_is_black(self):
+        # color.BLACK = 0 is the documented "off" value for the centre button.
+        sb.hub.light.color(sb.hub.light.POWER, sb.color.BLACK)
+        cmd = mock_js.bridge_mock.all()[0]
+        self.assertEqual(cmd['light'], 0)
+        self.assertEqual(cmd['color'], 0)
+
+
 class TestColorConstants(unittest.TestCase):
 
     def test_color_integers(self):

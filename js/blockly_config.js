@@ -1427,7 +1427,13 @@ function registerGenerators(Blockly) {
 
   js['flipperlight_lightDisplayRotate']        = (_b) => `// rotate light display\n`;
   js['flipperlight_lightDisplaySetOrientation']= (_b) => `// set light orientation\n`;
-  js['flipperlight_centerButtonLight']         = (b)  => `// centre button → ${b.getFieldValue('COLOR')}\n`;
+  js['flipperlight_centerButtonLight'] = (block) => {
+    // COLOR is the strip field value '0'..'10' — same ints the Python
+    // bridge sends from `hub.light.color(POWER, color.*)`, so both paths
+    // funnel through the same _execCmd('hub_light') case.
+    const c = Number(block.getFieldValue('COLOR') || '0');
+    return `await window.sim._execCmd({ type: 'hub_light', light: 0, color: ${c} });\n`;
+  };
   js['flipperlight_ultrasonicLightUp']         = (_b) => `// distance sensor LEDs\n`;
 
   // ── Sound ──────────────────────────────────────────────────────────────────

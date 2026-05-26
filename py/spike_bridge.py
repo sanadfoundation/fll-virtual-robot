@@ -550,10 +550,21 @@ class _Button:
 
 
 class _Light:
+    # `light` argument constants per LEGO docs:
+    #   hub.light.POWER   — the centre power-button RGB LED.
+    #   hub.light.CONNECT — the small Bluetooth pairing indicator.
     POWER   = 0
     CONNECT = 1
 
-    def color(self, light, c): pass
+    def color(self, light, c):
+        # `c` is an int from the `color` module (0..10, plus -1 = UNKNOWN).
+        # The simulator's `_execCmd('hub_light')` clamps unknown values to 0,
+        # so the bridge can pass them through untouched.
+        return _bridge_call({
+            'type':  'hub_light',
+            'light': int(light),
+            'color': int(c),
+        })
 
 
 class _Hub:
