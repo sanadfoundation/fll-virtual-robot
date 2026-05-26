@@ -43,6 +43,7 @@
       title.setAttribute('type', 'text');
       title.value = step.title;
       title.addEventListener('input', (e) => {
+        if (e.stopPropagation) e.stopPropagation();
         app.setEditorState(MISSIONS.editor.state.editStep(
           app.editorState, step.id, { title: e.target.value }));
       });
@@ -52,6 +53,7 @@
       points.setAttribute('type', 'number');
       points.value = String(step.points);
       points.addEventListener('input', (e) => {
+        if (e.stopPropagation) e.stopPropagation();
         const n = parseInt(e.target.value, 10);
         app.setEditorState(MISSIONS.editor.state.editStep(
           app.editorState, step.id, { points: Number.isNaN(n) ? 0 : n }));
@@ -62,6 +64,7 @@
       hint.setAttribute('type', 'text');
       hint.value = step.hint || '';
       hint.addEventListener('input', (e) => {
+        if (e.stopPropagation) e.stopPropagation();
         app.setEditorState(MISSIONS.editor.state.editStep(
           app.editorState, step.id, { hint: e.target.value }));
       });
@@ -142,7 +145,8 @@
 
       row.addEventListener('click', (ev) => {
         if (ev._handled) return;
-        if (ev.target && (ev.target.tag === 'input' || ev.target.tag === 'button')) return;
+        const tag = (ev.target && ev.target.tagName && ev.target.tagName.toLowerCase()) || (ev.target && ev.target.tag) || '';
+        if (tag === 'input' || tag === 'textarea' || tag === 'button' || tag === 'select') return;
         app.setEditorState(MISSIONS.editor.state.setSelection(
           app.editorState, { kind: 'step', id: step.id }));
       });
