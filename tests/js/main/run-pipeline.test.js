@@ -82,6 +82,75 @@ test('runBlockly: warns when workspace exists but generated code is empty', asyn
     `expected 'No blocks' warn, got: ${JSON.stringify(lines)}`);
 });
 
+// ── runBlockly: drains fire-and-forget motion before flipping isRunning ────
+//
+// A solo "start motor" Blockly program emits a fire-and-forget call into
+// sim._animateSingleMotor — the AsyncFunction body has nothing else to
+// `await`, so fn() returns immediately. Without the drain loop, runBlockly's
+// finally flips isRunning=false right then, killing the background motion
+// before the user sees the motor spin. The drain loops on sim._motionPromise
+// until the motion ends (Stop button → isRunning=false) or naturally clears.
+
+test('runBlockly: waits for fire-and-forget motion before tearing down isRunning', async () => {
+  let resolveMotion;
+  const motionPromise = new Promise((r) => { resolveMotion = r; });
+
+  const { context, window, elementsById } = makeMainEnv({
+    initBlockly: () => ({
+      addChangeListener: () => {},
+      getTopBlocks: () => [{}],  // non-empty so runBlockly proceeds past the "no blocks" guard
+    }),
+  });
+  context.initSim();
+  context.initBlocklyWorkspace();
+
+  // Generated code: a fire-and-forget call that sets _motionPromise on the
+  // sim. runBlockly's drain loop should then wait on that promise.
+  window.installMotionPromise = function () {
+    window.sim._motionPromise = motionPromise;
+  };
+  window.generateBlocklyJS = () => 'window.installMotionPromise();';
+  // Pre-seed sim slots the drain loop reads.
+  window.sim._motionPromise = null;
+
+  const runP = context.runBlockly();
+
+  // Yield enough microtasks for fn() to run and the drain loop to enter
+  // its await. runBlockly should NOT have hit its finally yet.
+  for (let i = 0; i < 20; i++) await Promise.resolve();
+  const lines = consoleLines(elementsById);
+  assert.strictEqual(window.sim.isRunning, true,
+    `runBlockly should be draining; isRunning=${window.sim.isRunning}; lines=${JSON.stringify(lines)}`);
+
+  // Simulate Stop button: isRunning=false + resolve the motion's promise.
+  window.sim.isRunning = false;
+  // Clear _motionPromise so the next while-check exits.
+  window.sim._motionPromise = null;
+  resolveMotion();
+  await runP;
+
+  assert.strictEqual(window.sim.isRunning, false,
+    'runBlockly should flip isRunning=false in finally after drain');
+});
+
+test('runBlockly: exits immediately when fn() leaves no motion in flight', async () => {
+  const { context, window } = makeMainEnv({
+    initBlockly: () => ({ addChangeListener: () => {} }),
+  });
+  context.initSim();
+  context.initBlocklyWorkspace();
+
+  // Generated code that does nothing → fn() returns immediately and
+  // _motionPromise stays null. The drain loop must not block.
+  window.generateBlocklyJS = () => '/* no-op */';
+  window.sim.isRunning = false;
+  window.sim._motionPromise = null;
+
+  await context.runBlockly();
+
+  assert.strictEqual(window.sim.isRunning, false);
+});
+
 // ── handleStop: toggles sim flags and logs '[Stopped]' ─────────────────────
 
 test('handleStop: sets _stopRequested and isRunning=false on the sim', () => {

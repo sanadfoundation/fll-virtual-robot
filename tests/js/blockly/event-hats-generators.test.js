@@ -74,6 +74,23 @@ test('epilogue starts hats concurrently then awaits _mainBody', () => {
     `hats must start before main is awaited (hatStartIdx=${hatStartIdx}, mainAwaitIdx=${mainAwaitIdx})`);
 });
 
+test('epilogue drains _motionPromise before flipping isRunning', () => {
+  // Without this, a solo "start motor" block (fire-and-forget Infinity) gets
+  // killed by isRunning=false right when _mainBody returns — the motor spins
+  // for a few ms and then halts, even though the program "should" run until
+  // the user clicks Stop. The drain loops on _motionPromise so an in-flight
+  // motion keeps the sim alive past _mainBody's return.
+  const { source } = setupAndGenerate();
+  assert.ok(/while\s*\(window\.sim\.isRunning\s*&&\s*window\.sim\._motionPromise\)/.test(source),
+    `expected motion drain loop in epilogue, got:\n${source.slice(-600)}`);
+  // The drain must come BEFORE isRunning=false.
+  const drainIdx = source.search(/while\s*\(window\.sim\.isRunning\s*&&\s*window\.sim\._motionPromise\)/);
+  const flipIdx  = source.indexOf('window.sim.isRunning = false');
+  assert.ok(drainIdx > 0 && flipIdx > 0, 'both drain and isRunning flip must be present');
+  assert.ok(drainIdx < flipIdx,
+    `drain must run before isRunning is flipped (drainIdx=${drainIdx}, flipIdx=${flipIdx})`);
+});
+
 // ── scrub_ override ────────────────────────────────────────────────────────
 
 test('scrub_ override is installed for hat block types', () => {

@@ -91,7 +91,12 @@ test('motor_stop: matching port aborts in-flight motor.run', async () => {
     onStep: () => sim._execCmd({ type: 'motor_stop', port: 'A' }),
   });
 
+  // motor.run is fire-and-forget Infinity: the bridge call resolves
+  // immediately, the motion runs in the background until a motor_stop on
+  // this port aborts it. Await _motionPromise to observe the abort and let
+  // the trackedSleep's onStep injection fire.
   await sim._execCmd({ type: 'motor_run', port: 'A', velocity: 1000 });
+  if (sim._motionPromise) await sim._motionPromise;
 
   assert.strictEqual(sleepState.steps, 2,
     `expected motor.run to break after step 2, ran ${sleepState.steps} steps`);
@@ -101,17 +106,25 @@ test('motor_stop: mismatched port leaves motion running', async () => {
   const sim = createSim();
   withStubbedPhysics(sim);
 
+  // Mismatched stop must NOT abort. Since motor.run is now unbounded, we
+  // schedule a matching stop after the mismatched one to let the motion
+  // terminate — and assert the mismatched stop didn't break it early.
   const sleepState = trackedSleep(sim, {
     triggerAt: 2,
+    // motor.run(A) on a non-paired port goes through drive-left →
+    // _animateTank; motor_stop(B) shouldn't match the single-motor
+    // descriptor (ports: ['A']).
     onStep: () => sim._execCmd({ type: 'motor_stop', port: 'B' }),
   });
 
-  // motor.run(A) on a non-paired port goes through drive-left → _animateTank;
-  // motor_stop(B) shouldn't match the single-motor descriptor (ports: ['A']).
   await sim._execCmd({ type: 'motor_run', port: 'A', velocity: 1000 });
+  // Let the loop tick a handful of times past the mismatched stop, then end.
+  while (sleepState.steps < 6) await Promise.resolve();
+  await sim._execCmd({ type: 'motor_stop', port: 'A' });
+  if (sim._motionPromise) await sim._motionPromise;
 
-  assert.ok(sleepState.steps > 2,
-    `motor.run should have completed, ran ${sleepState.steps} steps`);
+  assert.ok(sleepState.steps >= 6,
+    `motor.run should not abort on mismatched stop, ran ${sleepState.steps} steps`);
 });
 
 test('motor_stop: any pair-member port aborts the active pair motion', async () => {

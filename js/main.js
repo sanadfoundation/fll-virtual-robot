@@ -356,6 +356,15 @@ async function runBlockly() {
     const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
     const fn = new AsyncFunction(code);
     await fn();
+    // Fire-and-forget motions (e.g. a solo "start motor" block) survive past
+    // fn()'s return — the AsyncFunction body has no more `await`s to keep the
+    // program alive. Without this drain, the finally below flips isRunning
+    // false and kills the background motion before the user sees it spin.
+    // Loop on _motionPromise because each motion-end clears the field, but
+    // some programs queue follow-up fire-and-forget motions from event hats.
+    while (sim.isRunning && sim._motionPromise) {
+      try { await sim._motionPromise; } catch (_) { /* swallow */ }
+    }
     appendOutput('[Done] Simulation complete.', 'info');
   } catch (e) {
     appendOutput('[Error] ' + e.message, 'error');

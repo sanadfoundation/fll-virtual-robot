@@ -1315,8 +1315,12 @@ class RobotSimulator {
       }
 
       case 'motor_run': {
+        // Real LEGO motor.run() returns immediately; the motor keeps spinning
+        // until motor.stop() (or another motor command on this port) replaces
+        // it. Fire-and-forget Infinity matches that — the prior 180mm stub
+        // halted after a tiny, undocumented amount of motion.
         const v = (cmd.velocity || 500) / 1000;
-        await this._animateSingleMotor(cmd.port, v, 180);
+        this._animateSingleMotor(cmd.port, v, Infinity);
         break;
       }
 
@@ -1588,13 +1592,27 @@ class RobotSimulator {
       }
 
       // Auxiliary motor (arm / attachment with no wheel): pass time only.
-      // Encoder ticks: the user asked for distMM-worth of wheel-circumference
-      // rotation, so we credit that many degrees regardless of wall-clock.
-      const ms = (distMM / MM_PER_MS_100) / Math.max(0.1, Math.abs(velocity));
-      const degrees = (distMM / WHEEL_CIRC_MM) * 360 * Math.sign(velocity || 1);
       this.robot.motors_velocity[port] = velocity * 1000;  // velocity arg is the fraction × 1000 deg/sec
-      this.robot.motors[port] = (this.robot.motors[port] || 0) + degrees;
-      await this._sleep(ms / this.speedMult);
+      if (!Number.isFinite(distMM)) {
+        // Continuous run (motor.run / start-motor blocks): step at wall-clock
+        // cadence and accumulate encoder ticks each step until aborted or
+        // !isRunning. Matches the drive-wheel for-loop's per-tick contract so
+        // motor.velocity() reads sensibly while running.
+        const wallStepMs = 1000 / 60;
+        const physDt_s   = (wallStepMs / 1000) * this.speedMult;
+        const stepDeg    = velocity * 1000 * physDt_s;  // velocity*1000 deg/s × s
+        while (this.isRunning && !this._motionAborted) {
+          this.robot.motors[port] = (this.robot.motors[port] || 0) + stepDeg;
+          await this._sleep(wallStepMs);
+        }
+      } else {
+        // Bounded run (motor.run_for_*): credit the full distMM-worth of
+        // rotation up front and sleep wall-clock for the equivalent duration.
+        const ms = (distMM / MM_PER_MS_100) / Math.max(0.1, Math.abs(velocity));
+        const degrees = (distMM / WHEEL_CIRC_MM) * 360 * Math.sign(velocity || 1);
+        this.robot.motors[port] = (this.robot.motors[port] || 0) + degrees;
+        await this._sleep(ms / this.speedMult);
+      }
       this.robot.motors_velocity[port] = 0;
     });
   }

@@ -1306,7 +1306,11 @@ function registerGenerators(Blockly) {
   js['flippermotor_motorStartDirection'] = (block) => {
     const port = block.getFieldValue('PORT');
     const dir  = motorVDir(block.getFieldValue('DIRECTION'));
-    return `window.sim._animateSingleMotor('${port}', _motorSpeed/100*${dir}, 5000);\n`;
+    // Infinity + fire-and-forget: real LEGO "start motor" runs until another
+    // command stops it. _animateTank/_runMotion handle Infinity by looping
+    // until _motorStopAndAwait (from a "stop motor" block) or sim.isRunning
+    // flips false. The old 5000mm hack visibly stopped after ~14s.
+    return `window.sim._animateSingleMotor('${port}', _motorSpeed/100*${dir}, Infinity);\n`;
   };
 
   // Per BACKLOG / audit 2026-05-13 follow-up: must scope to the chosen
@@ -1986,7 +1990,8 @@ function registerGenerators(Blockly) {
   js['flippermoremotor_motorStartPower'] = (b) => {
     const port = b.getFieldValue('PORT');
     const pwr  = val(b,'POWER','100');
-    return `window.sim._animateSingleMotor('${port}', (${pwr})/100, 5000);\n`;
+    // Infinity + fire-and-forget — see flippermotor_motorStartDirection above.
+    return `window.sim._animateSingleMotor('${port}', (${pwr})/100, Infinity);\n`;
   };
 
   js['flippermoremotor_motorSetStopMethod'] = (b) => {
@@ -4035,7 +4040,16 @@ function generateBlocklyJS(workspace) {
     `  // then yields, leaving the event loop free for _mainBody to start.`,
     `  const _hatPromises = _hats.map(h => h());`,
     `  if (_mainBody) {`,
-    `    try { await _mainBody(); } finally { window.sim.isRunning = false; }`,
+    `    try { await _mainBody(); } finally {`,
+    `      // Drain any fire-and-forget motion the main body kicked off (e.g.`,
+    `      // a solo "start motor" block with no follow-up) before flipping`,
+    `      // isRunning=false. Without this, the motion's loop sees`,
+    `      // isRunning=false on its next tick and stops after a few ms.`,
+    `      while (window.sim.isRunning && window.sim._motionPromise) {`,
+    `        try { await window.sim._motionPromise; } catch (_) {}`,
+    `      }`,
+    `      window.sim.isRunning = false;`,
+    `    }`,
     `  }`,
     `  await Promise.all(_hatPromises);`,
     `})();`,
