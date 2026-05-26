@@ -21,6 +21,11 @@
         if (on) doc.body.dataset.mode = 'editor';
         else delete doc.body.dataset.mode;
       }
+      // Trigger a sim redraw so the editor-mode gate in _drawField/_drawObstacles
+      // takes effect immediately when entering or leaving editor mode.
+      if (typeof global !== 'undefined' && global.sim && typeof global.sim._dirty !== 'undefined') {
+        global.sim._dirty = true;
+      }
     }
 
     function syncTitleInputFromState(state) {

@@ -475,6 +475,12 @@ class RobotSimulator {
 
   _drawObstacles(ctx, s) {
     if (!this.physics || !this._obstacles.length) return;
+    // In editor mode, the SVG overlay shows the AUTHORED obstacles; suppress
+    // the simulator's default ones so authors see a fresh canvas.
+    if (typeof document !== 'undefined' &&
+        document.body && document.body.dataset && document.body.dataset.mode === 'editor') {
+      return;
+    }
     for (const o of this._obstacles) {
       const pose = this.physics.readPose(o.body);
       ctx.save();
@@ -529,7 +535,11 @@ class RobotSimulator {
     // Field objects. FIELD_OBJECTS uses math y-up; convert to canvas y here.
     // Rectangles: math (x, y) is bottom-left ⇒ canvas top-left = (x, FIELD_H_MM - y - h).
     // Lines / circles: math y ⇒ canvas y = FIELD_H_MM - y.
+    const _inEditorMode = typeof document !== 'undefined' &&
+      document.body && document.body.dataset && document.body.dataset.mode === 'editor';
     for (const obj of FIELD_OBJECTS) {
+      // In editor mode, skip colored sensor zones — the SVG overlay paints them.
+      if (_inEditorMode && obj.type === 'rect' && obj.sensorColor) continue;
       ctx.save();
       if (obj.type === 'rect') {
         const canvasY = (FIELD_H_MM - obj.y - obj.h) * s;
