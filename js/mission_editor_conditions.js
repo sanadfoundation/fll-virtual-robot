@@ -39,17 +39,25 @@
     },
     {
       type: 'cond_all_of',
-      message0: 'all of %1',
-      args0: [{ type: 'input_statement', name: 'OF' }],
+      message0: 'all of %1 and %2',
+      args0: [
+        { type: 'input_value', name: 'A', check: 'Boolean' },
+        { type: 'input_value', name: 'B', check: 'Boolean' },
+      ],
       output: 'Boolean',
       colour: 30,
+      inputsInline: false,
     },
     {
       type: 'cond_any_of',
-      message0: 'any of %1',
-      args0: [{ type: 'input_statement', name: 'OF' }],
+      message0: 'any of %1 or %2',
+      args0: [
+        { type: 'input_value', name: 'A', check: 'Boolean' },
+        { type: 'input_value', name: 'B', check: 'Boolean' },
+      ],
       output: 'Boolean',
       colour: 30,
+      inputsInline: false,
     },
   ];
 
@@ -78,11 +86,16 @@
         case 'not':
           return { type: 'cond_not', fields: {}, children: { OF: buildOne(c.of) }, parent: null };
         case 'all_of':
-        case 'any_of':
-          return {
+        case 'any_of': {
+          const items = (c.of || []).map(buildOne).filter(Boolean);
+          const out = {
             type: c.kind === 'all_of' ? 'cond_all_of' : 'cond_any_of',
-            fields: {}, children: { OF: (c.of || []).map(buildOne) }, parent: null,
+            fields: {}, children: {}, parent: null,
           };
+          if (items[0]) out.children.A = items[0];
+          if (items[1]) out.children.B = items[1];
+          return out;
+        }
         default:
           return null;
       }
@@ -162,15 +175,26 @@
       }
       case 'all_of':
       case 'any_of': {
-        const out = { type: c.kind === 'all_of' ? 'cond_all_of' : 'cond_any_of' };
-        const children = (c.of || []).map(conditionToBlockState).filter(Boolean);
-        if (children.length > 0) {
-          // Statement input — chain via `next`.
-          for (let i = children.length - 1; i > 0; i--) {
-            children[i - 1].next = { block: children[i] };
-          }
-          out.inputs = { OF: { block: children[0] } };
+        const blockType = c.kind === 'all_of' ? 'cond_all_of' : 'cond_any_of';
+        const items = (c.of || []).map(conditionToBlockState).filter(Boolean);
+        const out = { type: blockType };
+        if (items.length === 0) return out;
+        if (items.length === 1) {
+          out.inputs = { A: { block: items[0] } };
+          return out;
         }
+        // 2 items: simple A and B
+        if (items.length === 2) {
+          out.inputs = { A: { block: items[0] }, B: { block: items[1] } };
+          return out;
+        }
+        // 3+ items: nest the tail recursively into B.
+        // [a, b, c, d] → all_of(a, all_of(b, all_of(c, d)))
+        let tail = items[items.length - 1];
+        for (let i = items.length - 2; i >= 1; i--) {
+          tail = { type: blockType, inputs: { A: { block: items[i] }, B: { block: tail } } };
+        }
+        out.inputs = { A: { block: items[0] }, B: { block: tail } };
         return out;
       }
       default:
@@ -260,10 +284,16 @@
           return { kind: 'contact', obstacle: fieldOf(b, 'OBSTACLE') };
         case 'cond_not':
           return { kind: 'not', of: blockToCondition(valueInputOf(b, 'OF')) };
-        case 'cond_all_of':
-          return { kind: 'all_of', of: statementInputOf(b, 'OF').map(blockToCondition).filter(Boolean) };
-        case 'cond_any_of':
-          return { kind: 'any_of', of: statementInputOf(b, 'OF').map(blockToCondition).filter(Boolean) };
+        case 'cond_all_of': {
+          const a  = blockToCondition(valueInputOf(b, 'A'));
+          const bb = blockToCondition(valueInputOf(b, 'B'));
+          return { kind: 'all_of', of: [a, bb].filter(Boolean) };
+        }
+        case 'cond_any_of': {
+          const a  = blockToCondition(valueInputOf(b, 'A'));
+          const bb = blockToCondition(valueInputOf(b, 'B'));
+          return { kind: 'any_of', of: [a, bb].filter(Boolean) };
+        }
         default:
           return null;
       }

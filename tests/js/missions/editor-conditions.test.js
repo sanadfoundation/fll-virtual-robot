@@ -89,8 +89,9 @@ function ctxCondGenForBlock(b) {
   if (b.type === 'cond_not')
     return { kind: 'not', of: ctxCondGenForBlock(b.children.OF) };
   if (b.type === 'cond_all_of' || b.type === 'cond_any_of') {
-    const list = (b.children.OF || []).map(ctxCondGenForBlock);
-    return { kind: b.type === 'cond_all_of' ? 'all_of' : 'any_of', of: list };
+    const a = b.children.A ? ctxCondGenForBlock(b.children.A) : null;
+    const bb = b.children.B ? ctxCondGenForBlock(b.children.B) : null;
+    return { kind: b.type === 'cond_all_of' ? 'all_of' : 'any_of', of: [a, bb].filter(Boolean) };
   }
   return null;
 }
