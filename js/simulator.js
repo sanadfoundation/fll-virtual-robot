@@ -538,8 +538,10 @@ class RobotSimulator {
     const _inEditorMode = typeof document !== 'undefined' &&
       document.body && document.body.dataset && document.body.dataset.mode === 'editor';
     for (const obj of FIELD_OBJECTS) {
-      // In editor mode, skip colored sensor zones — the SVG overlay paints them.
+      // In editor mode, skip colored sensor zones and decorative circles —
+      // the SVG overlay paints authored elements; lines stay as a visual ruler.
       if (_inEditorMode && obj.type === 'rect' && obj.sensorColor) continue;
+      if (_inEditorMode && obj.type === 'circle') continue;
       ctx.save();
       if (obj.type === 'rect') {
         const canvasY = (FIELD_H_MM - obj.y - obj.h) * s;
