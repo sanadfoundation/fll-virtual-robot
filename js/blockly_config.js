@@ -1394,35 +1394,41 @@ function registerGenerators(Blockly) {
 
   // ── Light ──────────────────────────────────────────────────────────────────
 
+  // These generators bypass _execCmd and mutate window.sim.robot.display
+  // directly, so they must mark the simulator dirty themselves — _drawLoop
+  // only repaints when _dirty is true (or _animateTank is running). Without
+  // these flags the LED pattern is invisible until an unrelated _execCmd
+  // call (e.g. set centre button light) happens to flip the flag.
+
   js['flipperlight_lightDisplayImageOnForTime'] = (block) => {
     const matrix = JSON.stringify(block.getFieldValue('MATRIX') || '0'.repeat(25));
     const sec    = val(block, 'VALUE',  '2');
-    return `{ const _m = String(${matrix}).padEnd(25, '0'); window.sim.robot.display = Array.from(_m).slice(0,25).map(c => Number(c)*11); await window.sim._sleep((${sec}) * 1000 / window.sim.speedMult); window.sim.robot.display = Array(25).fill(0); }\n`;
+    return `{ const _m = String(${matrix}).padEnd(25, '0'); window.sim.robot.display = Array.from(_m).slice(0,25).map(c => Number(c)*11); window.sim._dirty = true; await window.sim._sleep((${sec}) * 1000 / window.sim.speedMult); window.sim.robot.display = Array(25).fill(0); window.sim._dirty = true; }\n`;
   };
 
   js['flipperlight_lightDisplayImageOn'] = (block) => {
     const matrix = JSON.stringify(block.getFieldValue('MATRIX') || '0'.repeat(25));
-    return `{ const _m = String(${matrix}).padEnd(25, '0'); window.sim.robot.display = Array.from(_m).slice(0,25).map(c => Number(c)*11); }\n`;
+    return `{ const _m = String(${matrix}).padEnd(25, '0'); window.sim.robot.display = Array.from(_m).slice(0,25).map(c => Number(c)*11); window.sim._dirty = true; }\n`;
   };
 
   js['flipperlight_lightDisplayText'] = (block) => {
     const text = JSON.stringify(block.getFieldValue('TEXT') || 'Hello');
-    return `window.sim._showText(String(${text}));\n`;
+    return `window.sim._showText(String(${text})); window.sim._dirty = true;\n`;
   };
 
   js['flipperlight_lightDisplayOff'] = (_block) =>
-    `window.sim.robot.display = Array(25).fill(0);\n`;
+    `window.sim.robot.display = Array(25).fill(0); window.sim._dirty = true;\n`;
 
   js['flipperlight_lightDisplaySetBrightness'] = (block) => {
     const bri = val(block, 'BRIGHTNESS', '75');
-    return `{ const _b = ${bri}; window.sim.robot.display = window.sim.robot.display.map(p => p > 0 ? _b : 0); }\n`;
+    return `{ const _b = ${bri}; window.sim.robot.display = window.sim.robot.display.map(p => p > 0 ? _b : 0); window.sim._dirty = true; }\n`;
   };
 
   js['flipperlight_lightDisplaySetPixel'] = (block) => {
     const x   = val(block, 'X', '1');
     const y   = val(block, 'Y', '1');
     const bri = val(block, 'BRIGHTNESS', '100');
-    return `{ const _x = (${x})-1, _y = (${y})-1; if (_x>=0 && _x<5 && _y>=0 && _y<5) window.sim.robot.display[_y*5 + _x] = ${bri}; }\n`;
+    return `{ const _x = (${x})-1, _y = (${y})-1; if (_x>=0 && _x<5 && _y>=0 && _y<5) { window.sim.robot.display[_y*5 + _x] = ${bri}; window.sim._dirty = true; } }\n`;
   };
 
   js['flipperlight_lightDisplayRotate']        = (_b) => `// rotate light display\n`;
