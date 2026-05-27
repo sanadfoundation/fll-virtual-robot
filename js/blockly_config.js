@@ -1358,7 +1358,10 @@ function registerGenerators(Blockly) {
 
   js['flippermove_startMove'] = (block) => {
     const dir = moveDir(block.getFieldValue('DIRECTION'));
-    return `window.sim._runPairMotion(_movePairL, _movePairR, _moveSpeed/100*${dir}, _moveSpeed/100*${dir}, 5000);\n`;
+    // Infinity + fire-and-forget — see flippermotor_motorStartDirection above.
+    // _runPairMotion's preempt logic (#47) handles a forever-loop that re-calls
+    // start before the prior motion ends.
+    return `window.sim._runPairMotion(_movePairL, _movePairR, _moveSpeed/100*${dir}, _moveSpeed/100*${dir}, Infinity);\n`;
   };
 
   js['flippermove_steer'] = (block) => {
@@ -1374,10 +1377,17 @@ function registerGenerators(Blockly) {
 
   js['flippermove_startSteer'] = (block) => {
     const steer = String(Number(block.getFieldValue('STEERING')) || 0);
-    return `{ const _s = (${steer})/100; window.sim._runPairMotion(_movePairL, _movePairR, _moveSpeed/100*(1+_s), _moveSpeed/100*(1-_s), 5000); }\n`;
+    // Infinity + fire-and-forget — see flippermove_startMove above.
+    return `{ const _s = (${steer})/100; window.sim._runPairMotion(_movePairL, _movePairR, _moveSpeed/100*(1+_s), _moveSpeed/100*(1-_s), Infinity); }\n`;
   };
 
-  js['flippermove_stopMove'] = (_block) => `window.sim.stop();\nawait window.sim._sleep(50);\n`;
+  // _pairStopAndAwait halts only the in-flight pair-motion and waits for it
+  // to fully unwind before the next block runs. The old window.sim.stop()
+  // call killed the whole sim (isRunning=false) — fine when "stop" was the
+  // last block in a program, but wrong when a forever-loop or stack of
+  // blocks expects the program to keep running with the pair just at rest.
+  // Issue #28 second half.
+  js['flippermove_stopMove'] = (_block) => `await window.sim._pairStopAndAwait();\n`;
 
   js['flippermove_movementSpeed'] = (block) => {
     const speed = val(block, 'SPEED', '50');
@@ -1973,7 +1983,8 @@ function registerGenerators(Blockly) {
 
   js['flippermoremove_startDualSpeed'] = (b) => {
     const l = val(b,'LEFT','50'), r = val(b,'RIGHT','50');
-    return `window.sim._runPairMotion(_movePairL, _movePairR, (${l})/100, (${r})/100, 5000);\n`;
+    // Infinity + fire-and-forget — see flippermove_startMove above.
+    return `window.sim._runPairMotion(_movePairL, _movePairR, (${l})/100, (${r})/100, Infinity);\n`;
   };
 
   js['flippermoremove_movementSetAcceleration'] = (b) => `_moveAccel = '${b.getFieldValue('ACCELERATION')}';\n`;

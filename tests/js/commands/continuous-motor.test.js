@@ -181,3 +181,175 @@ test('Blockly motorStartDirection / motorStartPower generators emit Infinity', (
   assert.ok(!power.trimStart().startsWith('await '),
     `motorStartPower must stay fire-and-forget (no leading await), got: ${power}`);
 });
+
+// ── Pair-motion continuous (case 'start' / 'start_tank' + _runPairMotion) ───
+//
+// Issue #10 headline: motor_pair.move / move_tank were capped at 200mm.
+// Issue #28: the three Blockly start blocks (startMove, startSteer,
+// flippermoremove_startDualSpeed) emitted 5000mm. Both rolled up under the
+// same fix: pair-motion goes through _runPairMotion(..., Infinity), the
+// 'start'/'start_tank' dispatcher drops its await so motor_pair.move()
+// returns immediately, and Blockly emits Infinity from all three generators.
+
+test('_runPairMotion Infinity runs many iterations without self-terminating', async () => {
+  const sim = createSim();
+  withStubbedPhysics(sim);
+  const sleepState = countingSleep(sim);
+
+  const bg = sim._runPairMotion('A', 'B', 0.75, 0.75, Infinity);
+  while (sleepState.steps < 1000) await Promise.resolve();
+  assert.ok(sleepState.steps >= 1000,
+    `pair Infinity motion should not self-terminate, ran ${sleepState.steps} steps`);
+
+  await sim._pairStopAndAwait();
+  await bg;
+});
+
+test('_runPairMotion Infinity halts on _pairStopAndAwait and clears state', async () => {
+  const sim = createSim();
+  withStubbedPhysics(sim);
+  const sleepState = countingSleep(sim);
+
+  const bg = sim._runPairMotion('A', 'B', 0.5, 0.5, Infinity);
+  while (sleepState.steps < 3) await Promise.resolve();
+  await sim._pairStopAndAwait();
+  await bg;
+
+  assert.strictEqual(sim._activeMotion, null);
+  assert.strictEqual(sim._motionPromise, null);
+});
+
+test("case 'start' is fire-and-forget — _execCmd returns before the motion finishes", async () => {
+  const sim = createSim();
+  withStubbedPhysics(sim);
+  const sleepState = countingSleep(sim);
+
+  // Pair-up first so _descriptorForPair has real ports.
+  await sim._execCmd({ type: 'pair', pair_id: 0, left: 'A', right: 'B' });
+
+  // The pre-fix code awaited _runMotion through to the 200mm cap, so
+  // _execCmd blocked for the full duration. Now the dispatcher kicks off
+  // the motion and returns immediately.
+  await sim._execCmd({ type: 'start', pair_id: 0, speed: 1000, steering: 0 });
+
+  assert.ok(sim._motionPromise, 'background motion should still be in flight');
+  assert.ok(sim._activeMotion, '_activeMotion should be set');
+
+  while (sleepState.steps < 3) await Promise.resolve();
+  await sim._pairStopAndAwait();
+});
+
+test("case 'start_tank' is fire-and-forget — _execCmd returns before the motion finishes", async () => {
+  const sim = createSim();
+  withStubbedPhysics(sim);
+  const sleepState = countingSleep(sim);
+
+  await sim._execCmd({ type: 'pair', pair_id: 0, left: 'A', right: 'B' });
+  await sim._execCmd({
+    type: 'start_tank', pair_id: 0, left_speed: 800, right_speed: 600,
+  });
+
+  assert.ok(sim._motionPromise, 'background motion should still be in flight');
+  assert.ok(sim._activeMotion, '_activeMotion should be set');
+
+  while (sleepState.steps < 3) await Promise.resolve();
+  await sim._pairStopAndAwait();
+});
+
+test("case 'start' does not self-terminate at the old 200mm cap", async () => {
+  // Concretely re-runs the issue-#10 reproduction shape: start, sleep, stop.
+  // Pre-fix the body finished after ~12 sleep ticks (200mm @ velocity 1000);
+  // post-fix it ticks until the stop, well over that.
+  const sim = createSim();
+  withStubbedPhysics(sim);
+  const sleepState = countingSleep(sim);
+
+  await sim._execCmd({ type: 'pair', pair_id: 0, left: 'A', right: 'B' });
+  await sim._execCmd({ type: 'start', pair_id: 0, speed: 1000, steering: 0 });
+
+  while (sleepState.steps < 500) await Promise.resolve();
+  assert.ok(sleepState.steps >= 500,
+    `start should keep ticking past the old 200mm cap; ran ${sleepState.steps} steps`);
+
+  await sim._pairStopAndAwait();
+});
+
+test("case 'stop' interrupts an in-flight 'start' cleanly", async () => {
+  const sim = createSim();
+  withStubbedPhysics(sim);
+  const sleepState = countingSleep(sim);
+
+  await sim._execCmd({ type: 'pair', pair_id: 0, left: 'A', right: 'B' });
+  await sim._execCmd({ type: 'start', pair_id: 0, speed: 800, steering: 0 });
+  while (sleepState.steps < 5) await Promise.resolve();
+
+  await sim._execCmd({ type: 'stop', pair_id: 0 });
+  // 'stop' only flips the abort flag; the motion winds down on the next
+  // _animateTank iteration. _pairStopAndAwait waits for full unwind.
+  await sim._pairStopAndAwait();
+
+  assert.strictEqual(sim._activeMotion, null);
+  assert.strictEqual(sim._motionPromise, null);
+});
+
+test('Blockly pair-motion start generators emit Infinity and no await', () => {
+  const { makeBlocklyEnv } = require('../mocks/blockly-env');
+  const env = makeBlocklyEnv();
+  env.window.initBlockly('blockly-div', 'light');
+  const { Blockly } = env;
+
+  const moveBlock = {
+    getFieldValue: (name) => {
+      if (name === 'DIRECTION') return 'forward';
+      if (name === 'STEERING') return '0';
+      return null;
+    },
+    getInputTargetBlock: () => null,
+  };
+
+  const startMove = Blockly.JavaScript['flippermove_startMove'](moveBlock);
+  assert.ok(startMove.includes('Infinity'),
+    `flippermove_startMove must emit Infinity, got: ${startMove}`);
+  assert.ok(!startMove.includes('5000'),
+    `flippermove_startMove must not retain the old 5000 cap, got: ${startMove}`);
+  assert.ok(!startMove.trimStart().startsWith('await '),
+    `flippermove_startMove must stay fire-and-forget, got: ${startMove}`);
+
+  const startSteer = Blockly.JavaScript['flippermove_startSteer'](moveBlock);
+  assert.ok(startSteer.includes('Infinity'),
+    `flippermove_startSteer must emit Infinity, got: ${startSteer}`);
+  assert.ok(!startSteer.includes('5000'),
+    `flippermove_startSteer must not retain the old 5000 cap, got: ${startSteer}`);
+
+  // Note: startSteer wraps its body in `{ }`. Whether or not the inner call is
+  // awaited matters; the block-scope wrapping doesn't. Assert on the call.
+  assert.ok(!/await\s+window\.sim\._runPairMotion/.test(startSteer),
+    `flippermove_startSteer's _runPairMotion call must not be awaited, got: ${startSteer}`);
+
+  const dualSpeedBlock = {
+    getFieldValue: () => null,
+    getInputTargetBlock: () => null,
+  };
+  const dualSpeed = Blockly.JavaScript['flippermoremove_startDualSpeed'](dualSpeedBlock);
+  assert.ok(dualSpeed.includes('Infinity'),
+    `flippermoremove_startDualSpeed must emit Infinity, got: ${dualSpeed}`);
+  assert.ok(dualSpeed.includes('_runPairMotion'),
+    `flippermoremove_startDualSpeed must route through _runPairMotion (per CLAUDE.md), got: ${dualSpeed}`);
+  assert.ok(!/await\s+window\.sim\._runPairMotion/.test(dualSpeed),
+    `flippermoremove_startDualSpeed must stay fire-and-forget, got: ${dualSpeed}`);
+});
+
+test("Blockly flippermove_stopMove emits _pairStopAndAwait (not global sim.stop)", () => {
+  // Issue #28 second half: stopMove used to kill the whole sim, which
+  // wrong-ended any program with blocks after the stop.
+  const { makeBlocklyEnv } = require('../mocks/blockly-env');
+  const env = makeBlocklyEnv();
+  env.window.initBlockly('blockly-div', 'light');
+  const { Blockly } = env;
+
+  const code = Blockly.JavaScript['flippermove_stopMove']({});
+  assert.ok(code.includes('_pairStopAndAwait'),
+    `stopMove must call _pairStopAndAwait, got: ${code}`);
+  assert.ok(!code.includes('window.sim.stop()'),
+    `stopMove must not call the global sim.stop() any more, got: ${code}`);
+});

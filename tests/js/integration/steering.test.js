@@ -17,10 +17,18 @@ test('round-trip: motor_pair.move steering reaches sim through Python', async ()
   const { sim, runUserCode } = await makeRoundtrip();
   const startHeading = sim.robot.heading;
 
+  // motor_pair.move is continuous (#10) — it returns immediately and the
+  // motion ticks in the background. The test must hit `case 'start'` so we
+  // can't switch to a bounded variant; sleep briefly to let the integrator
+  // accumulate a measurable heading change, then stop cleanly. 50ms at
+  // velocity=500 / steering=50 yields ~6° rotation across 2–3 motion ticks —
+  // bounded and robust to scheduler jitter for a !== assertion.
   await runUserCode(`
 async def main():
     await motor_pair.pair(0, port.A, port.B)
-    await motor_pair.move(0, 50, velocity=500)
+    motor_pair.move(0, 50, velocity=500)
+    await runloop.sleep_ms(50)
+    await motor_pair.stop(0)
 runloop.run(main())
 `);
 

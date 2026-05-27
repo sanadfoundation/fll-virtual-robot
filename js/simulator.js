@@ -1272,9 +1272,12 @@ class RobotSimulator {
 
       case 'start':
       case 'start_tank':
-        // Continuous — run for the 200-mm cap as approximation. The cap
-        // itself remains a known fidelity gap (see audit 2026-05-13 §4.10),
-        // but at least the wheels now reflect the steering arg.
+        // Real LEGO motor_pair.move() / move_tank() return immediately; the
+        // pair keeps driving until motor_pair.stop() or another pair command
+        // supersedes. Fire-and-forget Infinity matches that — the prior 200mm
+        // cap halted mid-mat. _runMotion's preempt logic (#47 41c07ca)
+        // handles stacking when Python issues two start calls in a row, and
+        // _animateTank's for-loop exits on _motionAborted / !isRunning.
         {
           let leftV, rightV;
           if (cmd.type === 'start') {
@@ -1286,9 +1289,9 @@ class RobotSimulator {
             leftV  = cmd.left_speed  / 1000;
             rightV = cmd.right_speed / 1000;
           }
-          await this._runMotion(
+          this._runMotion(
             this._descriptorForPair(cmd.pair_id),
-            () => this._animateTank(leftV, rightV, 200),
+            () => this._animateTank(leftV, rightV, Infinity),
           );
         }
         break;
@@ -1809,7 +1812,13 @@ class RobotSimulator {
     }
     this.isRunning = true;
     await this._execCmd(cmd);
-    this.isRunning = false;
+    // Don't flip isRunning=false while a fire-and-forget motion (motor.run
+    // case 'motor_run' / motor_pair.move case 'start' / 'start_tank', all #10)
+    // is still ticking — the motion's per-iteration loop reads isRunning and
+    // would break out on the next tick (~16ms). The flag flips back to false
+    // when the motion's IIFE clears _motionPromise in _runMotion's finally,
+    // or when the user explicitly calls sim.stop().
+    if (!this._motionPromise) this.isRunning = false;
     return this._sensorState();
   }
 

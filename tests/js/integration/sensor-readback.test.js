@@ -66,6 +66,11 @@ test('round-trip: tilt_angles pitch/roll are always 0 (2D sim limitation)', asyn
   // The robot never physically tilts, so pitch and roll are 0 by definition.
   // Real Spike's pitch/roll would respond to the hub being tilted; this sim
   // has no notion of tilting. Document the limitation with a positive test.
+  //
+  // Motor command is incidental — bounded move_for_degrees awaits its own
+  // completion, so no fire-and-forget leak and no explicit sleep needed.
+  // Coverage of the continuous `case 'start'` dispatcher lives in
+  // tests/js/integration/steering.test.js.
   const { mp, runUserCode } = await makeRoundtrip();
   await runUserCode(`
 async def main():
@@ -75,7 +80,7 @@ async def main():
     _pitch_before, _roll_before = pitch, roll
     # Drive — yaw will change but pitch/roll should not.
     await motor_pair.pair(0, port.A, port.B)
-    await motor_pair.move(0, 50, velocity=500)
+    await motor_pair.move_for_degrees(0, 90, 50, velocity=1000)
     yaw, pitch, roll = hub.motion_sensor.tilt_angles()
     _pitch_after, _roll_after = pitch, roll
 runloop.run(main())
@@ -90,14 +95,15 @@ runloop.run(main())
 
 test('round-trip: tilt_angles yaw reflects sim heading rotation', async () => {
   const { sim, mp, runUserCode } = await makeRoundtrip();
-  // Spawn heading is 90° (north). Rotate the robot CW by driving steering.
+  // Spawn heading is 90° (north). Bounded move_for_degrees with steering=50
+  // rotates the robot CW by a deterministic amount and awaits to completion.
   await runUserCode(`
 async def main():
     global _yaw_before, _yaw_after
     await runloop.sleep_ms(0)
     _yaw_before = hub.motion_sensor.tilt_angles()[0]
     await motor_pair.pair(0, port.A, port.B)
-    await motor_pair.move(0, 50, velocity=500)
+    await motor_pair.move_for_degrees(0, 90, 50, velocity=1000)
     _yaw_after = hub.motion_sensor.tilt_angles()[0]
 runloop.run(main())
 `);
@@ -112,12 +118,15 @@ runloop.run(main())
 
 test('round-trip: motor.velocity reflects last commanded velocity after motor.run', async () => {
   const { mp, runUserCode } = await makeRoundtrip();
+  // motor.run is fire-and-forget (#28 follow-up to c96f9ae). Read the bridge-
+  // side velocity, then stop so the background motion unwinds before exit.
   await runUserCode(`
 async def main():
     global _v_before, _v_after
     _v_before = motor.velocity('A')
     await motor.run('A', 500)
     _v_after = motor.velocity('A')
+    motor.stop('A')
 runloop.run(main())
 `);
   // Bridge-side tracking: _motor_velocities updated when run/run_for_* is called.
