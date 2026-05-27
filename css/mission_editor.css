@@ -403,9 +403,13 @@ body[data-mode="editor"] .editor-overlay-svg { pointer-events: auto; }
   min-width: 580px;
 }
 
-/* The workspace itself needs more vertical room with the wider panel. */
+/* The workspace itself needs more vertical room with the wider panel.
+   Use viewport-relative height so the flyout stays tall enough to show
+   all six condition blocks regardless of how much vertical space the
+   step list above is taking. Min-height keeps it usable on short windows. */
 .editor-right-panel.has-condition-open .editor-cond-workspace {
-  height: 400px;
+  height: calc(100vh - 300px);
+  min-height: 480px;
 }
 
 /* Make the right panel scroll its content when there's a lot of UI active
