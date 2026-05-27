@@ -3,6 +3,12 @@
   const MISSIONS = (global.MISSIONS = global.MISSIONS || {});
   const editor = (MISSIONS.editor = MISSIONS.editor || {});
 
+  // Current editor state, refreshed by the conditions module each time it
+  // loads a workspace. The Blockly Extension below reads this at block-init
+  // time to populate dynamic dropdown options BEFORE the serializer applies
+  // saved field values (otherwise saved values get rejected as out-of-options).
+  let _currentState = null;
+
   const BLOCK_DEFS = [
     {
       type: 'cond_zone',
@@ -11,6 +17,7 @@
       output: 'Boolean',
       colour: 210,
       tooltip: 'True when the robot is inside the named zone.',
+      extensions: ['cond_dynamic_dropdowns'],
     },
     {
       type: 'cond_sensor',
@@ -29,6 +36,7 @@
       args0: [{ type: 'field_dropdown', name: 'OBSTACLE', options: [['(none)', '']] }],
       output: 'Boolean',
       colour: 210,
+      extensions: ['cond_dynamic_dropdowns'],
     },
     {
       type: 'cond_not',
@@ -215,6 +223,27 @@
   let blocksRegistered = false;
   function ensureBlockDefs(Blockly) {
     if (blocksRegistered || !Blockly) return;
+    // Register the dynamic-options extension BEFORE registering the block
+    // defs that reference it.
+    if (Blockly.Extensions && typeof Blockly.Extensions.register === 'function') {
+      try {
+        Blockly.Extensions.register('cond_dynamic_dropdowns', function () {
+          // `this` is the block instance, called at end of init() (after
+          // jsonInit creates the fields, before the serializer sets values).
+          if (!_currentState) return;
+          if (this.type === 'cond_zone') {
+            const f = this.getField && this.getField('ZONE');
+            if (f) f.menuGenerator_ = zoneOptions(_currentState);
+          }
+          if (this.type === 'cond_contact') {
+            const f = this.getField && this.getField('OBSTACLE');
+            if (f) f.menuGenerator_ = obstacleOptions(_currentState);
+          }
+        });
+      } catch (_e) {
+        // Already registered (re-init). That's fine.
+      }
+    }
     Blockly.defineBlocksWithJsonArray(BLOCK_DEFS);
     blocksRegistered = true;
   }
@@ -233,6 +262,7 @@
     function ensureWorkspace() {
       if (workspace || !Blockly || !container) return workspace;
       workspace = Blockly.inject(container, { toolbox: TOOLBOX, readOnly: false });
+      _currentState = app.editorState;
       workspace.addChangeListener((ev) => {
         if (suppressNextChange) return;
         const type = ev && ev.type;
@@ -334,6 +364,9 @@
       currentStepId = step.id;
       lastLoadedConditionJSON = incomingJSON;
 
+      // Make the current editor state visible to the cond_dynamic_dropdowns
+      // extension, which runs during block init below.
+      _currentState = app.editorState;
       suppressNextChange = true;
       workspace.clear();
       if (Blockly && Blockly.serialization && Blockly.serialization.workspaces &&
@@ -371,6 +404,7 @@
     }
 
     app.onChange(({ mode, editorState }) => {
+      _currentState = editorState;
       if (mode !== 'editor' || !editorState) { hide(); return; }
       const sel = editorState.selection;
       if (sel && sel.kind === 'step') {
