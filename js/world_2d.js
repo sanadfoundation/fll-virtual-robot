@@ -197,6 +197,11 @@ export class World2D {
     box2d.destroy(fd);
   }
 
+  // Destroys a Box2D body created earlier. No-op if body is null/undefined.
+  removeBody(body) {
+    if (body && this.world) this.world.DestroyBody(body);
+  }
+
   // Public-API methods take/return millimetres.
 
   setKinematicPose(body, x_mm, y_mm, angle) {

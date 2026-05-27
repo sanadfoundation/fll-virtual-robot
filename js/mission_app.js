@@ -104,11 +104,31 @@
     const exitBtn = doc.getElementById('mm-exit');
     if (exitBtn) exitBtn.addEventListener('click', () => app.exitMission());
 
-    // When mode changes, re-render the panel.
+    // Mode-transition wiring. Centralizes sim field swap + engine load + UI
+    // render so Playtest, URL-hash entries, and any future entry point all
+    // run identical setup.
     app.onChange(({ mode, mission }) => {
-      if (mode === 'play') {
+      if (mode === 'play' && mission) {
+        if (sim && typeof sim.setMissionField === 'function') {
+          sim.setMissionField(mission.field);
+        }
+        if (sim && typeof sim.placeRobot === 'function') {
+          sim.placeRobot(mission.field.robot_start.x,
+                         mission.field.robot_start.y,
+                         mission.field.robot_start.heading);
+        }
+        engine.load(mission);
         ui.render(mission, engine);
-      } else {
+      } else if (mode === 'sandbox') {
+        if (sim && typeof sim.restoreDefaultField === 'function') {
+          sim.restoreDefaultField();
+        }
+        engine.reset();
+        ui.render(null, null);
+      } else if (mode === 'editor') {
+        // Editor mode hides the sim field via CSS-driven suppression
+        // (body[data-mode="editor"] in _drawField). Sim state stays as-is;
+        // any pending engine progress is cleared.
         engine.reset();
         ui.render(null, null);
       }
@@ -126,12 +146,7 @@
       if (res.ok) {
         const raw = await res.json();
         const mission = MISSIONS.loader.load(raw);
-        if (sim && sim.placeRobot) {
-          sim.placeRobot(mission.field.robot_start.x, mission.field.robot_start.y,
-                         mission.field.robot_start.heading);
-        }
-        engine.load(mission);
-        app.enterPlay(mission);
+        app.enterPlay(mission);  // onChange handles placeRobot, setMissionField, engine.load, ui.render
         if (autoStart) engine.start(Date.now());
       }
     }
