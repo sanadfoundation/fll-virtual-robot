@@ -155,3 +155,44 @@ test('_pairStopAndAwait aborts and awaits the active pair motion', async () => {
   assert.strictEqual(sim._motionPromise, null);
   await bg;
 });
+
+// Repeated fire-and-forget pair motions (Blockly's `start_dual_speed` /
+// `start_move` / `start_steer` inside a forever loop) used to stack: each
+// new call kicked off another `_animateTank` while the previous one was
+// still iterating. Each animateTank steps physics on its own wallStepMs
+// cadence, so N concurrent loops advanced the body N× per real tick — a
+// .llsp3 with `forever: start_dual_speed(50-yaw, 50+yaw)` teleported the
+// robot from spawn into the wall in under 200 ms.
+//
+// Contract: `_runMotion` must preempt any in-flight motion before starting
+// the next one, so at most one `_animateTank` is alive at any time.
+test('runaway-guard: repeated _runPairMotion preempts in-flight motion', async () => {
+  const sim = createSim();
+  withStubbedPhysics(sim);
+  sim._sleep = () => Promise.resolve();
+
+  let active = 0;
+  let maxActive = 0;
+  const realAnimateTank = sim._animateTank.bind(sim);
+  sim._animateTank = async (lv, rv, distMM) => {
+    active += 1;
+    if (active > maxActive) maxActive = active;
+    try {
+      await realAnimateTank(lv, rv, distMM);
+    } finally {
+      active -= 1;
+    }
+  };
+
+  // Fire-and-forget burst, mirroring `while(isRunning) { start_dual_speed(...); await sleep(0); }`.
+  for (let i = 0; i < 20; i += 1) {
+    sim._runPairMotion('A', 'B', 0.5, 0.5, 5000);
+    await Promise.resolve();
+  }
+  await sim._pairStopAndAwait();
+
+  assert.strictEqual(maxActive, 1,
+    `_runMotion must preempt in-flight motion so only one _animateTank loop ` +
+    `runs at a time (otherwise concurrent loops compound physics.step calls ` +
+    `and the body teleports). Saw maxActive=${maxActive}.`);
+});

@@ -1969,7 +1969,7 @@ function registerGenerators(Blockly) {
 
   js['flippermoremove_startDualSpeed'] = (b) => {
     const l = val(b,'LEFT','50'), r = val(b,'RIGHT','50');
-    return `window.sim._animateTank((${l})/100, (${r})/100, 5000);\n`;
+    return `window.sim._runPairMotion(_movePairL, _movePairR, (${l})/100, (${r})/100, 5000);\n`;
   };
 
   js['flippermoremove_movementSetAcceleration'] = (b) => `_moveAccel = '${b.getFieldValue('ACCELERATION')}';\n`;

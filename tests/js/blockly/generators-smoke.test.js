@@ -158,6 +158,10 @@ const SIM_TANK_GENERATORS = [
   'flippermove_startMove',
   'flippermove_steer',
   'flippermove_startSteer',
+  // Re-entry guard: a forever loop spamming start_dual_speed used to teleport
+  // the robot because the generator called _animateTank directly, racing the
+  // prior in-flight motion's step loop.
+  'flippermoremove_startDualSpeed',
 ];
 
 const SIM_SINGLE_MOTOR_GENERATORS = [

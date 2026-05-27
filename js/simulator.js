@@ -265,6 +265,11 @@ class RobotSimulator {
     this._activeMotion  = null;
     this._motionAborted = false;
     this._motionPromise = null;
+    // Monotonic counter — every _runMotion entry takes a fresh seq. When
+    // many fire-and-forget callers stack up on the same _motionPromise, the
+    // highest-seq one wins (latest-supersedes-prior, matching LEGO "start"
+    // semantics); the rest bail after their preempt-await resolves.
+    this._motionSeq = 0;
 
     // Force-sensor pipeline state. emaN is the smoothed physics force in Newtons;
     // manualStartMs is the timestamp the user pressed the Hub-panel button (null
@@ -1617,6 +1622,22 @@ class RobotSimulator {
   // _pairStopAndAwait can wait for an in-flight motion to fully unwind
   // before the next block runs.
   async _runMotion(descriptor, fn) {
+    // Preempt any in-flight motion. Without this guard, an unawaited fire-
+    // and-forget caller (Blockly start_dual_speed / start_move / start_steer
+    // inside a forever loop) stacks new _animateTank loops on top of the
+    // previous one — each stepping physics on its own cadence — and the
+    // body teleports.
+    //
+    // When several callers race here (all awaiting the same _motionPromise),
+    // only the last entrant should actually go on to start a new motion —
+    // matching LEGO "start" semantics where the latest command supersedes.
+    // The seq check below makes earlier entrants bail after the preempt-await.
+    const mySeq = ++this._motionSeq;
+    if (this._motionPromise) {
+      this._motionAborted = true;
+      try { await this._motionPromise; } catch (_) { /* swallow */ }
+    }
+    if (mySeq !== this._motionSeq) return;
     this._activeMotion  = descriptor;
     this._motionAborted = false;
     const settled = (async () => {
