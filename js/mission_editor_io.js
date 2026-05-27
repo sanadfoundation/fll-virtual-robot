@@ -56,6 +56,13 @@
         const bytes = await writeBundle(r.mission, screenshot ? { screenshot } : {});
         const filename = `${slugify(app.editorState.title)}.llmission`;
         downloadFile(filename, bytes);
+        // Also persist to localStorage so the Mission Library shows it under My Missions.
+        try {
+          if (MISSIONS.library && MISSIONS.library.saveUserMission && global.localStorage) {
+            const dataUrl = await _screenshotToDataUrl(screenshot);
+            MISSIONS.library.saveUserMission(global.localStorage, r.mission, dataUrl);
+          }
+        } catch (_e) { /* non-fatal */ }
       });
     }
 
@@ -123,6 +130,18 @@
         if (!blob) { resolve(null); return; }
         blob.arrayBuffer().then(buf => resolve(new Uint8Array(buf)));
       }, 'image/png');
+    });
+  }
+
+  async function _screenshotToDataUrl(bytes) {
+    if (!bytes) return null;
+    if (typeof global.Blob !== 'function' || typeof global.FileReader !== 'function') return null;
+    return await new Promise((resolve) => {
+      const blob = new global.Blob([bytes], { type: 'image/png' });
+      const fr = new global.FileReader();
+      fr.onload = () => resolve(typeof fr.result === 'string' ? fr.result : null);
+      fr.onerror = () => resolve(null);
+      fr.readAsDataURL(blob);
     });
   }
 

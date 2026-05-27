@@ -24,6 +24,7 @@
   <link rel="stylesheet" href="css/myblocks.css">
   <link rel="stylesheet" href="css/missions.css">
   <link rel="stylesheet" href="css/mission_editor.css">
+  <link rel="stylesheet" href="css/mission_library.css">
 </head>
 <body>
 
@@ -127,6 +128,40 @@
     </a>
   </div>
 </header>
+
+<!-- ── Mission Library modal (hidden until 🎯 click) ─────────────────── -->
+<div class="mission-library-modal" id="mission-library-modal" hidden>
+  <div class="mission-library-backdrop" id="mission-library-backdrop"></div>
+  <div class="mission-library-dialog" role="dialog" aria-modal="true" aria-label="Mission Library">
+    <header class="library-head">
+      <h3>
+        <span aria-hidden="true">🎯</span> Mission Library
+        <span class="library-badge" id="library-count-badge">0 MISSIONS</span>
+      </h3>
+      <div class="library-head-actions">
+        <button class="btn-mini library-new-btn" id="btn-library-new" type="button">+ New Mission</button>
+        <button class="btn-mini" id="btn-library-import" type="button">📥 Import file…</button>
+        <input type="file" id="library-file-input" accept=".llmission" style="display:none">
+        <button class="library-close-btn" id="btn-library-close" type="button" title="Close" aria-label="Close library">✕</button>
+      </div>
+    </header>
+    <div class="library-toolbar">
+      <div class="library-rail" id="library-rail">
+        <button class="library-rail-btn active" data-source="all"      type="button">All       <span class="count" id="rail-count-all">0</span></button>
+        <button class="library-rail-btn"        data-source="bundled"  type="button">Bundled   <span class="count" id="rail-count-bundled">0</span></button>
+        <button class="library-rail-btn"        data-source="mine"     type="button">My Missions <span class="count" id="rail-count-mine">0</span></button>
+        <button class="library-rail-btn"        data-source="imported" type="button">Imported  <span class="count" id="rail-count-imported">0</span></button>
+      </div>
+    </div>
+    <div class="library-grid" id="library-grid">
+      <!-- mission cards rendered here -->
+    </div>
+    <div class="library-empty" id="library-empty" hidden>
+      <p>No missions in this section yet.</p>
+      <p class="library-empty-hint">Create one with <strong>+ New Mission</strong> or import a <code>.llmission</code> file.</p>
+    </div>
+  </div>
+</div>
 
 <!-- ── Editor toolbar (visible only when body[data-mode="editor"]) ─── -->
 <div class="editor-toolbar" id="editor-toolbar" hidden>
@@ -443,6 +478,7 @@
 <script src="js/mission_engine.js"></script>
 <script src="js/mission_persistence.js"></script>
 <script src="js/mission_library.js"></script>
+<script src="js/mission_library_ui.js"></script>
 <script src="js/mission_ui.js"></script>
 <script src="js/mission_editor_state.js"></script>
 <script src="js/mission_editor_app.js"></script>

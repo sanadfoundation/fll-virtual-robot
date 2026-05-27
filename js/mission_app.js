@@ -85,12 +85,17 @@
       MISSIONS.editor.io.attach(app, doc, {});
     }
 
-    // Wire the header 🎯 button: open a blank editor on click.
+    // Mount the library UI and wire the header 🎯 button to open it.
+    let libraryUi = null;
+    if (MISSIONS.libraryUi && typeof MISSIONS.libraryUi.attach === 'function') {
+      libraryUi = MISSIONS.libraryUi.attach(app, doc, { storage });
+    }
     const missionsBtn = doc.getElementById('btn-missions');
     if (missionsBtn) {
       missionsBtn.addEventListener('click', () => {
-        if (app.mode === 'editor') {
-          app.exitEditor();
+        if (libraryUi && libraryUi.open) {
+          if (libraryUi.isOpen && libraryUi.isOpen()) libraryUi.close();
+          else libraryUi.open();
         } else {
           app.enterEditor();
         }
