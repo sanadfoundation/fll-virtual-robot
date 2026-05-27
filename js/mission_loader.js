@@ -30,6 +30,18 @@
       throw new Error('mission: type "mission" requires at least one step');
     }
 
+    // Optional lines/walls — validate basic shape if present.
+    for (const line of (raw.field.lines || [])) {
+      for (const k of ['id', 'x1', 'y1', 'x2', 'y2']) {
+        if (line[k] === undefined) throw new Error(`mission line: missing "${k}"`);
+      }
+    }
+    for (const wall of (raw.field.walls || [])) {
+      for (const k of ['id', 'x', 'y', 'w', 'h']) {
+        if (wall[k] === undefined) throw new Error(`mission wall: missing "${k}"`);
+      }
+    }
+
     const zoneIds     = new Set((raw.field.zones     || []).map(z => z.id));
     const obstacleIds = new Set((raw.field.obstacles || []).map(o => o.id));
     const stepIds     = new Set((raw.steps           || []).map(s => s.id));

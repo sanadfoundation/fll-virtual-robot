@@ -7,7 +7,7 @@
   const FIELD_H_MM = 1143;
   const NS = 'http://www.w3.org/2000/svg';
 
-  const TOOLS = ['select', 'obstacle', 'zone', 'start'];
+  const TOOLS = ['select', 'obstacle', 'zone', 'line', 'wall', 'start'];
 
   // Convert math y-up coordinates to SVG (top-left origin) coords.
   // SVG viewBox is in mm; we keep math y-up coordinates by setting
@@ -58,7 +58,32 @@
       });
       let dragging = false;
       let resizing = false;
+      let drawingLine = null;  // { x1, y1, previewEl } while drawing a line
       svg.addEventListener('pointerdown', (ev) => {
+        if (activeTool === 'line') {
+          // Start drawing a line. Capture pointer and create a preview line.
+          if (typeof svg.getBoundingClientRect !== 'function') return;
+          const rect = svg.getBoundingClientRect();
+          if (!rect.width) return;
+          const px = (ev.clientX - rect.left) * (FIELD_W_MM / rect.width);
+          const pyTop = (ev.clientY - rect.top)  * (FIELD_H_MM / rect.height);
+          const start = { x: px, y: FIELD_H_MM - pyTop };
+          const previewEl = createSvg('line');
+          previewEl.setAttribute('x1', start.x);
+          previewEl.setAttribute('y1', start.y);
+          previewEl.setAttribute('x2', start.x);
+          previewEl.setAttribute('y2', start.y);
+          previewEl.setAttribute('stroke', '#222');
+          previewEl.setAttribute('stroke-width', '4');
+          previewEl.setAttribute('stroke-dasharray', '8 6');
+          previewEl.classList.add('editor-line-preview');
+          mathGroup.appendChild(previewEl);
+          drawingLine = { x1: start.x, y1: start.y, previewEl };
+          if (svg.setPointerCapture && ev.pointerId !== undefined) {
+            try { svg.setPointerCapture(ev.pointerId); } catch (_e) {}
+          }
+          return;
+        }
         if (activeTool !== 'select') return;
         // Check if click target is a resize handle.
         const targetClass = ev.target && ev.target.classList;
@@ -76,6 +101,16 @@
         }
       });
       svg.addEventListener('pointermove', (ev) => {
+        if (drawingLine) {
+          if (typeof svg.getBoundingClientRect !== 'function') return;
+          const rect = svg.getBoundingClientRect();
+          if (!rect.width) return;
+          const px = (ev.clientX - rect.left) * (FIELD_W_MM / rect.width);
+          const pyTop = (ev.clientY - rect.top)  * (FIELD_H_MM / rect.height);
+          drawingLine.previewEl.setAttribute('x2', px);
+          drawingLine.previewEl.setAttribute('y2', FIELD_H_MM - pyTop);
+          return;
+        }
         if (!dragging && !resizing) return;
         if (typeof svg.getBoundingClientRect !== 'function') return;
         const rect = svg.getBoundingClientRect();
@@ -86,8 +121,43 @@
         if (resizing) resizeToPoint(point);
         else dragMoveToPoint(point);
       });
-      svg.addEventListener('pointerup',     () => { dragging = false; resizing = false; });
-      svg.addEventListener('pointercancel', () => { dragging = false; resizing = false; });
+      svg.addEventListener('pointerup', (ev) => {
+        if (drawingLine) {
+          if (typeof svg.getBoundingClientRect === 'function') {
+            const rect = svg.getBoundingClientRect();
+            if (rect.width) {
+              const px = (ev.clientX - rect.left) * (FIELD_W_MM / rect.width);
+              const pyTop = (ev.clientY - rect.top)  * (FIELD_H_MM / rect.height);
+              const x2 = px;
+              const y2 = FIELD_H_MM - pyTop;
+              // Only commit if the line has nonzero length.
+              if (Math.abs(x2 - drawingLine.x1) > 5 || Math.abs(y2 - drawingLine.y1) > 5) {
+                app.setEditorState(MISSIONS.editor.state.addLine(app.editorState, {
+                  x1: drawingLine.x1, y1: drawingLine.y1, x2, y2,
+                }));
+              }
+            }
+          }
+          if (drawingLine.previewEl && drawingLine.previewEl.parentNode) {
+            drawingLine.previewEl.parentNode.removeChild(drawingLine.previewEl);
+          }
+          drawingLine = null;
+          setTool('select');
+          return;
+        }
+        dragging = false; resizing = false;
+      });
+      svg.addEventListener('pointercancel', (ev) => {
+        if (drawingLine) {
+          if (drawingLine.previewEl && drawingLine.previewEl.parentNode) {
+            drawingLine.previewEl.parentNode.removeChild(drawingLine.previewEl);
+          }
+          drawingLine = null;
+          setTool('select');
+          return;
+        }
+        dragging = false; resizing = false;
+      });
     }
 
     function ensurePalette() {
@@ -111,6 +181,8 @@
         case 'select':   return '↖ Select';
         case 'obstacle': return '▭ Obstacle';
         case 'zone':     return '▢ Zone';
+        case 'line':     return '〰 Line';
+        case 'wall':     return '🧱 Wall';
         case 'start':    return '⌖ Robot start';
         default: return tool;
       }
@@ -132,6 +204,8 @@
         next = MISSIONS.editor.state.moveObstacle(next, sel.id, point);
       } else if (sel.kind === 'zone') {
         next = MISSIONS.editor.state.moveZone(next, sel.id, point);
+      } else if (sel.kind === 'wall') {
+        next = MISSIONS.editor.state.moveWall(next, sel.id, point);
       } else if (sel.kind === 'start') {
         next = MISSIONS.editor.state.setRobotStart(next, {
           x: point.x, y: point.y, heading: next.field.robot_start.heading,
@@ -164,6 +238,12 @@
         const newW = Math.max(20, point.x - z.x);
         const newH = Math.max(20, point.y - z.y);
         next = MISSIONS.editor.state.resizeZone(next, sel.id, { w: newW, h: newH });
+      } else if (sel.kind === 'wall') {
+        const w = next.field.walls.find(x => x.id === sel.id);
+        if (!w) return;
+        const newW = Math.max(20, point.x - w.x);
+        const newH = Math.max(20, point.y - w.y);
+        next = MISSIONS.editor.state.resizeWall(next, sel.id, { w: newW, h: newH });
       } else {
         return;
       }
@@ -195,6 +275,9 @@
         setTool('select');
       } else if (activeTool === 'zone') {
         app.setEditorState(MISSIONS.editor.state.addZone(app.editorState, point));
+        setTool('select');
+      } else if (activeTool === 'wall') {
+        app.setEditorState(MISSIONS.editor.state.addWall(app.editorState, point));
         setTool('select');
       } else if (activeTool === 'start') {
         const next = MISSIONS.editor.state.setRobotStart(app.editorState, {
@@ -242,6 +325,26 @@
         rect.addEventListener('click', (ev) => handleElementClick(ev, 'zone', z.id));
         zonesGroup.appendChild(rect);
       }
+      // Lines (rendered after zones, before obstacles)
+      for (const line of (state.field.lines || [])) {
+        const el = createSvg('line');
+        el.setAttribute('x1', line.x1);
+        el.setAttribute('y1', line.y1);
+        el.setAttribute('x2', line.x2);
+        el.setAttribute('y2', line.y2);
+        const strokes = { black: '#222', red: '#cc4444', green: '#30c060', blue: '#3070c0', yellow: '#d0a830', orange: '#d06010' };
+        el.setAttribute('stroke', strokes[line.color] || '#222');
+        el.setAttribute('stroke-width', line.thickness || 4);
+        el.classList.add('editor-line');
+        el.setAttribute('data-id', line.id);
+        el.setAttribute('data-kind', 'line');
+        el.setAttribute('data-color', line.color || 'black');
+        if (state.selection && state.selection.kind === 'line' && state.selection.id === line.id) {
+          el.classList.add('selected');
+        }
+        el.addEventListener('click', (ev) => handleElementClick(ev, 'line', line.id));
+        zonesGroup.appendChild(el);
+      }
       // Obstacles
       removeChildren(obstaclesGroup);
       for (const o of state.field.obstacles) {
@@ -259,6 +362,22 @@
           rect.classList.add('selected');
         }
         rect.addEventListener('click', (ev) => handleElementClick(ev, 'obstacle', o.id));
+        obstaclesGroup.appendChild(rect);
+      }
+      // Walls (static obstacles, dark fill) — TL-anchored like zones
+      for (const w of (state.field.walls || [])) {
+        const rect = createSvg('rect');
+        rect.setAttribute('x', w.x);
+        rect.setAttribute('y', w.y);
+        rect.setAttribute('width', w.w);
+        rect.setAttribute('height', w.h);
+        rect.classList.add('editor-wall');
+        rect.setAttribute('data-id', w.id);
+        rect.setAttribute('data-kind', 'wall');
+        if (state.selection && state.selection.kind === 'wall' && state.selection.id === w.id) {
+          rect.classList.add('selected');
+        }
+        rect.addEventListener('click', (ev) => handleElementClick(ev, 'wall', w.id));
         obstaclesGroup.appendChild(rect);
       }
       // Robot start
@@ -296,6 +415,13 @@
             anchorX = z.x; anchorY = z.y;
             cornerX = z.x + z.w; cornerY = z.y + z.h;
             kind = 'zone'; id = z.id;
+          }
+        } else if (sel.kind === 'wall') {
+          const w = state.field.walls.find(x => x.id === sel.id);
+          if (w) {
+            anchorX = w.x; anchorY = w.y;
+            cornerX = w.x + w.w; cornerY = w.y + w.h;
+            kind = 'wall'; id = w.id;
           }
         }
         if (anchorX !== null) {
@@ -337,6 +463,10 @@
         next = MISSIONS.editor.state.deleteObstacle(next, sel.id);
       } else if (sel.kind === 'zone') {
         next = MISSIONS.editor.state.deleteZone(next, sel.id);
+      } else if (sel.kind === 'line') {
+        next = MISSIONS.editor.state.deleteLine(next, sel.id);
+      } else if (sel.kind === 'wall') {
+        next = MISSIONS.editor.state.deleteWall(next, sel.id);
       } else {
         return;  // start can't be deleted
       }

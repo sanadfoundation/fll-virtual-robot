@@ -23,6 +23,8 @@
         robot_start: { x: 350, y: 163, heading: 90 },
         zones: [],
         obstacles: [],
+        lines: [],
+        walls: [],
       },
       steps: [],
       scoring: { kind: 'step_sum' },
@@ -48,6 +50,8 @@
         robot_start: { ...state.field.robot_start },
         zones:     state.field.zones.map(z => ({ ...z })),
         obstacles: state.field.obstacles.map(o => ({ ...o })),
+        lines:     (state.field.lines || []).map(l => ({ ...l })),
+        walls:     (state.field.walls || []).map(w => ({ ...w })),
       },
       steps:    state.steps.map(s => ({ ...s, condition: deepClone(s.condition), requires: s.requires ? s.requires.slice() : undefined })),
       scoring:  { ...state.scoring },
@@ -127,6 +131,74 @@
   function deleteZone(state, id) {
     const next = dirty(state);
     next.field.zones = next.field.zones.filter(z => z.id !== id);
+    return next;
+  }
+
+  const LINE_COLORS = ['black', 'red', 'green', 'blue', 'yellow', 'orange'];
+
+  function addLine(state, { x1, y1, x2, y2 }) {
+    const next = dirty(state);
+    const id = shortId('l');
+    next.field.lines = next.field.lines || [];
+    next.field.lines.push({ id, x1, y1, x2, y2, color: 'black', thickness: 4 });
+    return next;
+  }
+
+  function moveLineEndpoint(state, id, endpoint, { x, y }) {
+    const next = dirty(state);
+    const line = (next.field.lines || []).find(l => l.id === id);
+    if (line) {
+      if (endpoint === 'start') { line.x1 = x; line.y1 = y; }
+      else { line.x2 = x; line.y2 = y; }
+    }
+    return next;
+  }
+
+  function setLineProps(state, id, patch) {
+    const next = dirty(state);
+    const line = (next.field.lines || []).find(l => l.id === id);
+    if (line) {
+      if (patch.color !== undefined)     line.color = patch.color;
+      if (patch.thickness !== undefined) line.thickness = patch.thickness;
+      if (patch.x1 !== undefined)        line.x1 = patch.x1;
+      if (patch.y1 !== undefined)        line.y1 = patch.y1;
+      if (patch.x2 !== undefined)        line.x2 = patch.x2;
+      if (patch.y2 !== undefined)        line.y2 = patch.y2;
+    }
+    return next;
+  }
+
+  function deleteLine(state, id) {
+    const next = dirty(state);
+    next.field.lines = (next.field.lines || []).filter(l => l.id !== id);
+    return next;
+  }
+
+  function addWall(state, { x, y }) {
+    const next = dirty(state);
+    const id = shortId('w');
+    next.field.walls = next.field.walls || [];
+    next.field.walls.push({ id, shape: 'rect', x, y, w: 200, h: 80 });
+    return next;
+  }
+
+  function moveWall(state, id, { x, y }) {
+    const next = dirty(state);
+    const w = (next.field.walls || []).find(x => x.id === id);
+    if (w) { w.x = x; w.y = y; }
+    return next;
+  }
+
+  function resizeWall(state, id, { w, h }) {
+    const next = dirty(state);
+    const wall = (next.field.walls || []).find(x => x.id === id);
+    if (wall) { wall.w = w; wall.h = h; }
+    return next;
+  }
+
+  function deleteWall(state, id) {
+    const next = dirty(state);
+    next.field.walls = (next.field.walls || []).filter(x => x.id !== id);
     return next;
   }
 
@@ -226,6 +298,8 @@
         robot_start: { ...state.field.robot_start },
         zones:       state.field.zones.map(z => ({ ...z })),
         obstacles:   state.field.obstacles.map(o => ({ ...o })),
+        lines:       (state.field.lines || []).map(l => ({ ...l })),
+        walls:       (state.field.walls || []).map(w => ({ ...w })),
       },
       steps: state.steps.map(s => ({
         id: s.id,
@@ -262,6 +336,8 @@
       robot_start: { ...mission.field.robot_start },
       zones:       (mission.field.zones || []).map(z => ({ ...z })),
       obstacles:   (mission.field.obstacles || []).map(o => ({ ...o })),
+      lines:       (mission.field.lines || []).map(l => ({ ...l })),
+      walls:       (mission.field.walls || []).map(w => ({ ...w })),
     };
     state.steps = mission.steps.map(s => ({
       id: s.id, title: s.title, points: s.points,
@@ -282,6 +358,8 @@
     createBlank, newId,
     addObstacle, moveObstacle, resizeObstacle, deleteObstacle,
     addZone, moveZone, resizeZone, deleteZone,
+    addLine, moveLineEndpoint, setLineProps, deleteLine,
+    addWall, moveWall, resizeWall, deleteWall,
     setRobotStart, setSelection, setMeta,
     setObstacleLabel, setZoneColor,
     addStep, editStep, deleteStep, reorderStep,

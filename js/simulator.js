@@ -200,6 +200,18 @@ const OBSTACLES = [
   { x: 2000, y: 343, w: 120, h: 120, fill: '#e67e22', stroke: '#a04d10', label: '2' },
 ];
 
+// Map a line color name to a CSS stroke string for canvas rendering.
+function lineColorToStroke(color) {
+  return {
+    black:  '#222',
+    red:    '#cc4444',
+    green:  '#30c060',
+    blue:   '#3070c0',
+    yellow: '#d0a830',
+    orange: '#d06010',
+  }[color] || '#222';
+}
+
 // ── Robot state ──────────────────────────────────────────────────────────────
 
 function makeRobotState() {
@@ -295,6 +307,7 @@ class RobotSimulator {
     // FIELD_OBJECTS but can be replaced by setMissionField() when a mission
     // is loaded. restoreDefaultField() resets it.
     this._fieldObjects = FIELD_OBJECTS;
+    this._walls = [];  // mission-specific static walls (Box2D bodies)
     this._physicsReady = this._initPhysics();
 
     this._scale = 1;
@@ -1213,6 +1226,16 @@ class RobotSimulator {
         sensorColor: z.color,
       });
     }
+    // Append lines as field objects (non-physical, visual only).
+    for (const line of (missionField.lines || [])) {
+      objects.push({
+        type: 'line',
+        x1: line.x1, y1: line.y1, x2: line.x2, y2: line.y2,
+        stroke: lineColorToStroke(line.color) || '#222',
+        lw: line.thickness || 4,
+        sensorColor: line.color,
+      });
+    }
     this._fieldObjects = objects;
 
     // Swap obstacles. Dispose existing Box2D bodies, then build new.
@@ -1233,6 +1256,19 @@ class RobotSimulator {
         : null,
     }));
 
+    // Dispose existing walls, build new static Box2D bodies.
+    if (this.physics) {
+      for (const w of (this._walls || [])) {
+        if (w.body && this.physics.removeBody) this.physics.removeBody(w.body);
+      }
+    }
+    this._walls = (missionField.walls || []).map(cfg => ({
+      cfg: { x: cfg.x, y: cfg.y, w: cfg.w, h: cfg.h },
+      body: this.physics
+        ? this.physics.addWallBox(cfg.w / 2, cfg.h / 2, { x: cfg.x, y: cfg.y })
+        : null,
+    }));
+
     this._dirty = true;
     if (this._draw) this._draw();
   }
@@ -1246,6 +1282,12 @@ class RobotSimulator {
         if (o.body && this.physics.removeBody) this.physics.removeBody(o.body);
       }
     }
+    if (this.physics) {
+      for (const w of (this._walls || [])) {
+        if (w.body && this.physics.removeBody) this.physics.removeBody(w.body);
+      }
+    }
+    this._walls = [];
     this._obstacles = OBSTACLES.map(cfg => ({
       cfg,
       body: this.physics

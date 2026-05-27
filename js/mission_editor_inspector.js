@@ -31,6 +31,16 @@
       } else if (sel.kind === 'start') {
         section.hidden = false;
         body.appendChild(renderStartInspector(state.field.robot_start));
+      } else if (sel.kind === 'line') {
+        const l = (state.field.lines || []).find(x => x.id === sel.id);
+        if (!l) { section.hidden = true; return; }
+        section.hidden = false;
+        body.appendChild(renderLineInspector(l));
+      } else if (sel.kind === 'wall') {
+        const w = (state.field.walls || []).find(x => x.id === sel.id);
+        if (!w) { section.hidden = true; return; }
+        section.hidden = false;
+        body.appendChild(renderWallInspector(w));
       } else {
         section.hidden = true;
       }
@@ -121,6 +131,69 @@
       wrap.appendChild(makeField('Width (mm)', wInput));
       wrap.appendChild(makeField('Height (mm)', hInput));
 
+      return wrap;
+    }
+
+    function renderLineInspector(l) {
+      const LINE_COLORS = ['black', 'red', 'green', 'blue', 'yellow', 'orange'];
+      const wrap = doc.createElement('div');
+      const idLine = doc.createElement('div');
+      idLine.classList.add('inspector-id');
+      idLine.textContent = `ID: ${l.id}`;
+      wrap.appendChild(idLine);
+
+      const colorRow = doc.createElement('div');
+      colorRow.classList.add('inspector-color-row');
+      for (const c of LINE_COLORS) {
+        const sw = doc.createElement('button');
+        sw.setAttribute('type', 'button');
+        sw.classList.add('inspector-color-swatch');
+        sw.setAttribute('data-color', c);
+        if (l.color === c) sw.classList.add('active');
+        sw.addEventListener('click', () => {
+          app.setEditorState(MISSIONS.editor.state.setLineProps(app.editorState, l.id, { color: c }));
+        });
+        colorRow.appendChild(sw);
+      }
+      wrap.appendChild(makeField('Color', colorRow));
+
+      const tInput = doc.createElement('input');
+      tInput.setAttribute('type', 'number');
+      tInput.setAttribute('min', '1');
+      tInput.setAttribute('max', '20');
+      tInput.value = String(l.thickness || 4);
+      tInput.addEventListener('input', (e) => {
+        const v = Math.max(1, Math.min(20, parseInt(e.target.value, 10) || 4));
+        app.setEditorState(MISSIONS.editor.state.setLineProps(app.editorState, l.id, { thickness: v }));
+      });
+      wrap.appendChild(makeField('Thickness (mm)', tInput));
+
+      return wrap;
+    }
+
+    function renderWallInspector(w) {
+      const wrap = doc.createElement('div');
+      const idLine = doc.createElement('div');
+      idLine.classList.add('inspector-id');
+      idLine.textContent = `ID: ${w.id}`;
+      wrap.appendChild(idLine);
+
+      const wInput = doc.createElement('input');
+      wInput.setAttribute('type', 'number');
+      wInput.value = String(w.w);
+      wInput.addEventListener('input', (e) => {
+        const v = Math.max(20, parseInt(e.target.value, 10) || 20);
+        app.setEditorState(MISSIONS.editor.state.resizeWall(app.editorState, w.id, { w: v, h: w.h }));
+      });
+      const hInput = doc.createElement('input');
+      hInput.setAttribute('type', 'number');
+      hInput.value = String(w.h);
+      hInput.addEventListener('input', (e) => {
+        const v = Math.max(20, parseInt(e.target.value, 10) || 20);
+        app.setEditorState(MISSIONS.editor.state.resizeWall(app.editorState, w.id, { w: w.w, h: v }));
+      });
+      wrap.appendChild(makeField('Width (mm)', wInput));
+      wrap.appendChild(makeField('Height (mm)', hInput));
       return wrap;
     }
 
