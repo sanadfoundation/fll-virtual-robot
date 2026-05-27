@@ -151,7 +151,9 @@ body[data-mode="editor"] .panel-left,
 body[data-mode="editor"] .resize-handle,
 body[data-mode="editor"] .canvas-toolbar,
 body[data-mode="editor"] .status-bar,
-body[data-mode="editor"] .mission-map {
+body[data-mode="editor"] .mission-map,
+body[data-mode="editor"] .console-wrap,
+body[data-mode="editor"] .console-resize-handle {
   display: none !important;
 }
 
