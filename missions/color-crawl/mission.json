@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "id": "color-crawl",
+  "title": "Colour Crawl",
+  "description": "Drive east and read each colored line in order.",
+  "author": "Sanad Foundation",
+  "type": "mission",
+  "difficulty_tier": "beginner",
+
+  "field": {
+    "robot_start": { "x": 350, "y": 163, "heading": 90 },
+    "zones": [],
+    "obstacles": [],
+    "lines": [
+      { "id": "l-red",    "x1": 800,  "y1": 50, "x2": 800,  "y2": 1093, "color": "red",    "thickness": 12 },
+      { "id": "l-yellow", "x1": 1200, "y1": 50, "x2": 1200, "y2": 1093, "color": "yellow", "thickness": 12 },
+      { "id": "l-green",  "x1": 1600, "y1": 50, "x2": 1600, "y2": 1093, "color": "green",  "thickness": 12 },
+      { "id": "l-blue",   "x1": 2000, "y1": 50, "x2": 2000, "y2": 1093, "color": "blue",   "thickness": 12 }
+    ],
+    "walls": []
+  },
+
+  "steps": [
+    {
+      "id": "see-red",
+      "title": "Detect the red line",
+      "points": 10,
+      "hint": "Drive east until the color sensor reads red.",
+      "condition": { "kind": "sensor", "port": "C", "op": "==", "value": "red" }
+    },
+    {
+      "id": "see-yellow",
+      "title": "Detect the yellow line",
+      "points": 10,
+      "hint": "Keep going — yellow is next.",
+      "requires": ["see-red"],
+      "condition": { "kind": "sensor", "port": "C", "op": "==", "value": "yellow" }
+    },
+    {
+      "id": "see-green",
+      "title": "Detect the green line",
+      "points": 10,
+      "requires": ["see-yellow"],
+      "condition": { "kind": "sensor", "port": "C", "op": "==", "value": "green" }
+    },
+    {
+      "id": "see-blue",
+      "title": "Detect the blue line",
+      "points": 10,
+      "requires": ["see-green"],
+      "condition": { "kind": "sensor", "port": "C", "op": "==", "value": "blue" }
+    }
+  ],
+
+  "scoring": { "kind": "step_sum" },
+
+  "modifiers": { "available": [], "defaults": {} }
+}

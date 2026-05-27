@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "id": "energy-pickup",
+  "title": "Energy Pickup",
+  "description": "Visit the blue home, collect from the orange depot, and deposit in the green storage.",
+  "author": "Sanad Foundation",
+  "type": "mission",
+  "difficulty_tier": "intermediate",
+
+  "field": {
+    "robot_start": { "x": 350, "y": 163, "heading": 90 },
+    "zones": [
+      { "id": "home",    "shape": "rect", "x": 100,  "y": 100, "w": 300, "h": 250, "color": "blue"   },
+      { "id": "depot",   "shape": "rect", "x": 1050, "y": 800, "w": 250, "h": 250, "color": "orange" },
+      { "id": "storage", "shape": "rect", "x": 1900, "y": 100, "w": 350, "h": 300, "color": "green"  }
+    ],
+    "obstacles": [
+      { "id": "energy", "shape": "rect", "x": 1175, "y": 925, "w": 80, "h": 80, "label": "E", "fill": "#22d3ee" }
+    ],
+    "lines": [],
+    "walls": []
+  },
+
+  "steps": [
+    {
+      "id": "leave-home",
+      "title": "Leave the blue home zone",
+      "points": 5,
+      "hint": "Just drive a bit — leaving home is step 1.",
+      "condition": { "kind": "not", "of": { "kind": "zone", "subject": "robot", "zone": "home" } }
+    },
+    {
+      "id": "reach-depot",
+      "title": "Reach the orange depot",
+      "points": 15,
+      "hint": "Drive northeast — depot is at the top middle.",
+      "requires": ["leave-home"],
+      "condition": { "kind": "zone", "subject": "robot", "zone": "depot" }
+    },
+    {
+      "id": "pickup-energy",
+      "title": "Push the energy block off the depot",
+      "points": 15,
+      "hint": "Touch the cyan block and shove it out of the orange zone.",
+      "requires": ["reach-depot"],
+      "condition": { "kind": "not", "of": { "kind": "zone", "subject": "obstacle:energy", "zone": "depot" } }
+    },
+    {
+      "id": "deposit",
+      "title": "Get the energy block to the green storage",
+      "points": 25,
+      "hint": "Drive east, pushing the block as you go.",
+      "requires": ["pickup-energy"],
+      "condition": { "kind": "zone", "subject": "obstacle:energy", "zone": "storage" }
+    }
+  ],
+
+  "scoring": { "kind": "step_sum" },
+
+  "modifiers": { "available": [], "defaults": {} }
+}

@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "id": "slalom-course",
+  "title": "Slalom Course",
+  "description": "Weave between the walls and reach the green finish zone without touching them.",
+  "author": "Sanad Foundation",
+  "type": "obstacle_course",
+  "difficulty_tier": "intermediate",
+
+  "field": {
+    "robot_start": { "x": 350, "y": 571, "heading": 0 },
+    "zones": [
+      { "id": "finish", "shape": "rect", "x": 2050, "y": 471, "w": 250, "h": 200, "color": "green" }
+    ],
+    "obstacles": [],
+    "lines": [],
+    "walls": [
+      { "id": "w-1", "shape": "rect", "x": 700,  "y": 0,   "w": 60, "h": 700 },
+      { "id": "w-2", "shape": "rect", "x": 1050, "y": 443, "w": 60, "h": 700 },
+      { "id": "w-3", "shape": "rect", "x": 1400, "y": 0,   "w": 60, "h": 700 },
+      { "id": "w-4", "shape": "rect", "x": 1750, "y": 443, "w": 60, "h": 700 }
+    ]
+  },
+
+  "steps": [],
+
+  "scoring": {
+    "kind": "objective_minus_penalties",
+    "goal_zone": "finish",
+    "collisions": { "per_contact": 10, "cap": 80 },
+    "time_budget_s": 25,
+    "per_second_over": 2
+  },
+
+  "modifiers": { "available": [], "defaults": {} }
+}
