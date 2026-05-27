@@ -14,18 +14,59 @@
       });
     }
 
+    const rowById = new Map();  // step.id -> <li> element
+
     function clearList() {
       if (!list) return;
       while (list.children.length) list.removeChild(list.children[0]);
+      rowById.clear();
     }
 
     function render(state) {
       if (!list) return;
-      clearList();
-      if (!state) return;
-      const selection = state.selection;
+      if (!state || state.steps.length === 0) {
+        clearList();
+        return;
+      }
+
+      // Build the new ordered list of <li> rows. Reuse existing rows when
+      // their step id is unchanged — only update selection class. Create new
+      // rows only for new steps. Skipping the recreate preserves input focus
+      // while the user is typing into title/points/hint fields.
+      const newOrder = [];
+      const seenIds = new Set();
       for (const step of state.steps) {
-        list.appendChild(renderRow(step, selection));
+        seenIds.add(step.id);
+        let row = rowById.get(step.id);
+        if (!row) {
+          row = renderRow(step, state.selection);
+          rowById.set(step.id, row);
+        } else {
+          const isSelected = state.selection
+            && state.selection.kind === 'step'
+            && state.selection.id === step.id;
+          if (isSelected) row.classList.add('selected');
+          else row.classList.remove('selected');
+        }
+        newOrder.push(row);
+      }
+
+      // Drop rows for steps that no longer exist.
+      for (const id of Array.from(rowById.keys())) {
+        if (!seenIds.has(id)) {
+          const row = rowById.get(id);
+          if (row && row.parentNode === list) list.removeChild(row);
+          rowById.delete(id);
+        }
+      }
+
+      // Ensure list children match newOrder. Use insertBefore to reposition
+      // without destroying nodes.
+      for (let i = 0; i < newOrder.length; i++) {
+        const target = newOrder[i];
+        if (list.children[i] !== target) {
+          list.insertBefore(target, list.children[i] || null);
+        }
       }
     }
 
