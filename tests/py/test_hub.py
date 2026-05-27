@@ -111,6 +111,36 @@ class TestSpeaker(unittest.TestCase):
         self.assertEqual(mock_js.bridge_mock.all()[0]['note'], 57)
 
 
+class TestHubSound(unittest.TestCase):
+    """`hub.sound` is the documented LEGO surface; `hub.speaker` is the legacy
+    alias kept for backwards compatibility. They share a single underlying
+    instance so any divergence (e.g. patching one but not the other) is
+    impossible, and dispatches via either name produce identical bridge
+    payloads."""
+
+    def setUp(self):
+        mock_js.bridge_mock.install()
+
+    def test_hub_sound_is_the_same_object_as_hub_speaker(self):
+        self.assertIs(sb.hub.sound, sb.hub.speaker)
+
+    def test_hub_sound_beep_emits_the_same_command_as_hub_speaker_beep(self):
+        sb.hub.sound.beep(freq=440, duration=500)
+        from_sound = mock_js.bridge_mock.all()
+        mock_js.bridge_mock.install()  # reset
+        sb.hub.speaker.beep(freq=440, duration=500)
+        from_speaker = mock_js.bridge_mock.all()
+        self.assertEqual(from_sound, from_speaker)
+        self.assertEqual(from_sound[0]['type'], 'beep')
+
+    def test_hub_sound_default_beep(self):
+        sb.hub.sound.beep()
+        cmd = mock_js.bridge_mock.all()[0]
+        self.assertEqual(cmd['type'], 'beep')
+        self.assertEqual(cmd['note'], 69)
+        self.assertAlmostEqual(cmd['duration'], 0.5)
+
+
 class TestMotionSensor(unittest.TestCase):
 
     def setUp(self):
