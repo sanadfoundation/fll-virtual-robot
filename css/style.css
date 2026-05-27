@@ -171,6 +171,73 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
   gap: 8px;
 }
 
+/* Primary actions (Run / Stop / Start Over) centered in the header. Match
+   the file-action buttons (📄 📂 💾): 40px rounded-square chips on
+   surface2 with a 1px border. The Run/Stop accent colors come from the
+   global .btn-run / .btn-stop / .btn-reset rules — here we only override
+   geometry so they read as a coherent header set instead of bottom-dock
+   pill-circles. */
+.header-dock-actions {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  gap: 8px;
+  z-index: 1;
+}
+.header-dock-actions .btn-icon-only {
+  width: 40px;
+  min-height: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  letter-spacing: 0;
+}
+.header-dock-actions .btn-icon-only:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+.header-dock-actions .btn-icon-only:not(:disabled):active {
+  transform: translateY(0);
+}
+.header-dock-actions .dock-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* Floating run-status pill — sits at the left of the canvas toolbar next
+   to Position. Non-interactive (no hover/focus expand state), so we
+   neutralise .canvas-pill's hover treatment and add a small dot. */
+.canvas-pill-status {
+  cursor: default;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-mid);
+  padding: 6px 12px;
+}
+.canvas-pill-status:hover {
+  border-color: var(--border2);
+  color: var(--text-mid);
+}
+.canvas-pill-status .status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.canvas-pill-status .status-dot.running {
+  box-shadow: 0 0 8px var(--amber);
+}
+.canvas-pill-status .status-dot.error {
+  box-shadow: 0 0 8px var(--red);
+}
+
 /* ── Buttons ───────────────────────────────────────────── */
 .btn {
   padding: 5px 14px;
@@ -1096,6 +1163,35 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
 
 .status-bar .status-item { display: flex; align-items: center; gap: 5px; }
 .status-bar .status-dot  { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+
+/* Slim credits footer — replaces the old bottom-dock attribution row. Same
+   visual register as the legacy .status-bar (22px tall, 10px text, dim
+   colour) so it reads as chrome rather than primary UI. */
+.app-footer {
+  height: 22px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  gap: 20px;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.app-footer-name {
+  color: var(--text-mid);
+}
+.app-footer-attribution {
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
 
 .status-dot.ready   { background: var(--green); }
 .status-dot.running { background: var(--amber); animation: pulse 0.7s ease-in-out infinite; }
