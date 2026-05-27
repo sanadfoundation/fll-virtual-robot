@@ -50,6 +50,42 @@ class TestLightMatrix(unittest.TestCase):
         self.assertEqual(cmds[1]['type'], 'hub_display_off')
 
 
+class TestLightMatrixOrientation(unittest.TestCase):
+
+    def setUp(self):
+        mock_js.bridge_mock.install()
+        # Reset the orientation slot in _state between tests.
+        sb._state['orientation'] = 0
+
+    def test_get_orientation_defaults_to_zero(self):
+        self.assertEqual(sb.hub.light_matrix.get_orientation(), 0)
+
+    def test_set_orientation_dispatches_hub_orientation_command(self):
+        sb.hub.light_matrix.set_orientation(1)  # RIGHT
+        cmds = mock_js.bridge_mock.all()
+        self.assertEqual(cmds[0], {'type': 'hub_orientation', 'mode': 'set', 'top': 1})
+
+    def test_set_orientation_returns_previous_value(self):
+        # Per LEGO docs: set_orientation returns the orientation that was
+        # active before the call. We rely on _state being kept in sync so
+        # the call is synchronous (no await needed).
+        sb._state['orientation'] = 2
+        prev = sb.hub.light_matrix.set_orientation(3)
+        self.assertEqual(prev, 2)
+
+    def test_set_orientation_updates_local_state_for_get(self):
+        # get_orientation should reflect the new value immediately, without
+        # waiting for the bridge round-trip.
+        sb.hub.light_matrix.set_orientation(3)
+        self.assertEqual(sb.hub.light_matrix.get_orientation(), 3)
+
+    def test_set_orientation_wraps_into_0_3(self):
+        sb.hub.light_matrix.set_orientation(5)
+        self.assertEqual(sb.hub.light_matrix.get_orientation(), 1)
+        sb.hub.light_matrix.set_orientation(-1)
+        self.assertEqual(sb.hub.light_matrix.get_orientation(), 3)
+
+
 class TestSpeaker(unittest.TestCase):
 
     def setUp(self):

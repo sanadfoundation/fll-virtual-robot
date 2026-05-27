@@ -228,6 +228,11 @@ function makeRobotState() {
     display: Array(25).fill(0), // 5×5 matrix brightness
     // hub.light.color(POWER, …) — int from the `color` module (0..10), 0 = off.
     centreLight: 0,
+    // hub.light_matrix.set_orientation(top) — 0=UP, 1=RIGHT, 2=DOWN, 3=LEFT.
+    // Pure render-time transform applied in _drawRobot; robot.display stays
+    // in the unrotated frame so successive set_orientation calls re-rotate
+    // from the original bitmap rather than compounding.
+    orientation: 0,
   };
 }
 
@@ -796,13 +801,27 @@ class RobotSimulator {
       ctx.shadowBlur  = 0;
     }
 
-    // LED matrix (5×5)
+    // LED matrix (5×5). The visual (row, col) maps back to a source cell in
+    // robot.display via the current orientation, so the raw display bitmap
+    // never gets rewritten — successive set_orientation calls re-rotate
+    // from the original pattern, matching LEGO firmware semantics.
+    //   UP    (0): src = (row, col)        — identity.
+    //   RIGHT (1): src = (4-col, row)      — 90° CW.
+    //   DOWN  (2): src = (4-row, 4-col)    — 180°.
+    //   LEFT  (3): src = (col, 4-row)      — 90° CCW.
     const dotR   = 2.5 * s;
     const dotGap = 14 * s;
+    const ori = r.orientation | 0;
     for (let row = 0; row < 5; row++) {
       for (let col = 0; col < 5; col++) {
-        const idx = row * 5 + col;
-        const bri = r.display[idx];
+        let srcRow, srcCol;
+        switch (ori) {
+          case 1:  srcRow = 4 - col; srcCol = row;     break;
+          case 2:  srcRow = 4 - row; srcCol = 4 - col; break;
+          case 3:  srcRow = col;     srcCol = 4 - row; break;
+          default: srcRow = row;     srcCol = col;     break;
+        }
+        const bri = r.display[srcRow * 5 + srcCol];
         const mx = (col - 2) * dotGap;
         const my = (row - 2) * dotGap;
         ctx.fillStyle = bri > 0
@@ -1351,6 +1370,25 @@ class RobotSimulator {
           this._dirty = true;
         }
         break;
+
+      case 'hub_orientation': {
+        // Two modes:
+        //   { mode: 'set',    top }                  — absolute (0..3, wraps).
+        //   { mode: 'rotate', direction: 'cw'|'ccw'} — relative ±1 step.
+        // Orientation is a render-time transform on the 5×5 matrix; the raw
+        // robot.display stays untouched so successive rotations re-rotate
+        // from the original bitmap, matching the LEGO firmware behaviour.
+        const cur = this.robot.orientation | 0;
+        let next = cur;
+        if (cmd.mode === 'rotate') {
+          next = cur + (cmd.direction === 'counterclockwise' ? -1 : 1);
+        } else {
+          next = cmd.top | 0;
+        }
+        this.robot.orientation = ((next % 4) + 4) % 4;
+        this._dirty = true;
+        break;
+      }
 
       case 'beep':
         this._playBeep(cmd.note, cmd.duration * 1000);

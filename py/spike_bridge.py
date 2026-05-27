@@ -474,10 +474,21 @@ class _LightMatrix:
         return _bridge_call({'type': 'hub_display_off'})
 
     def get_orientation(self):
-        return 0
+        # Mirrors _state['orientation'] which is kept in sync locally by
+        # set_orientation (so the call returns synchronously per LEGO docs).
+        return int(_state.get('orientation', 0))
 
     def set_orientation(self, top):
-        return 0
+        # Per LEGO docs this is synchronous and returns the *previous*
+        # orientation int. We update local _state immediately so a subsequent
+        # get_orientation() reflects the change without a bridge round-trip;
+        # the bridge call itself is dispatched eagerly inside _bridge_call
+        # (its side effect — js.bridgeSend — runs even if the returned
+        # coroutine is never awaited).
+        prev = int(_state.get('orientation', 0))
+        _state['orientation'] = int(top) % 4
+        _bridge_call({'type': 'hub_orientation', 'mode': 'set', 'top': int(top)})
+        return prev
 
 
 class _Speaker:

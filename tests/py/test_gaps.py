@@ -389,13 +389,10 @@ class TestKnownBugsTracked(unittest.TestCase):
         # Today the accessor doesn't read sim state — it hardcodes 0.
         self.assertEqual(sb.hub.light_matrix.get_pixel(2, 2), 50)
 
-    # get_orientation / set_orientation are
-    # stubs. set_orientation accepts any int but never affects display rotation;
-    # get_orientation always returns 0.
-    @unittest.expectedFailure
     def test_orientation_round_trips(self):
-        # Per LEGO docs: set_orientation(2) rotates the display; get_orientation
-        # returns the current rotation.
+        # Per LEGO docs: set_orientation(N) rotates the display; get_orientation
+        # returns the current rotation. Fixed by feat/light-orientation —
+        # primary coverage now lives in TestLightMatrixOrientation in test_hub.py.
         sb.hub.light_matrix.set_orientation(2)
         self.assertEqual(sb.hub.light_matrix.get_orientation(), 2)
 

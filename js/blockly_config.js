@@ -1431,8 +1431,21 @@ function registerGenerators(Blockly) {
     return `{ const _x = (${x})-1, _y = (${y})-1; if (_x>=0 && _x<5 && _y>=0 && _y<5) { window.sim.robot.display[_y*5 + _x] = ${bri}; window.sim._dirty = true; } }\n`;
   };
 
-  js['flipperlight_lightDisplayRotate']        = (_b) => `// rotate light display\n`;
-  js['flipperlight_lightDisplaySetOrientation']= (_b) => `// set light orientation\n`;
+  js['flipperlight_lightDisplayRotate'] = (block) => {
+    const dir = JSON.stringify(block.getFieldValue('DIRECTION') || 'clockwise');
+    return `await window.sim._execCmd({ type: 'hub_orientation', mode: 'rotate', direction: ${dir} });\n`;
+  };
+
+  // Map the Spike Scratch dropdown values ('1' upright / '2' left / '3' right /
+  // '4' upside down) onto the Python-side ints used everywhere else in the
+  // sim (0=UP, 1=RIGHT, 2=DOWN, 3=LEFT). Single source of truth lives in the
+  // simulator's _execCmd 'hub_orientation' handler.
+  const _ORI_DROPDOWN_TO_TOP = { '1': 0, '2': 3, '3': 1, '4': 2 };
+  js['flipperlight_lightDisplaySetOrientation'] = (block) => {
+    const raw = block.getFieldValue('ORIENTATION') || '1';
+    const top = _ORI_DROPDOWN_TO_TOP[raw] != null ? _ORI_DROPDOWN_TO_TOP[raw] : 0;
+    return `await window.sim._execCmd({ type: 'hub_orientation', mode: 'set', top: ${top} });\n`;
+  };
   js['flipperlight_centerButtonLight'] = (block) => {
     // COLOR is the strip field value '0'..'10' — same ints the Python
     // bridge sends from `hub.light.color(POWER, color.*)`, so both paths
