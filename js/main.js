@@ -341,9 +341,19 @@ async function handleRun() {
   clearOutput();
   if (window._watch) window._watch.clear();
 
-  // Start the mission engine when a mission is active.
+  // Start the mission engine when a mission is active. Reset first so a
+  // re-Run after Stop clears the prior finalized progress + frozen timer
+  // (otherwise tick() short-circuits on progress.finalized and the timer
+  // never resumes).
   if (window.missionApp && window.missionApp.mode === 'play') {
+    window.missionApp.engine.reset();
     window.missionApp.engine.start(Date.now());
+    if (window.missionApp.ui) {
+      window.missionApp.ui.updateProgress(window.missionApp.engine);
+      if (typeof window.missionApp.ui.updateTimer === 'function') {
+        window.missionApp.ui.updateTimer(window.missionApp.engine, Date.now());
+      }
+    }
   }
 
   if (currentMode === 'python') {
