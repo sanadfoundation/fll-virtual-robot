@@ -223,22 +223,23 @@ function initSim() {
     forceBtn.addEventListener('pointercancel', () => sim.manualRelease());
   }
 
-  // Boot the missions layer. Gated by ?missions=1 — the feature is
-  // in development and stays hidden in production until the query param
-  // is set. Hide the 🎯 header button too so end users don't see the
-  // affordance until the gate is open.
-  if (window.MISSIONS && window.MISSIONS.isEnabled && !window.MISSIONS.isEnabled(window.location)) {
+  // Boot the missions layer. Gated by ?missions=1 — the feature is in
+  // development and stays hidden in production until the query param is
+  // set. The 🎯 header button is hidden in HTML by default; we only
+  // reveal it (and boot the missions layer) when the gate is open.
+  if (window.MISSIONS && window.MISSIONS.isEnabled && window.MISSIONS.isEnabled(window.location)) {
     const btn = document.getElementById('btn-missions');
-    if (btn) btn.hidden = true;
-  } else if (window.MISSIONS && window.MISSIONS.boot) {
-    window.MISSIONS.boot({
-      sim: window.sim,
-      doc: document,
-      location: window.location,
-      fetch: window.fetch.bind(window),
-      storage: window.localStorage,
-    }).then((app) => { window.missionApp = app; })
-      .catch((e) => console.warn('missions: boot failed', e));
+    if (btn) btn.hidden = false;
+    if (window.MISSIONS.boot) {
+      window.MISSIONS.boot({
+        sim: window.sim,
+        doc: document,
+        location: window.location,
+        fetch: window.fetch.bind(window),
+        storage: window.localStorage,
+      }).then((app) => { window.missionApp = app; })
+        .catch((e) => console.warn('missions: boot failed', e));
+    }
   }
 }
 
