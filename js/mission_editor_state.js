@@ -134,8 +134,6 @@
     return next;
   }
 
-  const LINE_COLORS = ['black', 'red', 'green', 'blue', 'yellow', 'orange'];
-
   function addLine(state, { x1, y1, x2, y2 }) {
     const next = dirty(state);
     const id = shortId('l');
@@ -148,8 +146,8 @@
     const next = dirty(state);
     const line = (next.field.lines || []).find(l => l.id === id);
     if (line) {
-      if (endpoint === 'start') { line.x1 = x; line.y1 = y; }
-      else { line.x2 = x; line.y2 = y; }
+      if (endpoint === 'a') { line.x1 = x; line.y1 = y; }
+      else                  { line.x2 = x; line.y2 = y; }
     }
     return next;
   }
@@ -158,12 +156,8 @@
     const next = dirty(state);
     const line = (next.field.lines || []).find(l => l.id === id);
     if (line) {
-      if (patch.color !== undefined)     line.color = patch.color;
+      if (patch.color     !== undefined) line.color     = patch.color;
       if (patch.thickness !== undefined) line.thickness = patch.thickness;
-      if (patch.x1 !== undefined)        line.x1 = patch.x1;
-      if (patch.y1 !== undefined)        line.y1 = patch.y1;
-      if (patch.x2 !== undefined)        line.x2 = patch.x2;
-      if (patch.y2 !== undefined)        line.y2 = patch.y2;
     }
     return next;
   }
@@ -184,21 +178,21 @@
 
   function moveWall(state, id, { x, y }) {
     const next = dirty(state);
-    const w = (next.field.walls || []).find(x => x.id === id);
+    const w = (next.field.walls || []).find(wl => wl.id === id);
     if (w) { w.x = x; w.y = y; }
     return next;
   }
 
   function resizeWall(state, id, { w, h }) {
     const next = dirty(state);
-    const wall = (next.field.walls || []).find(x => x.id === id);
+    const wall = (next.field.walls || []).find(wl => wl.id === id);
     if (wall) { wall.w = w; wall.h = h; }
     return next;
   }
 
   function deleteWall(state, id) {
     const next = dirty(state);
-    next.field.walls = (next.field.walls || []).filter(x => x.id !== id);
+    next.field.walls = (next.field.walls || []).filter(wl => wl.id !== id);
     return next;
   }
 
