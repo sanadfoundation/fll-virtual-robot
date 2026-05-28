@@ -161,7 +161,7 @@ details.editor-steps-section > .editor-section-body {
 .editor-cond-workspace {
   height: 280px;
   margin: 0 12px;
-  background: #f5f5f7;
+  background: var(--surface2);
   border: 1px solid var(--border2);
   border-radius: 8px;
   overflow: hidden;
@@ -283,12 +283,13 @@ body[data-mode="editor"] .editor-overlay-svg { pointer-events: auto; }
   left: 12px;
   display: flex;
   gap: 4px;
-  background: rgba(11,15,24,0.88);
+  background: var(--surface);
   backdrop-filter: blur(8px);
   border: 1px solid var(--border2);
   border-radius: 8px;
   padding: 4px;
   pointer-events: auto;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
 }
 .editor-tool {
   background: transparent;
