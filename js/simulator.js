@@ -468,8 +468,12 @@ class RobotSimulator {
     if (window.missionApp && window.missionApp.mode === 'play' &&
         window.missionApp.engine.startTimeMs != null) {
       const snap = this.getStateSnapshot();
-      window.missionApp.engine.tick(snap);
+      const now  = Date.now();
+      window.missionApp.engine.tick(snap, now);
       window.missionApp.ui.updateProgress(window.missionApp.engine);
+      if (typeof window.missionApp.ui.updateTimer === 'function') {
+        window.missionApp.ui.updateTimer(window.missionApp.engine, now);
+      }
     }
     this._raf = requestAnimationFrame(() => this._drawLoop());
   }

@@ -160,8 +160,10 @@
     function _tickOnce() {
       if (app.mode !== 'play') return;
       const snap = sim.getStateSnapshot();
-      engine.tick(snap);
+      const now = Date.now();
+      engine.tick(snap, now);
       ui.updateProgress(engine);
+      if (typeof ui.updateTimer === 'function') ui.updateTimer(engine, now);
     }
 
     return Object.assign(app, { engine, ui, _tickOnce });

@@ -276,3 +276,37 @@ test('lines+walls: valid mixed-field missions (zones + obstacles + lines + walls
   assert.strictEqual(result.field.zones.length, 1);
   assert.strictEqual(result.field.obstacles.length, 1);
 });
+
+// ─── scoring.time_limit_s (optional) ───────────────────────────────────────
+
+test('load: scoring.time_limit_s = 30 is accepted (positive number)', () => {
+  const ctx = env();
+  const m = { ...MINIMAL_MISSION, scoring: { kind: 'step_sum', time_limit_s: 30 } };
+  const result = ctx.MISSIONS.loader.load(m);
+  assert.strictEqual(result.scoring.time_limit_s, 30);
+});
+
+test('load: missing scoring.time_limit_s is allowed (optional)', () => {
+  const ctx = env();
+  // MINIMAL_MISSION already has no time_limit_s.
+  const result = ctx.MISSIONS.loader.load(MINIMAL_MISSION);
+  assert.strictEqual(result.scoring.time_limit_s, undefined);
+});
+
+test('load: scoring.time_limit_s = 0 is rejected (must be positive)', () => {
+  const ctx = env();
+  const m = { ...MINIMAL_MISSION, scoring: { kind: 'step_sum', time_limit_s: 0 } };
+  assert.throws(() => ctx.MISSIONS.loader.load(m), /time_limit_s/);
+});
+
+test('load: scoring.time_limit_s = -5 is rejected (must be positive)', () => {
+  const ctx = env();
+  const m = { ...MINIMAL_MISSION, scoring: { kind: 'step_sum', time_limit_s: -5 } };
+  assert.throws(() => ctx.MISSIONS.loader.load(m), /time_limit_s/);
+});
+
+test('load: non-numeric scoring.time_limit_s is rejected', () => {
+  const ctx = env();
+  const m = { ...MINIMAL_MISSION, scoring: { kind: 'step_sum', time_limit_s: 'forever' } };
+  assert.throws(() => ctx.MISSIONS.loader.load(m), /time_limit_s/);
+});

@@ -283,10 +283,10 @@
     if (patch.author          !== undefined) next.author          = patch.author;
     if (patch.difficulty_tier !== undefined) next.difficulty_tier = patch.difficulty_tier;
     if (patch.type            !== undefined) {
+      // Preserve the optional time limit across type changes so the user
+      // doesn't have to re-enter it after picking obstacle_course.
+      const carriedLimit = next.scoring && next.scoring.time_limit_s;
       next.type = patch.type;
-      // Scoring kind is bound to the challenge type. Swap to match so the
-      // loader's per-type rule ("obstacle_course requires
-      // objective_minus_penalties") doesn't reject the saved mission.
       if (patch.type === 'obstacle_course') {
         next.scoring = {
           kind: 'objective_minus_penalties',
@@ -297,6 +297,17 @@
         };
       } else {
         next.scoring = { kind: 'step_sum' };
+      }
+      if (typeof carriedLimit === 'number' && carriedLimit > 0) {
+        next.scoring.time_limit_s = carriedLimit;
+      }
+    }
+    if (patch.time_limit_s !== undefined) {
+      next.scoring = { ...next.scoring };
+      if (patch.time_limit_s === null || patch.time_limit_s === 0 || patch.time_limit_s === '') {
+        delete next.scoring.time_limit_s;
+      } else {
+        next.scoring.time_limit_s = patch.time_limit_s;
       }
     }
     return next;

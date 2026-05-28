@@ -27,9 +27,21 @@
       this.startTimeMs = nowMs;
     }
 
-    tick(simSnap) {
+    tick(simSnap, nowMs) {
       const completed = [];
       if (this.startTimeMs == null || !this.progress || this.progress.finalized) return completed;
+
+      // Hard time limit (optional). If exceeded, auto-finalize with timedOut=true.
+      const limitS = this.mission.scoring && this.mission.scoring.time_limit_s;
+      if (typeof limitS === 'number' && limitS > 0 && typeof nowMs === 'number') {
+        const elapsedMs = nowMs - this.startTimeMs;
+        if (elapsedMs > limitS * 1000) {
+          this.finalize(elapsedMs);
+          this.progress.timedOut = true;
+          return completed;
+        }
+      }
+
       const snap = this._snapshotFor(simSnap);
 
       if (this.mission.type === 'obstacle_course' && this.mission.scoring.goal_zone) {
@@ -47,6 +59,24 @@
         }
       }
       return completed;
+    }
+
+    // Elapsed time since start(). Null before start. Both args accepted as
+    // millisecond timestamps; the caller is the source of truth for "now".
+    getElapsedMs(nowMs) {
+      if (this.startTimeMs == null) return null;
+      return nowMs - this.startTimeMs;
+    }
+
+    // Time remaining until the optional scoring.time_limit_s expires. Null
+    // when no limit is configured. Clamped to 0 so the UI never shows a
+    // negative countdown.
+    getTimeRemainingMs(nowMs) {
+      if (this.startTimeMs == null) return null;
+      const limitS = this.mission && this.mission.scoring && this.mission.scoring.time_limit_s;
+      if (typeof limitS !== 'number' || limitS <= 0) return null;
+      const remaining = limitS * 1000 - (nowMs - this.startTimeMs);
+      return remaining > 0 ? remaining : 0;
     }
 
     recordContact(obstacleId, nowMs) {

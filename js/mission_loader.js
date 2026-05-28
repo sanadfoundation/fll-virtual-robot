@@ -26,6 +26,14 @@
     if (raw.type === 'obstacle_course' && raw.scoring.kind !== 'objective_minus_penalties') {
       throw new Error('mission: obstacle_course requires scoring.kind = objective_minus_penalties');
     }
+    // Optional hard time limit. Applies to both mission types — when set,
+    // the engine auto-finalizes after limit seconds.
+    if (raw.scoring.time_limit_s !== undefined) {
+      const t = raw.scoring.time_limit_s;
+      if (typeof t !== 'number' || !Number.isFinite(t) || t <= 0) {
+        throw new Error('mission scoring.time_limit_s must be a positive finite number when set');
+      }
+    }
     if (raw.type === 'mission' && (!Array.isArray(raw.steps) || raw.steps.length === 0)) {
       throw new Error('mission: type "mission" requires at least one step');
     }

@@ -156,8 +156,8 @@
         <span class="library-badge" id="library-count-badge">0 MISSIONS</span>
       </h3>
       <div class="library-head-actions">
-        <button class="btn-mini library-new-btn" id="btn-library-new" type="button">+ New Mission</button>
-        <button class="btn-mini" id="btn-library-import" type="button">📥 Import file…</button>
+        <button class="btn btn-mini library-new-btn" id="btn-library-new" type="button">+ New Mission</button>
+        <button class="btn btn-mini" id="btn-library-import" type="button">📥 Import mission</button>
         <input type="file" id="library-file-input" accept=".llmission" style="display:none">
         <button class="library-close-btn" id="btn-library-close" type="button" title="Close" aria-label="Close library">✕</button>
       </div>
@@ -402,6 +402,10 @@
             <option value="advanced">Advanced</option>
           </select>
         </label>
+        <label class="editor-field">
+          <span>Time limit (seconds, optional)</span>
+          <input type="number" id="editor-meta-time-limit" min="0" placeholder="e.g. 60" title="Hard time limit. The mission ends automatically when exceeded. Leave blank for no limit.">
+        </label>
       </div>
     </details>
 
@@ -436,6 +440,16 @@
         <div class="mm-score-num"><span id="mm-score-current">0</span><span class="max" id="mm-score-max">/0</span></div>
       </div>
       <div class="mission-stars" id="mm-stars" aria-label="Stars earned"></div>
+    </div>
+    <div class="mm-timer" id="mm-timer" hidden>
+      <div class="mm-timer-elapsed">
+        <span class="mm-timer-label">Elapsed</span>
+        <span class="mm-timer-value" id="mm-timer-elapsed">0:00</span>
+      </div>
+      <div class="mm-timer-remaining">
+        <span class="mm-timer-label">Left</span>
+        <span class="mm-timer-value" id="mm-timer-remaining">—</span>
+      </div>
     </div>
     <ul class="mm-steps" id="mm-steps"></ul>
     <div class="mm-bottom">

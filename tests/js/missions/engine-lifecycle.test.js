@@ -111,3 +111,78 @@ test('engine: recordContact populates the contacts map (first-hit only)', () => 
   e.recordContact('1', 200);  // ignored — already recorded
   assert.strictEqual(e.firstContact['1'], 100);
 });
+
+// ─── Time limit (optional, both mission types) ─────────────────────────────
+
+const TIMED_MISSION = {
+  schema_version: 1, id: 'tm', title: 'Timed', type: 'mission', difficulty_tier: 'beginner',
+  field: {
+    robot_start: { x: 0, y: 0, heading: 0 },
+    zones: [{ id: 'red', shape: 'rect', x: 100, y: 100, w: 50, h: 50, color: 'red' }],
+    obstacles: [],
+  },
+  steps: [{ id: 's1', title: 'noop', points: 5,
+            condition: { kind: 'zone', subject: 'robot', zone: 'red' } }],
+  scoring: { kind: 'step_sum', time_limit_s: 10 },
+};
+
+test('engine: getElapsedMs returns null before start', () => {
+  const ctx = env();
+  const e = new ctx.MISSIONS.engine.ChallengeEngine();
+  e.load(ctx.MISSIONS.loader.load(TIMED_MISSION));
+  assert.strictEqual(e.getElapsedMs(0), null);
+});
+
+test('engine: getElapsedMs returns now - startTime after start()', () => {
+  const ctx = env();
+  const e = new ctx.MISSIONS.engine.ChallengeEngine();
+  e.load(ctx.MISSIONS.loader.load(TIMED_MISSION));
+  e.start(1000);
+  assert.strictEqual(e.getElapsedMs(3500), 2500);
+});
+
+test('engine: getTimeRemainingMs reflects time_limit_s minus elapsed', () => {
+  const ctx = env();
+  const e = new ctx.MISSIONS.engine.ChallengeEngine();
+  e.load(ctx.MISSIONS.loader.load(TIMED_MISSION));
+  e.start(1000);
+  // time_limit_s = 10 → 10000ms. At now=3000 elapsed = 2000, remaining = 8000.
+  assert.strictEqual(e.getTimeRemainingMs(3000), 8000);
+});
+
+test('engine: getTimeRemainingMs returns null when no time_limit_s is set', () => {
+  const ctx = env();
+  const NO_LIMIT = { ...MISSION };
+  const e = new ctx.MISSIONS.engine.ChallengeEngine();
+  e.load(ctx.MISSIONS.loader.load(NO_LIMIT));
+  e.start(0);
+  assert.strictEqual(e.getTimeRemainingMs(500), null);
+});
+
+test('engine: tick(snap, nowMs) auto-finalizes when elapsed > time_limit_s and sets timedOut', () => {
+  const ctx = env();
+  const e = new ctx.MISSIONS.engine.ChallengeEngine();
+  e.load(ctx.MISSIONS.loader.load(TIMED_MISSION));
+  e.start(1000);
+  // limit is 10000ms; nowMs - startTime = 11000 > 10000 → finalize
+  e.tick(snap(), 12000);
+  assert.strictEqual(e.progress.finalized, true);
+  assert.strictEqual(e.progress.timedOut, true);
+});
+
+test('engine: tick without time_limit_s does NOT auto-finalize regardless of nowMs', () => {
+  const ctx = env();
+  const e = new ctx.MISSIONS.engine.ChallengeEngine();
+  e.load(ctx.MISSIONS.loader.load(MISSION));
+  e.start(0);
+  e.tick(snap(), 999999999);
+  assert.strictEqual(e.progress.finalized, false);
+});
+
+test('engine: getTimeRemainingMs clamps to 0 when elapsed exceeds limit', () => {
+  const ctx = env();
+  const e = new ctx.MISSIONS.engine.ChallengeEngine();
+  e.load(ctx.MISSIONS.loader.load(TIMED_MISSION));
+  e.start(0);
+  assert.strictEqual(e.getTimeRemainingMs(20000), 0);
+});

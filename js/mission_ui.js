@@ -6,14 +6,17 @@
   function mount(doc) {
     const $ = (id) => doc.getElementById(id);
 
-    const root      = $('mission-map');
-    const tag       = $('mm-tag');
-    const titleEl   = $('mm-title');
-    const metaEl    = $('mm-meta');
-    const scoreCur  = $('mm-score-current');
-    const scoreMax  = $('mm-score-max');
-    const starsEl   = $('mm-stars');
-    const stepsEl   = $('mm-steps');
+    const root        = $('mission-map');
+    const tag         = $('mm-tag');
+    const titleEl     = $('mm-title');
+    const metaEl      = $('mm-meta');
+    const scoreCur    = $('mm-score-current');
+    const scoreMax    = $('mm-score-max');
+    const starsEl     = $('mm-stars');
+    const stepsEl     = $('mm-steps');
+    const timerEl     = $('mm-timer');
+    const timerElaEl  = $('mm-timer-elapsed');
+    const timerRemEl  = $('mm-timer-remaining');
 
     let currentMission = null;
     const revealedHints = new Set();
@@ -29,6 +32,12 @@
 
       titleEl.textContent = mission.title;
       metaEl.textContent  = `${cap(mission.difficulty_tier)} · ${mission.steps.length} ${mission.steps.length === 1 ? 'step' : 'steps'}`;
+      // Timer is visible only when the mission has a time_limit_s; the
+      // elapsed counter is meaningful with or without a limit, but the
+      // "Left" column is hidden when there's no limit configured.
+      const hasLimit = !!(mission.scoring && typeof mission.scoring.time_limit_s === 'number' && mission.scoring.time_limit_s > 0);
+      if (timerEl) timerEl.hidden = false;
+      if (timerRemEl && timerRemEl.parentElement) timerRemEl.parentElement.hidden = !hasLimit;
 
       const max = MISSIONS.engine.maxScore(mission);
       scoreCur.textContent = String(engine.progress ? engine.progress.score : 0);
@@ -112,9 +121,29 @@
 
     function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
+    function fmtMSS(ms) {
+      if (typeof ms !== 'number' || ms < 0) ms = 0;
+      const secTotal = Math.floor(ms / 1000);
+      const m = Math.floor(secTotal / 60);
+      const s = secTotal % 60;
+      return `${m}:${s < 10 ? '0' : ''}${s}`;
+    }
+
+    // Called from main.js's per-frame loop while a mission is active.
+    // Reads elapsed + remaining from the engine and updates the timer display.
+    // Triggers a final render of '0:00' / '0:00' when the time limit expires.
+    function updateTimer(engine, nowMs) {
+      if (!currentMission || !engine || !timerEl) return;
+      const ela = engine.getElapsedMs(nowMs);
+      if (timerElaEl) timerElaEl.textContent = (ela == null) ? '0:00' : fmtMSS(ela);
+      const rem = engine.getTimeRemainingMs(nowMs);
+      if (timerRemEl) timerRemEl.textContent = (rem == null) ? '—' : fmtMSS(rem);
+    }
+
     return {
       render,
       updateProgress,
+      updateTimer,
       _test_revealHint: revealHint,
     };
   }
