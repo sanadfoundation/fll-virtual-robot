@@ -477,6 +477,17 @@ function handleReset() {
   // reset() clears _stopRequested as part of normalising state; re-assert it
   // so any worker command Python sends before it sees SystemExit still aborts.
   if (wasRunning) sim._stopRequested = true;
+  // Also reset the mission engine if a mission is loaded — otherwise the
+  // Elapsed/Left timers stay frozen at the previous run's stop value.
+  if (window.missionApp && window.missionApp.engine && window.missionApp.mode === 'play') {
+    window.missionApp.engine.reset();
+    if (window.missionApp.ui) {
+      window.missionApp.ui.updateProgress(window.missionApp.engine);
+      if (typeof window.missionApp.ui.updateTimer === 'function') {
+        window.missionApp.ui.updateTimer(window.missionApp.engine, Date.now());
+      }
+    }
+  }
   clearOutput();
   if (window._watch) window._watch.clear();
   appendOutput('[Ready] Simulator reset.', 'info');

@@ -186,3 +186,41 @@ test('engine: getTimeRemainingMs clamps to 0 when elapsed exceeds limit', () => 
   e.start(0);
   assert.strictEqual(e.getTimeRemainingMs(20000), 0);
 });
+
+test('engine: getElapsedMs freezes once finalize() runs (manual Stop)', () => {
+  // When the user clicks Stop, finalize() runs and captures progress.elapsedMs.
+  // Subsequent getElapsedMs(nowMs) calls must return that frozen value, not
+  // a still-growing "now - startTime". Otherwise the timer in the UI keeps
+  // ticking after the run ends.
+  const ctx = env();
+  const e = new ctx.MISSIONS.engine.ChallengeEngine();
+  e.load(ctx.MISSIONS.loader.load(TIMED_MISSION));
+  e.start(1000);
+  e.finalize(3500 - 1000);  // user stopped at nowMs=3500 → elapsed 2500
+  // Time keeps moving, but the engine reports the frozen elapsed.
+  assert.strictEqual(e.getElapsedMs(10000), 2500);
+  assert.strictEqual(e.getElapsedMs(99999), 2500);
+});
+
+test('engine: getTimeRemainingMs freezes once finalize() runs', () => {
+  const ctx = env();
+  const e = new ctx.MISSIONS.engine.ChallengeEngine();
+  e.load(ctx.MISSIONS.loader.load(TIMED_MISSION));
+  e.start(1000);
+  // Elapsed = 2500, limit 10000 → remaining 7500
+  e.finalize(2500);
+  assert.strictEqual(e.getTimeRemainingMs(20000), 7500);
+});
+
+test('engine: reset() clears startTimeMs so the timer can re-start cleanly', () => {
+  const ctx = env();
+  const e = new ctx.MISSIONS.engine.ChallengeEngine();
+  e.load(ctx.MISSIONS.loader.load(TIMED_MISSION));
+  e.start(1000);
+  e.finalize(2500);
+  e.reset();
+  assert.strictEqual(e.startTimeMs, null);
+  assert.strictEqual(e.getElapsedMs(5000), null);
+  assert.strictEqual(e.getTimeRemainingMs(5000), null);
+  assert.strictEqual(e.progress.finalized, false);
+});

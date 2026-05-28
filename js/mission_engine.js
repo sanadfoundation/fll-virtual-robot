@@ -61,21 +61,26 @@
       return completed;
     }
 
-    // Elapsed time since start(). Null before start. Both args accepted as
-    // millisecond timestamps; the caller is the source of truth for "now".
+    // Elapsed time since start(). Null before start. Once finalize() has run,
+    // the captured progress.elapsedMs is returned instead of (nowMs -
+    // startTimeMs) — otherwise the UI timer would keep counting after Stop.
     getElapsedMs(nowMs) {
       if (this.startTimeMs == null) return null;
+      if (this.progress && this.progress.finalized) return this.progress.elapsedMs;
       return nowMs - this.startTimeMs;
     }
 
     // Time remaining until the optional scoring.time_limit_s expires. Null
     // when no limit is configured. Clamped to 0 so the UI never shows a
-    // negative countdown.
+    // negative countdown. Frozen on finalize() (mirrors getElapsedMs).
     getTimeRemainingMs(nowMs) {
       if (this.startTimeMs == null) return null;
       const limitS = this.mission && this.mission.scoring && this.mission.scoring.time_limit_s;
       if (typeof limitS !== 'number' || limitS <= 0) return null;
-      const remaining = limitS * 1000 - (nowMs - this.startTimeMs);
+      const elapsed = (this.progress && this.progress.finalized)
+        ? this.progress.elapsedMs
+        : (nowMs - this.startTimeMs);
+      const remaining = limitS * 1000 - elapsed;
       return remaining > 0 ? remaining : 0;
     }
 
