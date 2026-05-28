@@ -143,10 +143,49 @@
     return { obstacles, walls: [] };
   }
 
+  // colorAtPosition(x, y, fieldObjects) → string
+  //
+  // Returns the sensorColor of the first field-object covering the point
+  // (x, y), or 'none' if none does. Field-objects without a sensorColor are
+  // skipped (they're visual-only — the ruler, the mat border, etc.).
+  //
+  //   rect:   point-in-rect (edge inclusive).
+  //   line:   point within max(half-thickness, 20mm) of the line segment.
+  //           The 20mm floor matches the real color sensor's effective
+  //           detection radius — a thin painted line still triggers a read
+  //           when the sensor is "near enough."
+  //   circle: point within radius.
+  function colorAtPosition(x, y, fieldObjects) {
+    for (const obj of fieldObjects) {
+      if (!obj.sensorColor) continue;
+      if (obj.type === 'line') {
+        const dist = _pointToLineDist(x, y, obj.x1, obj.y1, obj.x2, obj.y2);
+        if (dist <= Math.max((obj.lw || 1) / 2, 20)) return obj.sensorColor;
+      } else if (obj.type === 'rect') {
+        if (x >= obj.x && x <= obj.x + obj.w && y >= obj.y && y <= obj.y + obj.h) {
+          return obj.sensorColor;
+        }
+      } else if (obj.type === 'circle') {
+        const dx = x - obj.x, dy = y - obj.y;
+        if (Math.sqrt(dx * dx + dy * dy) <= obj.r) return obj.sensorColor;
+      }
+    }
+    return 'none';
+  }
+
+  function _pointToLineDist(px, py, x1, y1, x2, y2) {
+    const dx = x2 - x1, dy = y2 - y1;
+    const lenSq = dx * dx + dy * dy;
+    if (lenSq === 0) return Math.hypot(px - x1, py - y1);
+    const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / lenSq));
+    return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+  }
+
   global.MISSIONS.fieldSwap = {
     zoneToFieldObject,
     lineToFieldObject,
     applyMissionField,
     restoreDefaultObstacles,
+    colorAtPosition,
   };
 }(typeof window !== 'undefined' ? window : this));

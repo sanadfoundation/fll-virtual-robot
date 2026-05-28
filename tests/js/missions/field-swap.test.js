@@ -313,3 +313,96 @@ test('restoreDefaultObstacles: works with physics = null', () => {
   assert.strictEqual(result.obstacles[0].body, null);
   assert.deepStrictEqual(result.walls, []);
 });
+
+// ── colorAtPosition ───────────────────────────────────────────────────────────
+// Reads the sensorColor of the topmost field object containing the given
+// point. Returns 'none' if no object covers the point. Used by the color
+// sensor — pure so mission zone/line color reads can be unit-tested without
+// a canvas.
+
+test('colorAtPosition: returns sensorColor for a rect that contains the point', () => {
+  const { MISSIONS } = makeEnv();
+  const objects = [
+    { type: 'rect', x: 100, y: 100, w: 50, h: 50, sensorColor: 'red' },
+  ];
+  assert.strictEqual(MISSIONS.fieldSwap.colorAtPosition(125, 125, objects), 'red');
+});
+
+test('colorAtPosition: returns "none" when point is outside all rects', () => {
+  const { MISSIONS } = makeEnv();
+  const objects = [
+    { type: 'rect', x: 100, y: 100, w: 50, h: 50, sensorColor: 'red' },
+  ];
+  assert.strictEqual(MISSIONS.fieldSwap.colorAtPosition(200, 200, objects), 'none');
+});
+
+test('colorAtPosition: returns "none" for an empty field-objects array', () => {
+  const { MISSIONS } = makeEnv();
+  assert.strictEqual(MISSIONS.fieldSwap.colorAtPosition(100, 100, []), 'none');
+});
+
+test('colorAtPosition: skips objects without a sensorColor', () => {
+  const { MISSIONS } = makeEnv();
+  const objects = [
+    { type: 'rect', x: 100, y: 100, w: 50, h: 50 },             // visual only
+    { type: 'rect', x: 100, y: 100, w: 50, h: 50, sensorColor: 'blue' },
+  ];
+  assert.strictEqual(MISSIONS.fieldSwap.colorAtPosition(125, 125, objects), 'blue');
+});
+
+test('colorAtPosition: rect edge is inclusive (point on the boundary counts as inside)', () => {
+  const { MISSIONS } = makeEnv();
+  const objects = [{ type: 'rect', x: 100, y: 100, w: 50, h: 50, sensorColor: 'green' }];
+  assert.strictEqual(MISSIONS.fieldSwap.colorAtPosition(100, 100, objects), 'green');  // BL corner
+  assert.strictEqual(MISSIONS.fieldSwap.colorAtPosition(150, 150, objects), 'green');  // TR corner
+});
+
+test('colorAtPosition: line read uses half-thickness with a 20mm minimum sensing distance', () => {
+  const { MISSIONS } = makeEnv();
+  const objects = [{ type: 'line', x1: 0, y1: 100, x2: 1000, y2: 100, lw: 4, sensorColor: 'black' }];
+  // 15mm from the line: within the 20mm minimum sensing distance, should read.
+  assert.strictEqual(MISSIONS.fieldSwap.colorAtPosition(500, 115, objects), 'black');
+  // 25mm from the line: outside the 20mm minimum, should NOT read.
+  assert.strictEqual(MISSIONS.fieldSwap.colorAtPosition(500, 125, objects), 'none');
+});
+
+test('colorAtPosition: thick line uses half-thickness when larger than 20mm', () => {
+  const { MISSIONS } = makeEnv();
+  const objects = [{ type: 'line', x1: 0, y1: 100, x2: 1000, y2: 100, lw: 60, sensorColor: 'red' }];
+  // 25mm from the line: within half-thickness (30mm), should read.
+  assert.strictEqual(MISSIONS.fieldSwap.colorAtPosition(500, 125, objects), 'red');
+  // 35mm from the line: outside half-thickness, should not read.
+  assert.strictEqual(MISSIONS.fieldSwap.colorAtPosition(500, 135, objects), 'none');
+});
+
+test('colorAtPosition: handles a circle field object', () => {
+  const { MISSIONS } = makeEnv();
+  const objects = [{ type: 'circle', x: 100, y: 100, r: 30, sensorColor: 'yellow' }];
+  assert.strictEqual(MISSIONS.fieldSwap.colorAtPosition(110, 110, objects), 'yellow'); // inside
+  assert.strictEqual(MISSIONS.fieldSwap.colorAtPosition(150, 100, objects), 'none');   // outside
+});
+
+test('colorAtPosition: returns the first matching object when two rects overlap', () => {
+  const { MISSIONS } = makeEnv();
+  const objects = [
+    { type: 'rect', x: 100, y: 100, w: 50, h: 50, sensorColor: 'red' },
+    { type: 'rect', x: 100, y: 100, w: 50, h: 50, sensorColor: 'blue' },
+  ];
+  assert.strictEqual(MISSIONS.fieldSwap.colorAtPosition(125, 125, objects), 'red');
+});
+
+test('colorAtPosition: reads from the passed-in array (mission swap actually changes sensor reads)', () => {
+  // Regression: _colorAtPosition was iterating the global FIELD_OBJECTS, so
+  // missions that swapped this._fieldObjects via setMissionField saw the
+  // zones render but the color sensor still read the sandbox default.
+  const { MISSIONS } = makeEnv();
+  const sandboxObjects = [
+    { type: 'rect', x: 0, y: 0, w: 100, h: 100, sensorColor: 'yellow' },
+  ];
+  const missionObjects = [
+    { type: 'rect', x: 0, y: 0, w: 100, h: 100, sensorColor: 'red' },
+  ];
+  // Same point, different field arrays → different reads.
+  assert.strictEqual(MISSIONS.fieldSwap.colorAtPosition(50, 50, sandboxObjects), 'yellow');
+  assert.strictEqual(MISSIONS.fieldSwap.colorAtPosition(50, 50, missionObjects), 'red');
+});
