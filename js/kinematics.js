@@ -94,8 +94,40 @@
     const xMax = geom.fieldW - maxDx;
     const yMin = -minDy;
     const yMax = geom.fieldH - maxDy;
-    const cx = Math.max(xMin, Math.min(xMax, pose.x));
-    const cy = Math.max(yMin, Math.min(yMax, pose.y));
+    let cx = Math.max(xMin, Math.min(xMax, pose.x));
+    let cy = Math.max(yMin, Math.min(yMax, pose.y));
+
+    // Wall push-out. Walls are math-y-up AABBs ({x, y, w, h}, x/y = bottom-left).
+    // For each wall, compute the AABB-vs-rotated-robot-bounding-AABB overlap;
+    // if overlap exists, shift the robot centre along the smaller-overlap axis
+    // until just out of the wall. Box2D doesn't generate contacts between
+    // kinematic and static bodies (see comment above), so the field walls
+    // already use this same outside-engine clamp approach.
+    const walls = geom.walls || [];
+    for (const w of walls) {
+      const robotMinX = cx + minDx;
+      const robotMaxX = cx + maxDx;
+      const robotMinY = cy + minDy;
+      const robotMaxY = cy + maxDy;
+      const wallMinX = w.x;
+      const wallMaxX = w.x + w.w;
+      const wallMinY = w.y;
+      const wallMaxY = w.y + w.h;
+      const overlapX = Math.min(robotMaxX, wallMaxX) - Math.max(robotMinX, wallMinX);
+      const overlapY = Math.min(robotMaxY, wallMaxY) - Math.max(robotMinY, wallMinY);
+      if (overlapX > 0 && overlapY > 0) {
+        if (overlapX < overlapY) {
+          const robotCx = (robotMinX + robotMaxX) / 2;
+          const wallCx  = (wallMinX  + wallMaxX)  / 2;
+          cx += robotCx < wallCx ? -overlapX : +overlapX;
+        } else {
+          const robotCy = (robotMinY + robotMaxY) / 2;
+          const wallCy  = (wallMinY  + wallMaxY)  / 2;
+          cy += robotCy < wallCy ? -overlapY : +overlapY;
+        }
+      }
+    }
+
     return {
       x: cx,
       y: cy,

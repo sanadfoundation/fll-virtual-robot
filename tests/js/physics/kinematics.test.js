@@ -202,6 +202,67 @@ test('clampRobotPose: heading east, past right wall ⇒ chassis-front + bumper h
   assert.strictEqual(out.clamped, true);
 });
 
+test('clampRobotPose: with walls=[] behaves like no walls (no regression)', () => {
+  const out = k.clampRobotPose({ x: 1000, y: 500, angle: 0 }, { ...GEOM, walls: [] });
+  assert.strictEqual(out.x, 1000);
+  assert.strictEqual(out.y, 500);
+  assert.strictEqual(out.clamped, false);
+});
+
+test('clampRobotPose: wall to the east of the robot is not touched ⇒ unchanged', () => {
+  // Robot at (500, 500) heading 0; wall at x=900 (far east). Robot AABB ends
+  // at 500+110=610, wall starts at 900. No overlap.
+  const walls = [{ x: 900, y: 400, w: 100, h: 200 }];
+  const out = k.clampRobotPose({ x: 500, y: 500, angle: 0 }, { ...GEOM, walls });
+  assert.strictEqual(out.x, 500);
+  assert.strictEqual(out.y, 500);
+  assert.strictEqual(out.clamped, false);
+});
+
+test('clampRobotPose: wall overlapping robot from the east ⇒ robot pushed west', () => {
+  // Robot at (500, 500) heading 0. AABB extents: x in [400, 610], y in [420, 580].
+  // Wall AABB: x in [600, 700], y in [400, 600]. Overlap: x = 10, y = ~160.
+  // Min-axis push = X, so robot's max-X (610) should align to wall's min-X (600).
+  // pose.x must drop by 10 → 490.
+  const walls = [{ x: 600, y: 400, w: 100, h: 200 }];
+  const out = k.clampRobotPose({ x: 500, y: 500, angle: 0 }, { ...GEOM, walls });
+  assert.strictEqual(out.x, 490);
+  assert.strictEqual(out.y, 500);
+  assert.strictEqual(out.clamped, true);
+});
+
+test('clampRobotPose: wall overlapping robot from the west ⇒ robot pushed east', () => {
+  // Robot at (500, 500); wall at x=380..420 (slightly west). Overlap: x = 20.
+  // Robot's min-X (400) should align to wall's max-X (420). pose.x rises by 20 → 520.
+  const walls = [{ x: 380, y: 400, w: 40, h: 200 }];
+  const out = k.clampRobotPose({ x: 500, y: 500, angle: 0 }, { ...GEOM, walls });
+  assert.strictEqual(out.x, 520);
+  assert.strictEqual(out.clamped, true);
+});
+
+test('clampRobotPose: wall overlapping robot from the north ⇒ robot pushed south', () => {
+  // Robot AABB y in [420, 580]. Wall at y in [560, 700]. Overlap y = 20, x ≈ 200.
+  // Min-axis push = Y, robot top (580) → wall bottom (560). pose.y drops 20 → 480.
+  const walls = [{ x: 400, y: 560, w: 200, h: 140 }];
+  const out = k.clampRobotPose({ x: 500, y: 500, angle: 0 }, { ...GEOM, walls });
+  assert.strictEqual(out.y, 480);
+  assert.strictEqual(out.clamped, true);
+});
+
+test('clampRobotPose: multiple walls — robot is pushed out of each in turn', () => {
+  // Two walls touching the robot from east AND north. Robot ends up shifted
+  // in both axes. (The push-out is applied per-wall in sequence.)
+  const walls = [
+    { x: 600, y: 400, w: 100, h: 200 },   // overlaps east, push west by 10
+    { x: 400, y: 540, w: 200, h: 140 },   // y overlap=40, x overlap=190 (after first wall pushed pose.x → 490; new x AABB 390..600, still overlaps wall2's 400..600). Push south by ~40
+  ];
+  const out = k.clampRobotPose({ x: 500, y: 500, angle: 0 }, { ...GEOM, walls });
+  assert.strictEqual(out.clamped, true);
+  // Final pose has been pushed west by the first wall and south by the second.
+  assert.ok(out.x < 500, `expected pose.x < 500, got ${out.x}`);
+  assert.ok(out.y < 500, `expected pose.y < 500, got ${out.y}`);
+});
+
 test('clampRobotPose: heading east, past left wall ⇒ chassis-back hugs wall (no bumper at back)', () => {
   // Body angle 0 ⇒ back = world -X. Back extent = bodyH/2 = 100. xMin = 100.
   const out = k.clampRobotPose({ x: 50, y: 500, angle: 0 }, GEOM);

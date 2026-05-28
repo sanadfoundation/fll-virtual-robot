@@ -1592,7 +1592,8 @@ class RobotSimulator {
       const clamped = window.kinematics.clampRobotPose(
         { x: pose.x, y: pose.y, angle: pose.angle },
         { bodyW: ROBOT_BODY_W, bodyH: ROBOT_BODY_H, bumperDepth: BUMPER_DEPTH_MM,
-          fieldW: FIELD_W_MM, fieldH: FIELD_H_MM },
+          fieldW: FIELD_W_MM, fieldH: FIELD_H_MM,
+          walls: (this._walls || []).map(w => w.cfg) },
       );
       if (clamped.clamped) {
         this.physics.setKinematicPose(this.robotBody, clamped.x, clamped.y, pose.angle);
