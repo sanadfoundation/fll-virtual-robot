@@ -30,16 +30,43 @@
       throw new Error('mission: type "mission" requires at least one step');
     }
 
-    // Optional lines/walls — validate basic shape if present.
+    // Validate lines
+    const LINE_COLORS = ['black', 'red', 'green', 'blue', 'yellow', 'orange'];
     for (const line of (raw.field.lines || [])) {
-      for (const k of ['id', 'x1', 'y1', 'x2', 'y2']) {
+      if (typeof line.id !== 'string' || line.id === '') {
+        throw new Error('mission line: id must be a non-empty string');
+      }
+      for (const k of ['x1', 'y1', 'x2', 'y2']) {
         if (line[k] === undefined) throw new Error(`mission line: missing "${k}"`);
+        if (typeof line[k] !== 'number' || !Number.isFinite(line[k])) {
+          throw new Error(`mission line: "${k}" must be a finite number`);
+        }
+      }
+      if (!LINE_COLORS.includes(line.color)) {
+        throw new Error(`mission line: invalid color "${line.color}"; must be one of ${LINE_COLORS.join(', ')}`);
+      }
+      if (typeof line.thickness !== 'number' || !Number.isFinite(line.thickness) ||
+          line.thickness < 1 || line.thickness > 20) {
+        throw new Error(`mission line: thickness must be a finite number between 1 and 20`);
       }
     }
+
+    // Validate walls
     for (const wall of (raw.field.walls || [])) {
-      for (const k of ['id', 'x', 'y', 'w', 'h']) {
-        if (wall[k] === undefined) throw new Error(`mission wall: missing "${k}"`);
+      if (typeof wall.id !== 'string' || wall.id === '') {
+        throw new Error('mission wall: id must be a non-empty string');
       }
+      if (wall.shape !== 'rect') {
+        throw new Error(`mission wall: shape must be "rect", got "${wall.shape}"`);
+      }
+      for (const k of ['x', 'y', 'w', 'h']) {
+        if (wall[k] === undefined) throw new Error(`mission wall: missing "${k}"`);
+        if (typeof wall[k] !== 'number' || !Number.isFinite(wall[k])) {
+          throw new Error(`mission wall: "${k}" must be a finite number`);
+        }
+      }
+      if (wall.w <= 0) throw new Error('mission wall: w must be > 0');
+      if (wall.h <= 0) throw new Error('mission wall: h must be > 0');
     }
 
     const zoneIds     = new Set((raw.field.zones     || []).map(z => z.id));

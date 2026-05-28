@@ -177,3 +177,102 @@ test('load: rejects all_of / any_of with an empty "of" array', () => {
       new RegExp(`${kind} requires non-empty "of" array`));
   }
 });
+
+// ─── lines + walls validation (Chunk B TDD redo) ────────────────────────────
+
+const MISSION_WITH_LINES_WALLS = {
+  ...MINIMAL_MISSION,
+  field: {
+    ...MINIMAL_MISSION.field,
+    lines: [{ id: 'l1', x1: 0, y1: 0, x2: 100, y2: 100, color: 'black', thickness: 4 }],
+    walls: [{ id: 'w1', shape: 'rect', x: 200, y: 200, w: 100, h: 50 }],
+  },
+};
+
+test('lines+walls: mission with empty lines and walls arrays loads successfully', () => {
+  const ctx = env();
+  const m = JSON.parse(JSON.stringify(MINIMAL_MISSION));
+  m.field.lines = [];
+  m.field.walls = [];
+  const result = ctx.MISSIONS.loader.load(m);
+  assert.strictEqual(result.id, 'm1');
+});
+
+test('lines+walls: mission with no lines/walls keys defaults them to [] and loads', () => {
+  const ctx = env();
+  const m = JSON.parse(JSON.stringify(MINIMAL_MISSION));
+  delete m.field.lines;
+  delete m.field.walls;
+  const result = ctx.MISSIONS.loader.load(m);
+  assert.strictEqual(result.id, 'm1');
+  assert.deepStrictEqual(result.field.lines || [], []);
+  assert.deepStrictEqual(result.field.walls || [], []);
+});
+
+test('lines+walls: a line missing x1 fails with a clear error message', () => {
+  const ctx = env();
+  const m = JSON.parse(JSON.stringify(MISSION_WITH_LINES_WALLS));
+  delete m.field.lines[0].x1;
+  assert.throws(() => ctx.MISSIONS.loader.load(m), /x1/);
+});
+
+test('lines+walls: a line with invalid color "purple" fails', () => {
+  const ctx = env();
+  const m = JSON.parse(JSON.stringify(MISSION_WITH_LINES_WALLS));
+  m.field.lines[0].color = 'purple';
+  assert.throws(() => ctx.MISSIONS.loader.load(m), /color/i);
+});
+
+test('lines+walls: a line with thickness 0 fails', () => {
+  const ctx = env();
+  const m = JSON.parse(JSON.stringify(MISSION_WITH_LINES_WALLS));
+  m.field.lines[0].thickness = 0;
+  assert.throws(() => ctx.MISSIONS.loader.load(m), /thickness/i);
+});
+
+test('lines+walls: a line with thickness 25 fails (out of 1–20)', () => {
+  const ctx = env();
+  const m = JSON.parse(JSON.stringify(MISSION_WITH_LINES_WALLS));
+  m.field.lines[0].thickness = 25;
+  assert.throws(() => ctx.MISSIONS.loader.load(m), /thickness/i);
+});
+
+test('lines+walls: a line with an empty id fails', () => {
+  const ctx = env();
+  const m = JSON.parse(JSON.stringify(MISSION_WITH_LINES_WALLS));
+  m.field.lines[0].id = '';
+  assert.throws(() => ctx.MISSIONS.loader.load(m), /id/i);
+});
+
+test('lines+walls: a wall with shape !== "rect" fails', () => {
+  const ctx = env();
+  const m = JSON.parse(JSON.stringify(MISSION_WITH_LINES_WALLS));
+  m.field.walls[0].shape = 'circle';
+  assert.throws(() => ctx.MISSIONS.loader.load(m), /shape/i);
+});
+
+test('lines+walls: a wall with w <= 0 fails', () => {
+  const ctx = env();
+  const m = JSON.parse(JSON.stringify(MISSION_WITH_LINES_WALLS));
+  m.field.walls[0].w = 0;
+  assert.throws(() => ctx.MISSIONS.loader.load(m), /w must be > 0/i);
+});
+
+test('lines+walls: a wall missing x fails with a clear error message', () => {
+  const ctx = env();
+  const m = JSON.parse(JSON.stringify(MISSION_WITH_LINES_WALLS));
+  delete m.field.walls[0].x;
+  assert.throws(() => ctx.MISSIONS.loader.load(m), /x/);
+});
+
+test('lines+walls: valid mixed-field missions (zones + obstacles + lines + walls) round-trip unchanged', () => {
+  const ctx = env();
+  const m = JSON.parse(JSON.stringify(MISSION_WITH_LINES_WALLS));
+  const result = ctx.MISSIONS.loader.load(m);
+  assert.strictEqual(result.field.lines.length, 1);
+  assert.strictEqual(result.field.lines[0].id, 'l1');
+  assert.strictEqual(result.field.walls.length, 1);
+  assert.strictEqual(result.field.walls[0].id, 'w1');
+  assert.strictEqual(result.field.zones.length, 1);
+  assert.strictEqual(result.field.obstacles.length, 1);
+});
