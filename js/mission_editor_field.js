@@ -369,13 +369,31 @@
         rect.classList.add('editor-obstacle');
         rect.setAttribute('data-id', o.id);
         rect.setAttribute('data-kind', 'obstacle');
+        if (o.color) rect.setAttribute('data-color', o.color);
         if (state.selection && state.selection.kind === 'obstacle' && state.selection.id === o.id) {
           rect.classList.add('selected');
         }
         rect.addEventListener('click', (ev) => handleElementClick(ev, 'obstacle', o.id));
         obstaclesGroup.appendChild(rect);
+        // Label — show even in editor when set, so authors can see what's what.
+        // The label is inside a transformed (math y-up) group, so we flip
+        // text back to upright by inverting Y around the centre.
+        if (o.label) {
+          const text = createSvg('text');
+          const cx = o.x;
+          const cy = o.y;
+          text.setAttribute('x', cx);
+          text.setAttribute('y', cy);
+          // Flip back to upright glyphs inside the y-up group.
+          text.setAttribute('transform', `translate(0, ${2 * cy}) scale(1, -1)`);
+          text.setAttribute('text-anchor', 'middle');
+          text.setAttribute('dominant-baseline', 'middle');
+          text.classList.add('editor-obstacle-label');
+          text.textContent = o.label;
+          obstaclesGroup.appendChild(text);
+        }
       }
-      // Walls (static obstacles, dark fill) — TL-anchored like zones
+      // Walls (static obstacles) — TL-anchored like zones
       for (const w of (state.field.walls || [])) {
         const rect = createSvg('rect');
         rect.setAttribute('x', w.x);
@@ -385,6 +403,7 @@
         rect.classList.add('editor-wall');
         rect.setAttribute('data-id', w.id);
         rect.setAttribute('data-kind', 'wall');
+        if (w.color) rect.setAttribute('data-color', w.color);
         if (state.selection && state.selection.kind === 'wall' && state.selection.id === w.id) {
           rect.classList.add('selected');
         }

@@ -3,7 +3,9 @@
   const MISSIONS = (global.MISSIONS = global.MISSIONS || {});
   const editor = (MISSIONS.editor = MISSIONS.editor || {});
 
-  const ZONE_COLORS = ['red', 'green', 'blue', 'yellow', 'orange', 'purple'];
+  const ZONE_COLORS     = ['red', 'green', 'blue', 'yellow', 'orange', 'purple'];
+  const OBSTACLE_COLORS = ['purple', 'red', 'green', 'blue', 'yellow', 'orange', 'cyan', 'black'];
+  const WALL_COLORS     = ['grey', 'red', 'green', 'blue', 'yellow', 'orange', 'purple', 'cyan'];
   const LINE_COLORS = ['black', 'red', 'green', 'blue', 'yellow', 'orange'];
 
   function attach(app, doc) {
@@ -42,6 +44,23 @@
         );
       });
       wrap.appendChild(makeField('Label (shown on obstacle)', labelInput));
+
+      const colorRow = doc.createElement('div');
+      colorRow.classList.add('inspector-color-row');
+      for (const c of OBSTACLE_COLORS) {
+        const sw = doc.createElement('button');
+        sw.setAttribute('type', 'button');
+        sw.classList.add('inspector-color-swatch');
+        sw.setAttribute('data-color', c);
+        if ((o.color || 'purple') === c) sw.classList.add('active');
+        sw.addEventListener('click', () => {
+          app.setEditorState(
+            MISSIONS.editor.state.setObstacleColor(app.editorState, o.id, c)
+          );
+        });
+        colorRow.appendChild(sw);
+      }
+      wrap.appendChild(makeField('Color', colorRow));
 
       const wInput = doc.createElement('input');
       wInput.setAttribute('type', 'number');
@@ -166,6 +185,23 @@
       idLine.classList.add('inspector-id');
       idLine.textContent = `ID: ${w.id}`;
       wrap.appendChild(idLine);
+
+      const colorRow = doc.createElement('div');
+      colorRow.classList.add('inspector-color-row');
+      for (const c of WALL_COLORS) {
+        const sw = doc.createElement('button');
+        sw.setAttribute('type', 'button');
+        sw.classList.add('inspector-color-swatch');
+        sw.setAttribute('data-color', c);
+        if ((w.color || 'grey') === c) sw.classList.add('active');
+        sw.addEventListener('click', () => {
+          app.setEditorState(
+            MISSIONS.editor.state.setWallColor(app.editorState, w.id, c)
+          );
+        });
+        colorRow.appendChild(sw);
+      }
+      wrap.appendChild(makeField('Color', colorRow));
 
       const wInput = doc.createElement('input');
       wInput.setAttribute('type', 'number');

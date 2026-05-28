@@ -545,10 +545,10 @@ class RobotSimulator {
       return;
     }
     ctx.save();
-    ctx.fillStyle   = '#4a5568';
-    ctx.strokeStyle = '#2d3748';
-    ctx.lineWidth   = 2 * s;
+    ctx.lineWidth = 2 * s;
     for (const w of this._walls) {
+      ctx.fillStyle   = w.cfg.fill   || '#4a5568';
+      ctx.strokeStyle = w.cfg.stroke || '#2d3748';
       const canvasY = (FIELD_H_MM - w.cfg.y - w.cfg.h) * s;
       ctx.fillRect(w.cfg.x * s, canvasY, w.cfg.w * s, w.cfg.h * s);
       ctx.strokeRect(w.cfg.x * s, canvasY, w.cfg.w * s, w.cfg.h * s);

@@ -216,6 +216,20 @@
     return next;
   }
 
+  function setObstacleColor(state, id, color) {
+    const next = dirty(state);
+    const o = next.field.obstacles.find(o => o.id === id);
+    if (o) o.color = color;
+    return next;
+  }
+
+  function setWallColor(state, id, color) {
+    const next = dirty(state);
+    const w = next.field.walls.find(w => w.id === id);
+    if (w) w.color = color;
+    return next;
+  }
+
   function addStep(state) {
     const next = dirty(state);
     const id = shortId('s');
@@ -355,7 +369,7 @@
     addLine, moveLineEndpoint, setLineProps, deleteLine,
     addWall, moveWall, resizeWall, deleteWall,
     setRobotStart, setSelection, setMeta,
-    setObstacleLabel, setZoneColor,
+    setObstacleLabel, setZoneColor, setObstacleColor, setWallColor,
     addStep, editStep, deleteStep, reorderStep,
     serializeToMission, loadFromMission, validate,
     _clone: clone,

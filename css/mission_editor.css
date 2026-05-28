@@ -240,6 +240,40 @@ body[data-mode="editor"] .editor-overlay-svg { pointer-events: auto; }
   stroke-width: 3;
   cursor: move;
 }
+.editor-obstacle[data-color="red"]    { fill: #c0392b; stroke: #6b1d13; }
+.editor-obstacle[data-color="green"]  { fill: #27ae60; stroke: #145a32; }
+.editor-obstacle[data-color="blue"]   { fill: #2980b9; stroke: #154360; }
+.editor-obstacle[data-color="yellow"] { fill: #f1c40f; stroke: #7d6608; }
+.editor-obstacle[data-color="orange"] { fill: #e67e22; stroke: #784213; }
+.editor-obstacle[data-color="purple"] { fill: #9b59b6; stroke: #5e2c79; }
+.editor-obstacle[data-color="cyan"]   { fill: #22d3ee; stroke: #155e75; }
+.editor-obstacle[data-color="black"]  { fill: #2c3e50; stroke: #0a0f17; }
+
+.editor-obstacle-label {
+  font-family: var(--font-ui);
+  font-size: 28px;
+  font-weight: 800;
+  fill: rgba(255,255,255,0.95);
+  paint-order: stroke;
+  stroke: rgba(0,0,0,0.45);
+  stroke-width: 2;
+  pointer-events: none;
+}
+
+.editor-wall {
+  fill: #4a5568;
+  stroke: #2d3748;
+  stroke-width: 3;
+  cursor: move;
+}
+.editor-wall[data-color="red"]    { fill: #7f2118; stroke: #3a0c08; }
+.editor-wall[data-color="green"]  { fill: #1e5f3a; stroke: #0c2d1c; }
+.editor-wall[data-color="blue"]   { fill: #1c4e72; stroke: #0a2238; }
+.editor-wall[data-color="yellow"] { fill: #b08f0a; stroke: #4d3e04; }
+.editor-wall[data-color="orange"] { fill: #b35a16; stroke: #4d2706; }
+.editor-wall[data-color="purple"] { fill: #6e3d83; stroke: #2d1734; }
+.editor-wall[data-color="cyan"]   { fill: #1c8aa7; stroke: #0a3742; }
+.editor-wall[data-color="grey"]   { fill: #4a5568; stroke: #2d3748; }
 
 .editor-robot-start {
   fill: #22c55e;
@@ -454,6 +488,8 @@ body[data-mode="editor"] .editor-overlay-svg { pointer-events: auto; }
 }
 
 .inspector-color-swatch[data-color="black"] { background: #222; }
+.inspector-color-swatch[data-color="cyan"]  { background: #22d3ee; }
+.inspector-color-swatch[data-color="grey"]  { background: #4a5568; }
 
 /* Resize handles. */
 .editor-resize-handle {

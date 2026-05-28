@@ -196,3 +196,41 @@ test('deleteWall: removes the named wall; non-existent id is a no-op', () => {
   });
   assert.strictEqual(next.field.walls.length, 1);
 });
+
+// ─── setWallColor ───────────────────────────────────────────────────────────
+
+test('setWallColor: sets color on the named wall', () => {
+  const { ctx, s } = base();
+  let next = ctx.MISSIONS.editor.state.addWall(s, { x: 0, y: 0 });
+  const id = next.field.walls[0].id;
+  next = ctx.MISSIONS.editor.state.setWallColor(next, id, 'red');
+  assert.strictEqual(next.field.walls[0].color, 'red');
+});
+
+test('setWallColor: non-existent id is a no-op', () => {
+  const { ctx, s } = base();
+  let next = ctx.MISSIONS.editor.state.addWall(s, { x: 0, y: 0 });
+  assert.doesNotThrow(() => {
+    next = ctx.MISSIONS.editor.state.setWallColor(next, 'no-such-id', 'red');
+  });
+  assert.strictEqual(next.field.walls[0].color, undefined);
+});
+
+// ─── setObstacleColor ──────────────────────────────────────────────────────
+
+test('setObstacleColor: sets color on the named obstacle', () => {
+  const { ctx, s } = base();
+  let next = ctx.MISSIONS.editor.state.addObstacle(s, { x: 0, y: 0 });
+  const id = next.field.obstacles[0].id;
+  next = ctx.MISSIONS.editor.state.setObstacleColor(next, id, 'blue');
+  assert.strictEqual(next.field.obstacles[0].color, 'blue');
+});
+
+test('setObstacleColor: non-existent id is a no-op', () => {
+  const { ctx, s } = base();
+  let next = ctx.MISSIONS.editor.state.addObstacle(s, { x: 0, y: 0 });
+  assert.doesNotThrow(() => {
+    next = ctx.MISSIONS.editor.state.setObstacleColor(next, 'no-such-id', 'blue');
+  });
+  assert.strictEqual(next.field.obstacles[0].color, undefined);
+});

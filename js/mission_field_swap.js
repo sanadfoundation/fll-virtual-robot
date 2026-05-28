@@ -28,6 +28,29 @@
     purple: '#8030c0',
   };
 
+  // Obstacle and wall palettes mirror the editor swatches so a colour
+  // chosen in the editor's inspector renders the same in Play mode.
+  const OBSTACLE_PALETTE = {
+    purple: { fill: '#9b59b6', stroke: '#5e2c79' },
+    red:    { fill: '#c0392b', stroke: '#6b1d13' },
+    green:  { fill: '#27ae60', stroke: '#145a32' },
+    blue:   { fill: '#2980b9', stroke: '#154360' },
+    yellow: { fill: '#f1c40f', stroke: '#7d6608' },
+    orange: { fill: '#e67e22', stroke: '#784213' },
+    cyan:   { fill: '#22d3ee', stroke: '#155e75' },
+    black:  { fill: '#2c3e50', stroke: '#0a0f17' },
+  };
+  const WALL_PALETTE = {
+    grey:   { fill: '#4a5568', stroke: '#2d3748' },
+    red:    { fill: '#7f2118', stroke: '#3a0c08' },
+    green:  { fill: '#1e5f3a', stroke: '#0c2d1c' },
+    blue:   { fill: '#1c4e72', stroke: '#0a2238' },
+    yellow: { fill: '#b08f0a', stroke: '#4d3e04' },
+    orange: { fill: '#b35a16', stroke: '#4d2706' },
+    purple: { fill: '#6e3d83', stroke: '#2d1734' },
+    cyan:   { fill: '#1c8aa7', stroke: '#0a3742' },
+  };
+
   // Line color → canvas stroke (same table as the lineColorToStroke closure in
   // simulator.js — kept in sync here so the module is self-contained).
   const LINE_STROKE = {
@@ -98,28 +121,38 @@
     disposeBodies(prev.walls     || [], physics);
 
     // Build new obstacle bodies.
-    const obstacles = (missionField.obstacles || []).map(cfg => ({
-      cfg: {
-        x:      cfg.x,
-        y:      cfg.y,
-        w:      cfg.w,
-        h:      cfg.h,
-        fill:   cfg.fill   || '#9b59b6',
-        stroke: cfg.stroke || '#5e2c79',
-        label:  cfg.label  || cfg.id || '',
-      },
-      body: physics
-        ? physics.addObstacleBox(cfg.w / 2, cfg.h / 2, { x: cfg.x, y: cfg.y })
-        : null,
-    }));
+    const obstacles = (missionField.obstacles || []).map(cfg => {
+      const palette = OBSTACLE_PALETTE[cfg.color] || null;
+      return {
+        cfg: {
+          x:      cfg.x,
+          y:      cfg.y,
+          w:      cfg.w,
+          h:      cfg.h,
+          fill:   cfg.fill   || (palette && palette.fill)   || '#9b59b6',
+          stroke: cfg.stroke || (palette && palette.stroke) || '#5e2c79',
+          label:  cfg.label  || cfg.id || '',
+        },
+        body: physics
+          ? physics.addObstacleBox(cfg.w / 2, cfg.h / 2, { x: cfg.x, y: cfg.y })
+          : null,
+      };
+    });
 
     // Build new static wall bodies.
-    const walls = (missionField.walls || []).map(cfg => ({
-      cfg: { x: cfg.x, y: cfg.y, w: cfg.w, h: cfg.h },
-      body: physics
-        ? physics.addWallBox(cfg.w / 2, cfg.h / 2, { x: cfg.x, y: cfg.y })
-        : null,
-    }));
+    const walls = (missionField.walls || []).map(cfg => {
+      const palette = WALL_PALETTE[cfg.color] || null;
+      return {
+        cfg: {
+          x: cfg.x, y: cfg.y, w: cfg.w, h: cfg.h,
+          fill:   (palette && palette.fill)   || '#4a5568',
+          stroke: (palette && palette.stroke) || '#2d3748',
+        },
+        body: physics
+          ? physics.addWallBox(cfg.w / 2, cfg.h / 2, { x: cfg.x, y: cfg.y })
+          : null,
+      };
+    });
 
     return { fieldObjects, obstacles, walls };
   }
