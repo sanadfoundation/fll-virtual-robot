@@ -28,7 +28,18 @@ function makeEl(tag) {
       get length()     { return this._set.size; },
     },
     textContent: '',
-    innerHTML: '',
+    get innerHTML() { return ''; },
+    set innerHTML(v) {
+      if (v === '' || v == null) {
+        // Clear all children
+        while (el.children.length) {
+          const c = el.children[0];
+          el.children.splice(0, 1);
+          c.parentEl = null;
+        }
+      }
+      // Non-empty innerHTML is not implemented; only '' clearing is needed for tests.
+    },
     value: '',
     hidden: false,
     disabled: false,
@@ -74,6 +85,15 @@ function makeEl(tag) {
       const out = [];
       _findAll(this, sel, out);
       return out;
+    },
+    closest(sel) {
+      // Walk up the tree (including self) looking for the selector.
+      let cur = el;
+      while (cur) {
+        if (_matches(cur, sel)) return cur;
+        cur = cur.parentEl;
+      }
+      return null;
     },
     focus() {},
     blur() {},
@@ -158,12 +178,30 @@ function makeEditorDoc(idsExtra = []) {
     'editor-cond-section', 'editor-cond-workspace',
     // shared with Plan 1 (sandbox surfaces hidden in editor mode)
     'mission-map', 'mission-map-title', 'mm-exit',
+    // library modal
+    'mission-library-modal', 'mission-library-backdrop',
+    'btn-library-close', 'btn-library-new', 'btn-library-import',
+    'library-file-input', 'library-rail', 'library-grid', 'library-empty',
+    'library-count-badge',
+    'rail-count-all', 'rail-count-bundled', 'rail-count-mine', 'rail-count-imported',
   ].concat(idsExtra);
   for (const id of ids) {
     const el = doc.createElement('div');
     el.setAttribute('id', id);
     doc.body.appendChild(el);
   }
+
+  // Add rail buttons inside library-rail so click delegation works.
+  const rail = doc.getElementById('library-rail');
+  if (rail) {
+    for (const source of ['all', 'bundled', 'mine', 'imported']) {
+      const btn = doc.createElement('button');
+      btn.classList.add('library-rail-btn');
+      btn.setAttribute('data-source', source);
+      rail.appendChild(btn);
+    }
+  }
+
   return doc;
 }
 

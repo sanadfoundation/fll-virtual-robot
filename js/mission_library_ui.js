@@ -6,24 +6,31 @@
     opts = opts || {};
     const storage = opts.storage || global.localStorage;
 
-    const modal       = doc.getElementById('mission-library-modal');
-    const backdrop    = doc.getElementById('mission-library-backdrop');
-    const closeBtn    = doc.getElementById('btn-library-close');
-    const newBtn      = doc.getElementById('btn-library-new');
-    const importBtn   = doc.getElementById('btn-library-import');
-    const fileInput   = doc.getElementById('library-file-input');
-    const rail        = doc.getElementById('library-rail');
-    const grid        = doc.getElementById('library-grid');
-    const empty       = doc.getElementById('library-empty');
-    const countBadge  = doc.getElementById('library-count-badge');
-
-    let currentSource = 'all';
+    const modal      = doc.getElementById('mission-library-modal');
+    const backdrop   = doc.getElementById('mission-library-backdrop');
+    const closeBtn   = doc.getElementById('btn-library-close');
+    const newBtn     = doc.getElementById('btn-library-new');
+    const importBtn  = doc.getElementById('btn-library-import');
+    const fileInput  = doc.getElementById('library-file-input');
+    const rail       = doc.getElementById('library-rail');
+    const grid       = doc.getElementById('library-grid');
+    const empty      = doc.getElementById('library-empty');
+    const countBadge = doc.getElementById('library-count-badge');
 
     if (!modal) return;
 
-    function open()  { modal.hidden = false; refresh(); }
-    function close() { modal.hidden = true;  }
+    // Start hidden
+    modal.hidden = true;
+
+    let currentSource = 'all';
+
+    function close() { modal.hidden = true; }
     function isOpen() { return !modal.hidden; }
+
+    async function open() {
+      modal.hidden = false;
+      await refresh();
+    }
 
     if (backdrop) backdrop.addEventListener('click', close);
     if (closeBtn) closeBtn.addEventListener('click', close);
@@ -67,7 +74,6 @@
 
     async function _bytesToPngDataUrl(bytes) {
       if (!bytes) return null;
-      // Browser-only: convert Uint8Array to a data URL via Blob + FileReader.
       if (typeof global.Blob !== 'function' || typeof global.FileReader !== 'function') return null;
       return await new Promise((resolve) => {
         const blob = new global.Blob([bytes], { type: 'image/png' });
@@ -80,7 +86,6 @@
 
     async function _getAllForSource(source) {
       const out = { bundled: [], mine: [], imported: [] };
-      // Bundled — fetch on every open. Cheap (small JSON manifest).
       if (source === 'all' || source === 'bundled') {
         try {
           const missions = await MISSIONS.library.loadAllBundled();
@@ -108,17 +113,24 @@
       if (!grid) return;
       grid.innerHTML = '';
       const all = await _getAllForSource('all');
-      const counts = { all: all.bundled.length + all.mine.length + all.imported.length,
-                       bundled: all.bundled.length, mine: all.mine.length, imported: all.imported.length };
-      if (countBadge) countBadge.textContent = `${counts.all} MISSION${counts.all === 1 ? '' : 'S'}`;
+      const counts = {
+        all:      all.bundled.length + all.mine.length + all.imported.length,
+        bundled:  all.bundled.length,
+        mine:     all.mine.length,
+        imported: all.imported.length,
+      };
+
+      if (countBadge) {
+        countBadge.textContent = `${counts.all} MISSION${counts.all === 1 ? '' : 'S'}`;
+      }
       const railEl = (id) => doc.getElementById(id);
-      if (railEl('rail-count-all'))      railEl('rail-count-all').textContent      = counts.all;
-      if (railEl('rail-count-bundled'))  railEl('rail-count-bundled').textContent  = counts.bundled;
-      if (railEl('rail-count-mine'))     railEl('rail-count-mine').textContent     = counts.mine;
-      if (railEl('rail-count-imported')) railEl('rail-count-imported').textContent = counts.imported;
+      if (railEl('rail-count-all'))      railEl('rail-count-all').textContent      = String(counts.all);
+      if (railEl('rail-count-bundled'))  railEl('rail-count-bundled').textContent  = String(counts.bundled);
+      if (railEl('rail-count-mine'))     railEl('rail-count-mine').textContent     = String(counts.mine);
+      if (railEl('rail-count-imported')) railEl('rail-count-imported').textContent = String(counts.imported);
 
       let visible;
-      if (currentSource === 'all')      visible = [...all.bundled, ...all.mine, ...all.imported];
+      if (currentSource === 'all')           visible = [...all.bundled, ...all.mine, ...all.imported];
       else if (currentSource === 'bundled')  visible = all.bundled;
       else if (currentSource === 'mine')     visible = all.mine;
       else if (currentSource === 'imported') visible = all.imported;
@@ -139,6 +151,7 @@
       const card = doc.createElement('div');
       card.classList.add('library-card');
 
+      // Thumbnail
       const thumb = doc.createElement('div');
       thumb.classList.add('library-card-thumb');
       if (screenshot) {
@@ -159,11 +172,12 @@
       const ribbon = doc.createElement('span');
       ribbon.classList.add('library-card-ribbon');
       ribbon.textContent = source === 'bundled' ? '⭐ Bundled'
-                         : source === 'mine'     ? '👤 Mine'
+                         : source === 'mine'    ? '👤 Mine'
                          : '📥 Imported';
       thumb.appendChild(ribbon);
       card.appendChild(thumb);
 
+      // Meta
       const meta = doc.createElement('div');
       meta.classList.add('library-card-meta');
 
@@ -172,13 +186,14 @@
       title.textContent = mission.title || '(untitled)';
       meta.appendChild(title);
 
-      const author = doc.createElement('div');
-      author.classList.add('library-card-author');
+      const authorEl = doc.createElement('div');
+      authorEl.classList.add('library-card-author');
       const stepCount = (mission.steps || []).length;
-      const totalPts = (mission.steps || []).reduce((s, st) => s + (st.points || 0), 0);
-      author.textContent = `${mission.author || '—'} · ${stepCount} step${stepCount === 1 ? '' : 's'} · ${totalPts} pts`;
-      meta.appendChild(author);
+      const totalPts  = (mission.steps || []).reduce((s, st) => s + (st.points || 0), 0);
+      authorEl.textContent = `${mission.author || '—'} · ${stepCount} step${stepCount === 1 ? '' : 's'} · ${totalPts} pts`;
+      meta.appendChild(authorEl);
 
+      // Stars
       const stars = doc.createElement('div');
       stars.classList.add('library-card-stars');
       const best = MISSIONS.persistence && MISSIONS.persistence.getBest
@@ -192,6 +207,7 @@
       }
       meta.appendChild(stars);
 
+      // Actions
       const actions = doc.createElement('div');
       actions.classList.add('library-card-actions');
 
