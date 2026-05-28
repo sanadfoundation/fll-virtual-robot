@@ -2189,6 +2189,7 @@ const TOOLBOX_XML = `
     </block>
   </category>
 
+  <!-- SOUND category hidden — most blocks are no-ops in the simulator. Re-enable when audio playback is wired up.
   <category name="SOUND" colour="${C_SOUND}">
     <label text="Sound" web-class="flyout-header"/>
     <block type="flippersound_playSoundUntilDone"/>
@@ -2216,6 +2217,7 @@ const TOOLBOX_XML = `
     </block>
     <block type="sound_volume"/>
   </category>
+  -->
 
   <category name="EVENTS" colour="${C_EVENT}">
     <label text="Events" web-class="flyout-header"/>
