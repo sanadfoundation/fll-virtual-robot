@@ -229,6 +229,33 @@ test('dropdowns: obstacle dropdown options reflect placed obstacles', () => {
   assert.strictEqual(opts.length, 1);
 });
 
+test('dropdowns: obstacle option DISPLAY uses label when set; falls back to id', () => {
+  const { ctx, app } = setup();
+  app.enterEditor();
+  app.setEditorState(ctx.MISSIONS.editor.state.addObstacle(app.editorState, { x: 0, y: 0 }));
+  const id1 = app.editorState.field.obstacles[0].id;
+  app.setEditorState(ctx.MISSIONS.editor.state.setObstacleLabel(app.editorState, id1, 'Energy block'));
+  app.setEditorState(ctx.MISSIONS.editor.state.addObstacle(app.editorState, { x: 100, y: 100 }));
+  const id2 = app.editorState.field.obstacles[1].id;
+  // id2 has no label set, so display falls back to its id.
+
+  const opts = ctx.MISSIONS.editor.conditions._obstacleOptions(app.editorState);
+  assert.strictEqual(opts.length, 2);
+  // [display, value] — display = label when set, fall back to id.
+  assert.deepStrictEqual(opts[0], ['Energy block', id1]);
+  assert.deepStrictEqual(opts[1], [id2, id2]);
+});
+
+test('dropdowns: obstacle option VALUE is always the id (so the underlying condition stays stable across renames)', () => {
+  const { ctx, app } = setup();
+  app.enterEditor();
+  app.setEditorState(ctx.MISSIONS.editor.state.addObstacle(app.editorState, { x: 0, y: 0 }));
+  const id1 = app.editorState.field.obstacles[0].id;
+  app.setEditorState(ctx.MISSIONS.editor.state.setObstacleLabel(app.editorState, id1, 'My energy'));
+  const opts = ctx.MISSIONS.editor.conditions._obstacleOptions(app.editorState);
+  assert.strictEqual(opts[0][1], id1);
+});
+
 test('workspace: switching step selection reloads the workspace', () => {
   const { ctx, app } = setup();
   app.enterEditor();

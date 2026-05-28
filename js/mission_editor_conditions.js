@@ -103,7 +103,10 @@
   function obstacleOptions(state) {
     const obs = (state && state.field && state.field.obstacles) || [];
     if (obs.length === 0) return [['(no obstacles yet)', '']];
-    return obs.map(o => [o.id, o.id]);
+    // Display the user-authored label when set; fall back to id when not.
+    // Label collisions are tolerable — the option VALUE is always the id so
+    // the underlying condition stays stable across renames.
+    return obs.map(o => [o.label || o.id, o.id]);
   }
 
   function conditionToBlocks(cond) {
