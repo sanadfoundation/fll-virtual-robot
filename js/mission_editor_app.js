@@ -5,7 +5,7 @@
 
   // Attach the editor mode's DOM lifecycle to an app instance. Idempotent.
   function attach(app, doc) {
-    const TOOLBAR_IDS = ['editor-toolbar', 'editor-right-panel'];
+    const TOOLBAR_IDS = ['header-editor-controls', 'editor-right-panel'];
     const OVERLAY_ID  = 'editor-canvas-overlay';
     const TITLE_ID    = 'editor-title-input';
     const EXIT_ID     = 'btn-editor-exit';

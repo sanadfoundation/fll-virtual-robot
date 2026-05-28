@@ -60,7 +60,7 @@
 
   function showError(msg) {
     if (!savedDoc) return;
-    const toolbar = savedDoc.getElementById('editor-toolbar');
+    const toolbar = savedDoc.getElementById('header-editor-controls');
     if (!toolbar) return;
     let tag = toolbar.querySelector('.editor-error');
     if (!tag) {
@@ -73,7 +73,7 @@
 
   function clearError() {
     if (!savedDoc) return;
-    const toolbar = savedDoc.getElementById('editor-toolbar');
+    const toolbar = savedDoc.getElementById('header-editor-controls');
     if (!toolbar) return;
     const tag = toolbar.querySelector('.editor-error');
     if (tag) toolbar.removeChild(tag);

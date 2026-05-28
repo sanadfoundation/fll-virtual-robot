@@ -56,12 +56,12 @@ test('editor-app.mount(): sets body[data-mode] and unhides editor surfaces', () 
 
   app.enterEditor();
   assert.strictEqual(doc.body.dataset.mode, 'editor');
-  assert.strictEqual(doc.getElementById('editor-toolbar').hidden, false);
+  assert.strictEqual(doc.getElementById('header-editor-controls').hidden, false);
   assert.strictEqual(doc.getElementById('editor-right-panel').hidden, false);
 
   app.exitEditor();
   assert.notStrictEqual(doc.body.dataset.mode, 'editor');
-  assert.strictEqual(doc.getElementById('editor-toolbar').hidden, true);
+  assert.strictEqual(doc.getElementById('header-editor-controls').hidden, true);
 });
 
 test('editor-app.attach: wires Exit button to app.exitEditor', () => {
@@ -105,10 +105,10 @@ test('boot: attaches the editor when MISSIONS.editor.app is present', async () =
     storage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
   });
   // Editor surfaces start hidden.
-  assert.strictEqual(doc.getElementById('editor-toolbar').hidden, true);
+  assert.strictEqual(doc.getElementById('header-editor-controls').hidden, true);
   // Enter editor — surfaces unhide via the onChange handler.
   app.enterEditor();
-  assert.strictEqual(doc.getElementById('editor-toolbar').hidden, false);
+  assert.strictEqual(doc.getElementById('header-editor-controls').hidden, false);
 });
 
 test('boot: clicking #btn-missions enters the editor with a blank mission', async () => {

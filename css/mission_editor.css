@@ -1,25 +1,15 @@
 /* ── Editor mode (body[data-mode="editor"]) ───────────────────────── */
 
-/* Toolbar — hidden by default, shown when editor mode is active. */
-.editor-toolbar {
+/* Editor controls live INSIDE the header (#header-editor-controls).
+   Hidden by default; the JS toggles via the hidden attribute. */
+.header-editor-controls {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 18px;
-  height: 54px;
-  background: linear-gradient(180deg, var(--surface3), var(--surface));
-  border-bottom: 1px solid var(--border);
-  position: relative;
-  flex-shrink: 0;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
 }
-.editor-toolbar[hidden] { display: none; }
-.editor-toolbar::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, #a78bfa 0%, var(--amber) 60%, transparent 100%);
-}
+.header-editor-controls[hidden] { display: none; }
 
 .editor-toolbar-tag {
   display: flex;
@@ -51,7 +41,7 @@
 }
 .editor-title-input:focus { border-color: var(--blue); outline: none; }
 
-.editor-toolbar .spacer { flex: 1; }
+.header-editor-controls .spacer { flex: 1; }
 
 /* Right panel — hidden by default, shown when editor mode is active. */
 .editor-right-panel {
@@ -187,7 +177,11 @@ details.editor-steps-section > .editor-section-body {
 body[data-mode="editor"] .editor-canvas-overlay { pointer-events: auto; }
 
 /* Full-mode swap: when in editor mode, hide sandbox-only surfaces and
-   show editor surfaces. */
+   the header's project/run controls — but keep the header itself and
+   its right-side group (settings/support/github) visible. The editor
+   controls now live inside the header at the same level. */
+body[data-mode="editor"] .file-actions,
+body[data-mode="editor"] .dock-actions,
 body[data-mode="editor"] .panel-left,
 body[data-mode="editor"] .resize-handle,
 body[data-mode="editor"] .canvas-toolbar,
@@ -198,14 +192,14 @@ body[data-mode="editor"] .console-resize-handle {
   display: none !important;
 }
 
-body[data-mode="editor"] .editor-toolbar,
 body[data-mode="editor"] .editor-right-panel,
 body[data-mode="editor"] .editor-canvas-overlay {
   display: flex;  /* unhide */
 }
 body[data-mode="editor"] .editor-canvas-overlay { display: block; }
 
-/* Header signal — gradient line tinted purple in editor mode. */
+/* Tint the header's top accent purple in editor mode so the mode change
+   is visible at a glance. */
 body[data-mode="editor"] header::before {
   background: linear-gradient(90deg, #a78bfa 0%, var(--amber) 60%, transparent 100%);
 }
@@ -326,7 +320,7 @@ body[data-mode="editor"] .editor-overlay-svg { pointer-events: auto; }
 
 .editor-step-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 48px 24px 24px 24px 56px 24px;
+  grid-template-columns: minmax(0, 1fr) 48px 24px 24px 24px 24px 24px;
   grid-template-areas:
     "title points up   down req  edit del"
     "hint  hint   hint hint hint hint hint";
@@ -389,16 +383,15 @@ body[data-mode="editor"] .editor-overlay-svg { pointer-events: auto; }
   border: 1px solid var(--amber);
   color: #1a1206;
   font-family: var(--font-ui);
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 800;
-  letter-spacing: 0.04em;
+  width: 24px;
   height: 24px;
   border-radius: 4px;
   cursor: pointer;
-  padding: 0 6px;
+  padding: 0;
   display: grid;
   place-items: center;
-  white-space: nowrap;
 }
 .step-edit-btn:hover { filter: brightness(1.08); }
 .editor-step-row.selected .step-edit-btn {

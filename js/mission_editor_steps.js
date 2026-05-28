@@ -196,7 +196,7 @@
       editBtn.setAttribute('type', 'button');
       editBtn.setAttribute('title', 'Edit this step\'s completion condition');
       editBtn.setAttribute('aria-label', 'Edit step condition');
-      editBtn.textContent = '✎ Edit';
+      editBtn.textContent = '✎';
       editBtn.addEventListener('click', (e) => {
         if (e && e.stopPropagation) e.stopPropagation();
         e._handled = true;

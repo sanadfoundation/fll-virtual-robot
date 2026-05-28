@@ -75,6 +75,23 @@
     <button class="btn btn-icon-file mission-pill" id="btn-missions" type="button" title="Browse missions" aria-label="Browse missions" hidden>🎯</button>
   </div>
 
+  <!-- Editor-mode controls — share the header bar with .header-controls
+       (settings/support/github) so authors keep one-row chrome. Hidden
+       outside editor mode; .file-actions + .dock-actions are hidden when
+       this is shown (see mission_editor.css). -->
+  <div class="header-editor-controls" id="header-editor-controls" hidden>
+    <div class="editor-toolbar-tag">
+      <span class="editor-mode-dot" aria-hidden="true"></span>
+      EDITOR MODE
+    </div>
+    <input type="text" id="editor-title-input" class="editor-title-input"
+           placeholder="Mission title" maxlength="80" aria-label="Mission title">
+    <button class="btn btn-mini amber" id="btn-editor-save"     type="button">💾 Save</button>
+    <button class="btn btn-mini"       id="btn-editor-load"     type="button">📂 Load</button>
+    <button class="btn btn-mini green" id="btn-editor-playtest" type="button">▶ Playtest</button>
+    <button class="btn btn-mini danger" id="btn-editor-exit"    type="button">✕ Exit Editor</button>
+  </div>
+
   <div class="spacer"></div>
 
   <!-- Primary actions (Run / Stop / Start Over) — centered absolutely in
@@ -163,20 +180,9 @@
   </div>
 </div>
 
-<!-- ── Editor toolbar (visible only when body[data-mode="editor"]) ─── -->
-<div class="editor-toolbar" id="editor-toolbar" hidden>
-  <div class="editor-toolbar-tag">
-    <span class="editor-mode-dot" aria-hidden="true"></span>
-    EDITOR MODE
-  </div>
-  <input type="text" id="editor-title-input" class="editor-title-input"
-         placeholder="Mission title" maxlength="80" aria-label="Mission title">
-  <button class="btn btn-mini amber" id="btn-editor-save"     type="button">💾 Save</button>
-  <button class="btn btn-mini"       id="btn-editor-load"     type="button">📂 Load</button>
-  <button class="btn btn-mini green" id="btn-editor-playtest" type="button">▶ Playtest</button>
-  <div class="spacer"></div>
-  <button class="btn btn-mini danger" id="btn-editor-exit"    type="button">✕ Exit Editor</button>
-</div>
+<!-- Editor controls moved into the header itself (#header-editor-controls)
+     so they share one bar with settings/support/github. -->
+
 
 <!-- ── Main body ────────────────────────────────────────── -->
 <div class="app-body">

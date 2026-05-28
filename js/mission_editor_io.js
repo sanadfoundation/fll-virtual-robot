@@ -110,7 +110,7 @@
   }
 
   function _showError(doc, msg) {
-    const toolbar = doc.getElementById('editor-toolbar');
+    const toolbar = doc.getElementById('header-editor-controls');
     if (!toolbar) return;
     let tag = toolbar.querySelector('.editor-error');
     if (!tag) {

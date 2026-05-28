@@ -60,7 +60,7 @@ test('playtest: invalid state does NOT switch mode; surfaces error', () => {
   assert.strictEqual(app.mode, 'editor');
   assert.strictEqual(storage.getItem('mission_playtest_temp'), null);
   // The editor toolbar should have an error indicator.
-  const tag = doc.getElementById('editor-toolbar').querySelector('.editor-error');
+  const tag = doc.getElementById('header-editor-controls').querySelector('.editor-error');
   assert.ok(tag, 'expected an inline error element');
   assert.match(tag.textContent, /at least one step/);
 });

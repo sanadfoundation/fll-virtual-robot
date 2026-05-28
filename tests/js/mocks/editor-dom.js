@@ -165,7 +165,7 @@ function makeEditorDoc(idsExtra = []) {
   const doc = makeDoc();
   const ids = [
     // toolbar + shell
-    'editor-toolbar', 'editor-title-input', 'btn-editor-save',
+    'header-editor-controls', 'editor-title-input', 'btn-editor-save',
     'btn-editor-load', 'btn-editor-playtest', 'btn-editor-exit',
     'editor-canvas-overlay', 'editor-right-panel',
     // inspector
