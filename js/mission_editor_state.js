@@ -281,8 +281,24 @@
     if (patch.description     !== undefined) next.description     = patch.description;
     if (patch.title           !== undefined) next.title           = patch.title;
     if (patch.author          !== undefined) next.author          = patch.author;
-    if (patch.type            !== undefined) next.type            = patch.type;
     if (patch.difficulty_tier !== undefined) next.difficulty_tier = patch.difficulty_tier;
+    if (patch.type            !== undefined) {
+      next.type = patch.type;
+      // Scoring kind is bound to the challenge type. Swap to match so the
+      // loader's per-type rule ("obstacle_course requires
+      // objective_minus_penalties") doesn't reject the saved mission.
+      if (patch.type === 'obstacle_course') {
+        next.scoring = {
+          kind: 'objective_minus_penalties',
+          goal_zone: '',
+          collisions: { per_contact: 10, cap: 80 },
+          time_budget_s: 30,
+          per_second_over: 1,
+        };
+      } else {
+        next.scoring = { kind: 'step_sum' };
+      }
+    }
     return next;
   }
 

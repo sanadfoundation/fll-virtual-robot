@@ -204,3 +204,35 @@ test('editStep: updating the condition replaces it whole', () => {
   next = ctx.MISSIONS.editor.state.editStep(next, id, { condition: newCond });
   assert.deepStrictEqual(next.steps[0].condition, newCond);
 });
+
+// ─── setMeta: scoring auto-swap on type change ─────────────────────────────
+
+test('setMeta: changing type to obstacle_course rewrites scoring.kind to objective_minus_penalties', () => {
+  const { ctx, s } = FIELD_OPS_BASE();
+  // s.type starts as 'mission' with scoring.kind = 'step_sum'.
+  assert.strictEqual(s.type, 'mission');
+  assert.strictEqual(s.scoring.kind, 'step_sum');
+  const next = ctx.MISSIONS.editor.state.setMeta(s, { type: 'obstacle_course' });
+  assert.strictEqual(next.type, 'obstacle_course');
+  assert.strictEqual(next.scoring.kind, 'objective_minus_penalties');
+});
+
+test('setMeta: obstacle_course default scoring has a goal_zone slot (so the loader is happy)', () => {
+  const { ctx, s } = FIELD_OPS_BASE();
+  const next = ctx.MISSIONS.editor.state.setMeta(s, { type: 'obstacle_course' });
+  // goal_zone is optional but the structure must exist for the picker to fill in.
+  assert.ok('goal_zone' in next.scoring, 'expected scoring.goal_zone to be present');
+});
+
+test('setMeta: changing type back to mission restores step_sum scoring', () => {
+  const { ctx, s } = FIELD_OPS_BASE();
+  let next = ctx.MISSIONS.editor.state.setMeta(s,    { type: 'obstacle_course' });
+  next     = ctx.MISSIONS.editor.state.setMeta(next, { type: 'mission' });
+  assert.strictEqual(next.scoring.kind, 'step_sum');
+});
+
+test('setMeta: changing description does NOT touch scoring', () => {
+  const { ctx, s } = FIELD_OPS_BASE();
+  const next = ctx.MISSIONS.editor.state.setMeta(s, { description: 'hello' });
+  assert.deepStrictEqual(next.scoring, s.scoring);
+});
