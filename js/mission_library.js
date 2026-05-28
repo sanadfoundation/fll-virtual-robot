@@ -26,8 +26,7 @@
   }
 
   // localStorage keys for user-authored and imported missions.
-  // Mirrors mission_persistence.js's prefix convention.
-  const USER_PREFIX = 'fll-vr-mission/user/';
+  const USER_PREFIX     = 'fll-vr-mission/user/';
   const IMPORTED_PREFIX = 'fll-vr-mission/imported/';
 
   function _saveTo(storage, prefix, id, payload) {
@@ -38,7 +37,6 @@
   function _readAllFrom(storage, prefix) {
     if (!storage) return [];
     const out = [];
-    // Iterate via storage.length + key(i) if available (real localStorage).
     const len = typeof storage.length === 'number' ? storage.length : 0;
     const collected = [];
     for (let i = 0; i < len; i++) {
@@ -49,29 +47,40 @@
       try {
         const raw = storage.getItem(k);
         if (!raw) continue;
-        const payload = JSON.parse(raw);
-        out.push(payload);
+        out.push(JSON.parse(raw));
       } catch (_e) { /* skip corrupt entries */ }
     }
     return out;
   }
 
   function saveUserMission(storage, mission, screenshotDataUrl) {
-    _saveTo(storage, USER_PREFIX, mission.id, { mission, screenshot: screenshotDataUrl || null, savedAtMs: Date.now() });
+    _saveTo(storage, USER_PREFIX, mission.id, {
+      mission,
+      screenshot: screenshotDataUrl !== undefined ? screenshotDataUrl : null,
+      savedAtMs:  Date.now(),
+    });
   }
+
   function deleteUserMission(storage, id) {
     if (storage && typeof storage.removeItem === 'function') storage.removeItem(USER_PREFIX + id);
   }
+
   function readUserMissions(storage) {
     return _readAllFrom(storage, USER_PREFIX);
   }
 
   function saveImportedMission(storage, mission, screenshotDataUrl) {
-    _saveTo(storage, IMPORTED_PREFIX, mission.id, { mission, screenshot: screenshotDataUrl || null, savedAtMs: Date.now() });
+    _saveTo(storage, IMPORTED_PREFIX, mission.id, {
+      mission,
+      screenshot: screenshotDataUrl !== undefined ? screenshotDataUrl : null,
+      savedAtMs:  Date.now(),
+    });
   }
+
   function deleteImportedMission(storage, id) {
     if (storage && typeof storage.removeItem === 'function') storage.removeItem(IMPORTED_PREFIX + id);
   }
+
   function readImportedMissions(storage) {
     return _readAllFrom(storage, IMPORTED_PREFIX);
   }
