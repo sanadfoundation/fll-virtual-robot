@@ -1204,71 +1204,14 @@ class RobotSimulator {
   // bodies tracked in this._obstacles.
   setMissionField(missionField) {
     if (!missionField) return;
-    const ZONE_FILL = {
-      red:    'rgba(220,100,100,0.2)',
-      green:  'rgba(100,220,150,0.2)',
-      blue:   'rgba(100,150,220,0.2)',
-      yellow: 'rgba(255,200,100,0.2)',
-      orange: 'rgba(231,126,34,0.22)',
-      purple: 'rgba(155,89,182,0.2)',
-    };
-    const ZONE_STROKE = {
-      red: '#cc4444', green: '#30c060', blue: '#3070c0',
-      yellow: '#f0a830', orange: '#d06010', purple: '#8030c0',
-    };
-    const objects = [];
-    for (const z of (missionField.zones || [])) {
-      objects.push({
-        type: 'rect', x: z.x, y: z.y, w: z.w, h: z.h,
-        fill:   ZONE_FILL[z.color]   || 'rgba(200,200,200,0.2)',
-        stroke: ZONE_STROKE[z.color] || '#888',
-        lw: 2,
-        sensorColor: z.color,
-      });
-    }
-    // Append lines as field objects (non-physical, visual only).
-    for (const line of (missionField.lines || [])) {
-      objects.push({
-        type: 'line',
-        x1: line.x1, y1: line.y1, x2: line.x2, y2: line.y2,
-        stroke: lineColorToStroke(line.color) || '#222',
-        lw: line.thickness || 4,
-        sensorColor: line.color,
-      });
-    }
-    this._fieldObjects = objects;
-
-    // Swap obstacles. Dispose existing Box2D bodies, then build new.
-    if (this.physics) {
-      for (const o of this._obstacles) {
-        if (o.body && this.physics.removeBody) this.physics.removeBody(o.body);
-      }
-    }
-    this._obstacles = (missionField.obstacles || []).map(cfg => ({
-      cfg: {
-        x: cfg.x, y: cfg.y, w: cfg.w, h: cfg.h,
-        fill:  cfg.fill || '#9b59b6',
-        stroke: cfg.stroke || '#5e2c79',
-        label: cfg.label || cfg.id || '',
-      },
-      body: this.physics
-        ? this.physics.addObstacleBox(cfg.w / 2, cfg.h / 2, { x: cfg.x, y: cfg.y })
-        : null,
-    }));
-
-    // Dispose existing walls, build new static Box2D bodies.
-    if (this.physics) {
-      for (const w of (this._walls || [])) {
-        if (w.body && this.physics.removeBody) this.physics.removeBody(w.body);
-      }
-    }
-    this._walls = (missionField.walls || []).map(cfg => ({
-      cfg: { x: cfg.x, y: cfg.y, w: cfg.w, h: cfg.h },
-      body: this.physics
-        ? this.physics.addWallBox(cfg.w / 2, cfg.h / 2, { x: cfg.x, y: cfg.y })
-        : null,
-    }));
-
+    const { fieldObjects, obstacles, walls } = MISSIONS.fieldSwap.applyMissionField(
+      missionField,
+      { obstacles: this._obstacles, walls: this._walls || [] },
+      this.physics,
+    );
+    this._fieldObjects = fieldObjects;
+    this._obstacles = obstacles;
+    this._walls = walls;
     this._dirty = true;
     if (this._draw) this._draw();
   }
@@ -1276,24 +1219,14 @@ class RobotSimulator {
   // Restore the sim's default sandbox field + obstacles. Called when exiting
   // a mission back to sandbox mode.
   restoreDefaultField() {
+    const { obstacles, walls } = MISSIONS.fieldSwap.restoreDefaultObstacles(
+      OBSTACLES,
+      { obstacles: this._obstacles, walls: this._walls || [] },
+      this.physics,
+    );
     this._fieldObjects = FIELD_OBJECTS;
-    if (this.physics) {
-      for (const o of this._obstacles) {
-        if (o.body && this.physics.removeBody) this.physics.removeBody(o.body);
-      }
-    }
-    if (this.physics) {
-      for (const w of (this._walls || [])) {
-        if (w.body && this.physics.removeBody) this.physics.removeBody(w.body);
-      }
-    }
-    this._walls = [];
-    this._obstacles = OBSTACLES.map(cfg => ({
-      cfg,
-      body: this.physics
-        ? this.physics.addObstacleBox(cfg.w / 2, cfg.h / 2, { x: cfg.x, y: cfg.y })
-        : null,
-    }));
+    this._obstacles = obstacles;
+    this._walls = walls;
     this._dirty = true;
     if (this._draw) this._draw();
   }
