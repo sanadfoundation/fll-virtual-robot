@@ -1,0 +1,546 @@
+/* ── Editor mode (body[data-mode="editor"]) ───────────────────────── */
+
+/* Editor controls live INSIDE the header (#header-editor-controls).
+   Hidden by default; the JS toggles via the hidden attribute. */
+.header-editor-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.header-editor-controls[hidden] { display: none; }
+
+.editor-toolbar-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  color: #a78bfa;
+  text-transform: uppercase;
+}
+.editor-mode-dot {
+  width: 8px; height: 8px;
+  border-radius: 2px;
+  background: #a78bfa;
+  box-shadow: 0 0 8px rgba(167,139,250,0.6);
+}
+
+.editor-title-input {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 6px 11px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  min-width: 280px;
+  font-family: var(--font-ui);
+}
+.editor-title-input:focus { border-color: var(--blue); outline: none; }
+
+.header-editor-controls .spacer { flex: 1; }
+
+/* Right panel — hidden by default, shown when editor mode is active. */
+.editor-right-panel {
+  flex: 0 0 340px;
+  min-width: 300px;
+  max-width: 380px;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: var(--font-ui);
+}
+.editor-right-panel[hidden] { display: none; }
+
+.editor-right-panel h4 {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  padding: 12px 16px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.editor-meta-section,
+.editor-steps-section,
+.editor-cond-section {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+}
+
+/* <details>-based collapsible sections. Hide the default disclosure
+   triangle and rotate our own caret next to the h4. */
+details.editor-meta-section,
+details.editor-steps-section {
+  padding-bottom: 0;
+}
+details.editor-meta-section > summary,
+details.editor-steps-section > summary {
+  cursor: pointer;
+  list-style: none;
+  position: relative;
+}
+details.editor-meta-section > summary::-webkit-details-marker,
+details.editor-steps-section > summary::-webkit-details-marker {
+  display: none;
+}
+details.editor-meta-section > summary::before,
+details.editor-steps-section > summary::before {
+  content: '▸';
+  position: absolute;
+  left: 4px;
+  top: 14px;
+  color: var(--text-dim);
+  font-size: 9px;
+  transition: transform 0.12s ease;
+  pointer-events: none;
+}
+details.editor-meta-section[open] > summary::before,
+details.editor-steps-section[open] > summary::before {
+  transform: rotate(90deg);
+}
+details.editor-meta-section > summary h4,
+details.editor-steps-section > summary h4 {
+  padding-left: 18px;
+  margin: 0;
+}
+details.editor-meta-section > .editor-section-body,
+details.editor-steps-section > .editor-section-body {
+  padding-bottom: 12px;
+}
+
+.editor-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 16px 10px;
+}
+.editor-field span {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--text-mid);
+  text-transform: uppercase;
+}
+.editor-field input,
+.editor-field textarea,
+.editor-field select {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  outline: none;
+}
+.editor-field input:focus,
+.editor-field textarea:focus,
+.editor-field select:focus { border-color: var(--blue); }
+.editor-field textarea { resize: vertical; }
+
+.editor-steps-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.editor-cond-workspace {
+  height: 280px;
+  margin: 0 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Canvas overlay — hidden by default. */
+.editor-canvas-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.editor-canvas-overlay[hidden] { display: none; }
+body[data-mode="editor"] .editor-canvas-overlay { pointer-events: auto; }
+
+/* Full-mode swap: when in editor mode, hide sandbox-only surfaces and
+   the header's project/run controls — but keep the header itself and
+   its right-side group (settings/support/github) visible. The editor
+   controls now live inside the header at the same level. */
+body[data-mode="editor"] .file-actions,
+body[data-mode="editor"] .dock-actions,
+body[data-mode="editor"] .panel-left,
+body[data-mode="editor"] .resize-handle,
+body[data-mode="editor"] .canvas-toolbar,
+body[data-mode="editor"] .status-bar,
+body[data-mode="editor"] .mission-map,
+body[data-mode="editor"] .console-wrap,
+body[data-mode="editor"] .console-resize-handle {
+  display: none !important;
+}
+
+body[data-mode="editor"] .editor-right-panel,
+body[data-mode="editor"] .editor-canvas-overlay {
+  display: flex;  /* unhide */
+}
+body[data-mode="editor"] .editor-canvas-overlay { display: block; }
+
+/* Tint the header's top accent purple in editor mode so the mode change
+   is visible at a glance. */
+body[data-mode="editor"] header::before {
+  background: linear-gradient(90deg, #a78bfa 0%, var(--amber) 60%, transparent 100%);
+}
+
+/* Editor overlay SVG fills the canvas-wrap area. */
+.editor-overlay-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+body[data-mode="editor"] .editor-overlay-svg { pointer-events: auto; }
+
+.editor-zone {
+  fill: rgba(255, 200, 60, 0.16);
+  stroke: rgba(255, 200, 60, 0.9);
+  stroke-width: 4;
+  stroke-dasharray: 14 10;
+  cursor: move;
+}
+.editor-zone[data-color="red"]    { fill: rgba(207,107,107,0.22); stroke: #cf6b6b; }
+.editor-zone[data-color="green"]  { fill: rgba(127,191,106,0.22); stroke: #7fbf6a; }
+.editor-zone[data-color="blue"]   { fill: rgba(91,143,199,0.22);  stroke: #5b8fc7; }
+.editor-zone[data-color="yellow"] { fill: rgba(229,203,94,0.25);  stroke: #d1b03b; }
+.editor-zone[data-color="orange"] { fill: rgba(231,126,34,0.22);  stroke: #e67e22; }
+.editor-zone[data-color="purple"] { fill: rgba(155,89,182,0.22);  stroke: #9b59b6; }
+
+.editor-obstacle {
+  fill: #9b59b6;
+  stroke: #5e2c79;
+  stroke-width: 3;
+  cursor: move;
+}
+.editor-obstacle[data-color="red"]    { fill: #c0392b; stroke: #6b1d13; }
+.editor-obstacle[data-color="green"]  { fill: #27ae60; stroke: #145a32; }
+.editor-obstacle[data-color="blue"]   { fill: #2980b9; stroke: #154360; }
+.editor-obstacle[data-color="yellow"] { fill: #f1c40f; stroke: #7d6608; }
+.editor-obstacle[data-color="orange"] { fill: #e67e22; stroke: #784213; }
+.editor-obstacle[data-color="purple"] { fill: #9b59b6; stroke: #5e2c79; }
+.editor-obstacle[data-color="cyan"]   { fill: #22d3ee; stroke: #155e75; }
+.editor-obstacle[data-color="black"]  { fill: #2c3e50; stroke: #0a0f17; }
+
+.editor-obstacle-label {
+  font-family: var(--font-ui);
+  font-size: 28px;
+  font-weight: 800;
+  fill: rgba(255,255,255,0.95);
+  paint-order: stroke;
+  stroke: rgba(0,0,0,0.45);
+  stroke-width: 2;
+  pointer-events: none;
+}
+
+.editor-wall {
+  fill: #4a5568;
+  stroke: #2d3748;
+  stroke-width: 3;
+  cursor: move;
+}
+.editor-wall[data-color="red"]    { fill: #7f2118; stroke: #3a0c08; }
+.editor-wall[data-color="green"]  { fill: #1e5f3a; stroke: #0c2d1c; }
+.editor-wall[data-color="blue"]   { fill: #1c4e72; stroke: #0a2238; }
+.editor-wall[data-color="yellow"] { fill: #b08f0a; stroke: #4d3e04; }
+.editor-wall[data-color="orange"] { fill: #b35a16; stroke: #4d2706; }
+.editor-wall[data-color="purple"] { fill: #6e3d83; stroke: #2d1734; }
+.editor-wall[data-color="cyan"]   { fill: #1c8aa7; stroke: #0a3742; }
+.editor-wall[data-color="grey"]   { fill: #4a5568; stroke: #2d3748; }
+
+.editor-robot-start {
+  fill: #22c55e;
+  stroke: #022c0e;
+  stroke-width: 2;
+  cursor: move;
+  filter: drop-shadow(0 0 6px rgba(34,197,94,0.5));
+}
+
+.editor-palette {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  gap: 4px;
+  background: var(--surface);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  padding: 4px;
+  pointer-events: auto;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+}
+.editor-tool {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-mid);
+  padding: 5px 10px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-family: var(--font-ui);
+  cursor: pointer;
+}
+.editor-tool:hover { color: var(--text); }
+.editor-tool.active {
+  color: var(--amber);
+  border-color: var(--amber);
+  background: rgba(251,191,36,0.08);
+}
+
+.editor-zone.selected,
+.editor-obstacle.selected,
+.editor-robot-start.selected {
+  stroke: var(--amber);
+  stroke-width: 5;
+  stroke-dasharray: 8 6;
+  filter: drop-shadow(0 0 8px rgba(251,191,36,0.7));
+}
+
+.editor-step-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 48px 24px 24px 24px 24px 24px;
+  grid-template-areas:
+    "title points up   down req  edit del"
+    "hint  hint   hint hint hint hint hint";
+  gap: 4px 3px;
+  align-items: center;
+  padding: 7px 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  min-width: 0;
+}
+.editor-step-row.selected {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 1px var(--amber);
+}
+.editor-step-row input {
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  outline: none;
+  min-width: 0;     /* critical: allow grid cells to shrink */
+  width: 100%;
+}
+.editor-step-row input:focus { border-color: var(--blue); }
+
+.step-title-input  { grid-area: title; }
+.step-points-input { grid-area: points; font-family: var(--font-code); text-align: center; }
+.step-hint-input   { grid-area: hint; }
+
+.step-up-btn       { grid-area: up; }
+.step-down-btn     { grid-area: down; }
+.step-requires-btn { grid-area: req; }
+.step-edit-btn     { grid-area: edit; }
+.step-delete-btn   { grid-area: del; }
+
+.step-up-btn,
+.step-down-btn,
+.step-requires-btn,
+.step-delete-btn {
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--text-mid);
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+.step-edit-btn {
+  background: var(--amber);
+  border: 1px solid var(--amber);
+  color: #1a1206;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 800;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+.step-edit-btn:hover { filter: brightness(1.08); }
+.editor-step-row.selected .step-edit-btn {
+  background: #f59e0b;
+  border-color: #f59e0b;
+}
+.step-up-btn:hover,
+.step-down-btn:hover,
+.step-requires-btn:hover {
+  color: var(--amber);
+  border-color: var(--amber);
+}
+.step-delete-btn:hover { color: var(--red); border-color: var(--red); }
+
+.step-requires-panel {
+  grid-column: 1 / -1;
+  background: var(--surface3);
+  border-top: 1px solid var(--border2);
+  margin-top: 4px;
+  padding: 8px;
+  border-radius: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.step-requires-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text);
+}
+.step-requires-empty {
+  font-size: 11px;
+  color: var(--text-mid);
+  font-style: italic;
+}
+.editor-error {
+  margin-left: 12px;
+  padding: 4px 10px;
+  background: rgba(239,68,68,0.12);
+  border: 1px solid var(--red);
+  color: var(--red);
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* Inspector — appears when a field element is selected. */
+.editor-inspector-section {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+}
+.inspector-id {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-family: var(--font-code);
+  padding: 0 16px 6px;
+  letter-spacing: 0.06em;
+}
+.inspector-color-row {
+  display: flex;
+  gap: 4px;
+}
+.inspector-color-swatch {
+  width: 22px; height: 22px;
+  border-radius: 5px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+.inspector-color-swatch[data-color="red"]    { background: #cf6b6b; }
+.inspector-color-swatch[data-color="green"]  { background: #7fbf6a; }
+.inspector-color-swatch[data-color="blue"]   { background: #5b8fc7; }
+.inspector-color-swatch[data-color="yellow"] { background: #d1b03b; }
+.inspector-color-swatch[data-color="orange"] { background: #e67e22; }
+.inspector-color-swatch[data-color="purple"] { background: #9b59b6; }
+.inspector-color-swatch.active {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 1px var(--amber);
+}
+
+.editor-wall {
+  fill: #444;
+  stroke: #222;
+  stroke-width: 3;
+  cursor: move;
+}
+.editor-line {
+  cursor: move;
+}
+.editor-line[data-color="black"]  { stroke: #222; }
+.editor-line[data-color="red"]    { stroke: #cc4444; }
+.editor-line[data-color="green"]  { stroke: #30c060; }
+.editor-line[data-color="blue"]   { stroke: #3070c0; }
+.editor-line[data-color="yellow"] { stroke: #d0a830; }
+.editor-line[data-color="orange"] { stroke: #d06010; }
+.editor-line-preview { opacity: 0.5; pointer-events: none; }
+
+/* Selected styling for line and wall. */
+.editor-line.selected {
+  filter: drop-shadow(0 0 6px var(--amber));
+}
+.editor-wall.selected {
+  stroke: var(--amber);
+  stroke-width: 5;
+  stroke-dasharray: 8 6;
+  filter: drop-shadow(0 0 8px rgba(251,191,36,0.7));
+}
+
+.inspector-color-swatch[data-color="black"] { background: #222; }
+.inspector-color-swatch[data-color="cyan"]  { background: #22d3ee; }
+.inspector-color-swatch[data-color="grey"]  { background: #4a5568; }
+
+/* Resize handles. */
+.editor-resize-handle {
+  fill: var(--amber);
+  stroke: #1a1206;
+  stroke-width: 2;
+  cursor: nwse-resize;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.4));
+}
+.editor-resize-handle:hover { filter: brightness(1.1) drop-shadow(0 1px 3px rgba(0,0,0,0.4)); }
+
+/* When a step is selected, the right panel widens to give the Blockly
+   condition workspace a usable area. The canvas area (.panel-right) takes
+   the remaining horizontal space (it's flex:1 in .app-body). */
+.editor-right-panel.has-condition-open {
+  flex: 0 0 600px;
+  max-width: 600px;
+  min-width: 580px;
+}
+
+/* The workspace itself needs more vertical room with the wider panel.
+   Use viewport-relative height so the flyout stays tall enough to show
+   all six condition blocks regardless of how much vertical space the
+   step list above is taking. Min-height keeps it usable on short windows. */
+.editor-right-panel.has-condition-open .editor-cond-workspace {
+  /* Meta + steps are auto-collapsed when a step is selected, so the
+     condition workspace gets ~the full panel height. Generous min-height
+     so the Blockly flyout fits all 7 condition blocks (3 labels + 7
+     blocks ≈ 350 mm of stacked content). */
+  height: calc(100vh - 180px);
+  min-height: 600px;
+}
+
+/* Make the right panel scroll its content when there's a lot of UI active
+   (meta + steps + condition section). */
+.editor-right-panel {
+  overflow-y: auto;
+}

@@ -169,6 +169,30 @@ export class World2D {
     return body;
   }
 
+  // Static wall: like addObstacleBox but b2_staticBody — robot collides but
+  // can't push. No mass, no movement.
+  addWallBox(hx_mm, hy_mm, position_mm) {
+    const bd = new box2d.b2BodyDef();
+    bd.set_type(box2d.b2_staticBody);
+    const pos = new box2d.b2Vec2(position_mm.x * M_PER_MM, position_mm.y * M_PER_MM);
+    bd.set_position(pos);
+    const body = this.world.CreateBody(bd);
+    box2d.destroy(bd);
+    box2d.destroy(pos);
+
+    const shape = new box2d.b2PolygonShape();
+    shape.SetAsBox(hx_mm * M_PER_MM, hy_mm * M_PER_MM);
+    const fd = new box2d.b2FixtureDef();
+    fd.set_shape(shape);
+    fd.set_friction(0.5);
+    fd.set_restitution(0.05);
+    body.CreateFixture(fd);
+    box2d.destroy(shape);
+    box2d.destroy(fd);
+
+    return body;
+  }
+
   // Welds a second collider to an existing body in body-local frame. Used to
   // attach the force-sensor bumper to the robot body. offset_mm is the centre
   // of the bumper rectangle in body-local mm. userData.port is recorded in
@@ -195,6 +219,11 @@ export class World2D {
     box2d.destroy(shape);
     box2d.destroy(centre);
     box2d.destroy(fd);
+  }
+
+  // Destroys a Box2D body created earlier. No-op if body is null/undefined.
+  removeBody(body) {
+    if (body && this.world) this.world.DestroyBody(body);
   }
 
   // Public-API methods take/return millimetres.

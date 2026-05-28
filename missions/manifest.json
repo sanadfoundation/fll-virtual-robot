@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "missions": [
+    "red-zone-then-push",
+    "color-crawl",
+    "slalom-course",
+    "energy-pickup"
+  ]
+}

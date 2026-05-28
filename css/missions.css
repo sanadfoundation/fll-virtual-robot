@@ -1,0 +1,204 @@
+/* Mission Map — right column shown in Play mode, sibling of .panel-right.
+   `.app-body` is `display: flex`, so this slots in as the third flex child
+   (editor | resize-handle | right pane | this) when not hidden. */
+.mission-map {
+  flex: 0 0 320px;
+  min-width: 280px;
+  max-width: 360px;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: var(--font-ui);
+}
+
+.mission-map[hidden] { display: none; }
+
+.mm-head {
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, var(--surface3) 0%, var(--surface) 100%);
+}
+.mm-tag {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: var(--amber);
+  font-weight: 800;
+}
+.mm-title {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.005em;
+  line-height: 1.2;
+  color: var(--text);
+}
+.mm-meta {
+  font-size: 11px;
+  color: var(--text-mid);
+  font-weight: 500;
+  margin-top: 3px;
+}
+
+.mm-score {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+}
+.mm-score-label {
+  font-size: 9px;
+  color: var(--text-mid);
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.mm-score-num {
+  font-family: var(--font-code);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--amber);
+}
+.mm-score-num .max { color: var(--text-dim); font-size: 13px; margin-left: 3px; }
+
+.mission-stars { display: flex; gap: 2px; font-size: 14px; color: var(--text-dim); }
+.mission-stars .lit { color: var(--amber); text-shadow: 0 0 5px rgba(251,191,36,0.4); }
+
+/* Timer — shown in play mode. Elapsed always visible; "Left" only when the
+   mission has a configured time_limit_s. */
+.mm-timer {
+  display: flex;
+  gap: 18px;
+  padding: 8px 16px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+}
+.mm-timer[hidden] { display: none; }
+.mm-timer-elapsed,
+.mm-timer-remaining {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mm-timer-remaining[hidden] { display: none; }
+.mm-timer-label {
+  font-size: 9px;
+  color: var(--text-mid);
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.mm-timer-value {
+  font-family: var(--font-code);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.mm-steps {
+  padding: 8px;
+  flex: 1;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  min-height: 0;  /* allow flex shrinking inside the column */
+}
+.mm-step {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 11px;
+  margin-bottom: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mm-step-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.mm-step-check {
+  width: 16px; height: 16px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--border2);
+  display: grid; place-items: center;
+  font-size: 10px;
+  color: transparent;
+  margin-top: 2px;
+}
+.mm-step.done .mm-step-check {
+  background: var(--green);
+  border-color: var(--green);
+  color: #052e16;
+  font-weight: 800;
+}
+.mm-step-title {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
+}
+.mm-step-points {
+  background: var(--surface3);
+  color: var(--amber);
+  font-family: var(--font-code);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+.mm-step.done .mm-step-points { background: var(--amber); color: #1a1206; }
+
+.mm-step-hint-row { padding-left: 24px; }
+.mm-step-hint-btn {
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--text-mid);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+.mm-step-hint-btn:hover { color: var(--amber); border-color: var(--amber); }
+.mm-step-hint-reveal {
+  font-size: 11px;
+  color: var(--text-mid);
+  font-style: italic;
+  padding-left: 24px;
+  border-left: 2px solid var(--amber);
+  margin: 4px 0 2px 8px;
+}
+
+.mm-bottom {
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--surface2);
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Mission entry-point pill in the header. The hidden attribute applies via
+   the default UA rule [hidden]{display:none}, but .btn {display:flex} has
+   higher specificity and silently overrode it — leaving the button visible
+   in prod even though the ?missions=1 gate was closed. Re-establish the
+   contract that hidden actually hides. */
+.mission-pill {
+  position: relative;
+}
+.mission-pill[hidden] {
+  display: none;
+}
+.mission-pill[data-active="true"] {
+  background: var(--amber);
+  color: #1a1206;
+  border-color: var(--amber);
+  box-shadow: var(--glow-amber);
+}

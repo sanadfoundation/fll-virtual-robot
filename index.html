@@ -22,6 +22,9 @@
   <!-- App styles -->
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/myblocks.css">
+  <link rel="stylesheet" href="css/missions.css">
+  <link rel="stylesheet" href="css/mission_editor.css">
+  <link rel="stylesheet" href="css/mission_library.css">
 </head>
 <body>
 
@@ -53,6 +56,7 @@
       <input type="text" id="project-name" class="project-name-input" placeholder="Untitled-Project" maxlength="64" aria-label="Project name">
     </div>
     <input type="file" id="file-open-input" accept=".llsp3" style="display:none">
+    <input type="file" id="editor-file-open-input" accept=".llmission" style="display:none">
     <div class="new-menu" id="new-menu">
       <button class="btn btn-icon-file" id="btn-new" type="button"
               aria-haspopup="true" aria-expanded="false"
@@ -68,6 +72,24 @@
     </div>
     <button class="btn btn-icon-file" id="btn-open" type="button" title="Open .llsp3 file" aria-label="Open project">📂</button>
     <button class="btn btn-icon-file" id="btn-save" type="button" title="Save project" aria-label="Save project">💾</button>
+    <button class="btn btn-icon-file mission-pill" id="btn-missions" type="button" title="Browse missions" aria-label="Browse missions" hidden>🎯</button>
+  </div>
+
+  <!-- Editor-mode controls — share the header bar with .header-controls
+       (settings/support/github) so authors keep one-row chrome. Hidden
+       outside editor mode; .file-actions + .dock-actions are hidden when
+       this is shown (see mission_editor.css). -->
+  <div class="header-editor-controls" id="header-editor-controls" hidden>
+    <div class="editor-toolbar-tag">
+      <span class="editor-mode-dot" aria-hidden="true"></span>
+      EDITOR MODE
+    </div>
+    <input type="text" id="editor-title-input" class="editor-title-input"
+           placeholder="Mission title" maxlength="80" aria-label="Mission title">
+    <button class="btn btn-mini amber" id="btn-editor-save"     type="button">💾 Save</button>
+    <button class="btn btn-mini"       id="btn-editor-load"     type="button">📂 Load</button>
+    <button class="btn btn-mini green" id="btn-editor-playtest" type="button">▶ Playtest</button>
+    <button class="btn btn-mini danger" id="btn-editor-exit"    type="button">✕ Exit Editor</button>
   </div>
 
   <div class="spacer"></div>
@@ -124,6 +146,44 @@
   </div>
 </header>
 
+<!-- ── Mission Library modal (hidden until 🎯 click) ─────────────────── -->
+<div class="mission-library-modal" id="mission-library-modal" hidden>
+  <div class="mission-library-backdrop" id="mission-library-backdrop"></div>
+  <div class="mission-library-dialog" role="dialog" aria-modal="true" aria-label="Mission Library">
+    <header class="library-head">
+      <h3>
+        <span aria-hidden="true">🎯</span> Mission Library
+        <span class="library-badge" id="library-count-badge">0 MISSIONS</span>
+      </h3>
+      <div class="library-head-actions">
+        <button class="btn btn-mini library-new-btn" id="btn-library-new" type="button">+ New Mission</button>
+        <button class="btn btn-mini" id="btn-library-import" type="button">📥 Import mission</button>
+        <input type="file" id="library-file-input" accept=".llmission" style="display:none">
+        <button class="library-close-btn" id="btn-library-close" type="button" title="Close" aria-label="Close library">✕</button>
+      </div>
+    </header>
+    <div class="library-toolbar">
+      <div class="library-rail" id="library-rail">
+        <button class="library-rail-btn active" data-source="all"      type="button">All       <span class="count" id="rail-count-all">0</span></button>
+        <button class="library-rail-btn"        data-source="bundled"  type="button">Bundled   <span class="count" id="rail-count-bundled">0</span></button>
+        <button class="library-rail-btn"        data-source="mine"     type="button">My Missions <span class="count" id="rail-count-mine">0</span></button>
+        <button class="library-rail-btn"        data-source="imported" type="button">Imported  <span class="count" id="rail-count-imported">0</span></button>
+      </div>
+    </div>
+    <div class="library-grid" id="library-grid">
+      <!-- mission cards rendered here -->
+    </div>
+    <div class="library-empty" id="library-empty" hidden>
+      <p>No missions in this section yet.</p>
+      <p class="library-empty-hint">Create one with <strong>+ New Mission</strong> or import a <code>.llmission</code> file.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Editor controls moved into the header itself (#header-editor-controls)
+     so they share one bar with settings/support/github. -->
+
+
 <!-- ── Main body ────────────────────────────────────────── -->
 <div class="app-body">
 
@@ -159,6 +219,7 @@
 
     <div class="canvas-wrap">
       <canvas id="robot-canvas"></canvas>
+      <div class="editor-canvas-overlay" id="editor-canvas-overlay" hidden></div>
       <div id="canvas-hover" hidden></div>
 
       <!-- Status toolbar: three pill buttons (Position / Motors / Sensors)
@@ -189,7 +250,7 @@
           </button>
           <button class="canvas-pill" id="pb-sensors" type="button" aria-haspopup="true" aria-expanded="false" data-active="false">
             <span class="pip" aria-hidden="true"></span>
-            🎯 Sensors <span class="label-port">C · D · E</span>
+            📡 Sensors <span class="label-port">C · D · E</span>
           </button>
           <button class="canvas-circle canvas-circle-pack" id="canvas-pack-handle" type="button" aria-label="Pack status toolbar" title="Collapse status toolbar">
             <span class="canvas-circle-icon" aria-hidden="true">‹</span>
@@ -290,6 +351,7 @@
     </div>
 
     <div class="console-resize-handle" id="console-resize-handle" aria-hidden="true"></div>
+
     <div class="console-wrap" id="console-wrap">
       <button class="console-header" id="console-toggle" type="button" aria-expanded="true" aria-controls="console-content-row">
         <span class="dot"></span>
@@ -309,6 +371,89 @@
           <div class="watch-pane-list" id="watch-pane-list"></div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- ── Editor right panel (metadata + steps + condition picker) ── -->
+  <div class="editor-right-panel" id="editor-right-panel" hidden>
+    <div class="editor-inspector-section" id="editor-inspector-section" hidden>
+      <h4>Selected element</h4>
+      <div id="editor-inspector-body"></div>
+    </div>
+    <details class="editor-meta-section" id="editor-meta-section" open>
+      <summary><h4>Mission</h4></summary>
+      <div class="editor-section-body">
+        <label class="editor-field">
+          <span>Description</span>
+          <textarea id="editor-meta-desc" rows="3" placeholder="Describe what the robot should do"></textarea>
+        </label>
+        <label class="editor-field">
+          <span>Type</span>
+          <select id="editor-meta-type">
+            <option value="mission">Mission (multi-step)</option>
+            <option value="obstacle_course">Obstacle Course</option>
+          </select>
+        </label>
+        <label class="editor-field">
+          <span>Difficulty</span>
+          <select id="editor-meta-difficulty">
+            <option value="beginner">Beginner</option>
+            <option value="intermediate">Intermediate</option>
+            <option value="advanced">Advanced</option>
+          </select>
+        </label>
+        <label class="editor-field">
+          <span>Time limit (seconds, optional)</span>
+          <input type="number" id="editor-meta-time-limit" min="0" placeholder="e.g. 60" title="Hard time limit. The mission ends automatically when exceeded. Leave blank for no limit.">
+        </label>
+      </div>
+    </details>
+
+    <details class="editor-steps-section" id="editor-steps-section" open>
+      <summary>
+        <h4>
+          Steps
+          <button class="btn btn-mini" id="btn-add-step" type="button">＋ Add step</button>
+        </h4>
+      </summary>
+      <div class="editor-section-body">
+        <ul class="editor-steps-list" id="editor-steps-list"></ul>
+      </div>
+    </details>
+
+    <div class="editor-cond-section" id="editor-cond-section" hidden>
+      <h4>Condition for selected step</h4>
+      <div class="editor-cond-workspace" id="editor-cond-workspace"></div>
+    </div>
+  </div>
+
+  <!-- ── Mission Map panel (right column, hidden unless app.mode === 'play') ── -->
+  <div class="mission-map" id="mission-map" hidden>
+    <div class="mm-head">
+      <div class="mm-tag" id="mm-tag">▶ MISSION</div>
+      <div class="mm-title" id="mm-title">—</div>
+      <div class="mm-meta"  id="mm-meta">—</div>
+    </div>
+    <div class="mm-score">
+      <div>
+        <div class="mm-score-label">Score</div>
+        <div class="mm-score-num"><span id="mm-score-current">0</span><span class="max" id="mm-score-max">/0</span></div>
+      </div>
+      <div class="mission-stars" id="mm-stars" aria-label="Stars earned"></div>
+    </div>
+    <div class="mm-timer" id="mm-timer" hidden>
+      <div class="mm-timer-elapsed">
+        <span class="mm-timer-label">Elapsed</span>
+        <span class="mm-timer-value" id="mm-timer-elapsed">0:00</span>
+      </div>
+      <div class="mm-timer-remaining">
+        <span class="mm-timer-label">Left</span>
+        <span class="mm-timer-value" id="mm-timer-remaining">—</span>
+      </div>
+    </div>
+    <ul class="mm-steps" id="mm-steps"></ul>
+    <div class="mm-bottom">
+      <button class="btn btn-mini" id="mm-exit" type="button">✕ Exit Mission</button>
     </div>
   </div>
 
@@ -353,6 +498,25 @@
 <script src="js/llsp3_blocks.js"></script>
 <script src="js/llsp3_io.js"></script>
 <script src="js/llsp3_ui.js"></script>
+<script src="js/mission_schema.js"></script>
+<script src="js/mission_loader.js"></script>
+<script src="js/mission_conditions.js"></script>
+<script src="js/mission_engine.js"></script>
+<script src="js/mission_persistence.js"></script>
+<script src="js/mission_library.js"></script>
+<script src="js/mission_field_swap.js"></script>
+<script src="js/mission_library_ui.js"></script>
+<script src="js/mission_ui.js"></script>
+<script src="js/mission_editor_state.js"></script>
+<script src="js/mission_editor_app.js"></script>
+  <script src="js/mission_editor_field.js"></script>
+  <script src="js/mission_editor_meta.js"></script>
+  <script src="js/mission_editor_steps.js"></script>
+  <script src="js/mission_editor_inspector.js"></script>
+  <script src="js/mission_editor_conditions.js"></script>
+  <script src="js/mission_editor_playtest.js"></script>
+  <script src="js/mission_editor_io.js"></script>
+<script src="js/mission_app.js"></script>
 <script src="js/main.js"></script>
 <script src="js/version_check.js"></script>
 <script>window.versionCheck && window.versionCheck.init();</script>

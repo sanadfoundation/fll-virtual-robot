@@ -1,0 +1,2463 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Missions UX Prototype — FLL Virtual Robot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ─────────────────────────────────────────────────────────
+   Inherits the FLL Virtual Robot design language:
+   deep-navy + LEGO amber, Exo 2 + JetBrains Mono.
+   ───────────────────────────────────────────────────────── */
+:root {
+  --bg:       #0b0f18;
+  --surface:  #111827;
+  --surface2: #1a2236;
+  --surface3: #1e2a42;
+  --border:   #1e2d4a;
+  --border2:  #2a3f60;
+
+  --amber:    #fbbf24;
+  --amber2:   #f59e0b;
+  --blue:     #3b82f6;
+  --cyan:     #22d3ee;
+  --green:    #22c55e;
+  --red:      #ef4444;
+  --purple:   #a78bfa;
+  --yellow:   #facc15;
+
+  --text:     #e2e8f0;
+  --text-dim: #4b6280;
+  --text-mid: #94a3b8;
+
+  --font-ui:   'Exo 2', system-ui, sans-serif;
+  --font-code: 'JetBrains Mono', 'Consolas', monospace;
+
+  --glow-amber: 0 0 14px rgba(251,191,36,0.28);
+  --glow-blue:  0 0 14px rgba(59,130,246,0.30);
+  --glow-green: 0 0 14px rgba(34,197,94,0.30);
+
+  --shadow-card:  0 4px 16px rgba(0,0,0,0.45);
+  --shadow-modal: 0 24px 80px rgba(0,0,0,0.6), 0 4px 12px rgba(0,0,0,0.4);
+  --shadow-panel: 0 4px 16px rgba(0,0,0,0.5);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-ui);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: 0.01em;
+  overflow-x: hidden;
+}
+
+/* Subtle field grid behind everything for atmosphere */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 30% 20%, rgba(59,130,246,0.06), transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(251,191,36,0.05), transparent 50%),
+    linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+  z-index: -1;
+}
+
+/* ─────────────────────────────────────────────────────────
+   Prototype chrome (the view-switcher at the top of the page)
+   This isn't part of the proposed UI — it lets you flip
+   between mocked-up screens.
+   ───────────────────────────────────────────────────────── */
+.proto-bar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(11,15,24,0.88);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 28px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.proto-bar::after {
+  content: '';
+  position: absolute;
+  bottom: -1px; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--amber) 0%, var(--blue) 60%, transparent 100%);
+}
+.proto-title {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.proto-title strong { color: var(--amber); font-weight: 800; }
+.proto-title .pill {
+  background: var(--surface2);
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-mid);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+.view-switcher {
+  display: flex;
+  gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 4px;
+}
+.view-switcher button {
+  padding: 6px 14px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+}
+.view-switcher button:hover { color: var(--text-mid); }
+.view-switcher button.active {
+  background: var(--surface3);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--border2);
+}
+.proto-caption {
+  flex: 1;
+  text-align: right;
+  font-size: 12px;
+  color: var(--text-mid);
+  font-style: italic;
+  font-weight: 500;
+}
+
+/* Wrapper that holds one mock screen at a time */
+.proto-stage {
+  padding: 28px;
+  display: grid;
+  place-items: start center;
+}
+.mock { display: none; width: 100%; max-width: 1400px; }
+.mock.active { display: block; }
+
+/* Section subtitle above each mock — telling you what you're looking at */
+.mock-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  gap: 16px;
+}
+.mock-heading h2 {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.mock-heading h2 .accent { color: var(--amber); }
+.mock-heading p {
+  font-size: 13px;
+  color: var(--text-mid);
+  font-weight: 500;
+  max-width: 60ch;
+  text-align: right;
+}
+
+/* ─────────────────────────────────────────────────────────
+   Shared "app-frame" — the rounded chrome containing
+   a single mock view so it looks framed, not bleeding.
+   ───────────────────────────────────────────────────────── */
+.app-frame {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: var(--shadow-panel);
+  position: relative;
+}
+.app-frame::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--amber) 0%, var(--blue) 60%, transparent 100%);
+  z-index: 2;
+}
+
+/* ─────────────────────────────────────────────────────────
+   Faux app header (matches the real app's header)
+   ───────────────────────────────────────────────────────── */
+.fake-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 18px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  height: 50px;
+  position: relative;
+}
+.fake-logo {
+  width: 26px; height: 26px;
+  background: var(--amber);
+  border-radius: 5px;
+  display: grid; place-items: center;
+  font-size: 14px;
+}
+.fake-tabs {
+  display: flex; gap: 2px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 2px;
+}
+.fake-tab {
+  padding: 4px 14px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-dim);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.fake-tab.active {
+  background: var(--surface3);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--border2);
+}
+.fake-header .spacer { flex: 1; }
+.fake-pill {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: var(--font-ui);
+  display: flex; align-items: center; gap: 6px;
+}
+.fake-pill .icon { opacity: 0.7; }
+.btn-mini {
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--text-mid);
+  padding: 5px 11px;
+  border-radius: 6px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+.btn-mini.amber { color: var(--amber); border-color: var(--amber); box-shadow: var(--glow-amber); background: rgba(251,191,36,0.06); }
+.btn-mini.green { color: var(--green); border-color: var(--green); }
+.btn-mini.danger { color: var(--red); border-color: var(--red); }
+.btn-mini:hover { color: var(--text); border-color: var(--text-mid); }
+.btn-mini.amber:hover { color: #1a1206; background: var(--amber); }
+.btn-mini.green:hover { color: #022c0e; background: var(--green); }
+
+/* ─────────────────────────────────────────────────────────
+   1) LIBRARY MOCK
+   ───────────────────────────────────────────────────────── */
+.library-stage {
+  display: grid;
+  grid-template-columns: 1fr;
+  position: relative;
+}
+.library-backdrop {
+  /* The dimmed sandbox behind the library modal */
+  background: var(--bg);
+  background-image:
+    linear-gradient(rgba(11,15,24,0.86), rgba(11,15,24,0.86)),
+    /* Decoy "behind" content using gradient suggestions */
+    linear-gradient(180deg, var(--surface) 50px, var(--bg) 50px);
+  min-height: 720px;
+  padding: 80px 60px;
+  position: relative;
+}
+.library-backdrop::before {
+  content: 'SANDBOX MODE';
+  position: absolute;
+  top: 18px; left: 28px;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--text-dim);
+  font-weight: 800;
+  opacity: 0.4;
+}
+
+.library-modal {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 14px;
+  box-shadow: var(--shadow-modal);
+  max-width: 1080px;
+  margin: 0 auto;
+  overflow: hidden;
+  position: relative;
+}
+.library-modal::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--amber) 0%, var(--blue) 60%, transparent 100%);
+}
+
+.library-head {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.library-head h3 {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  display: flex; align-items: center; gap: 10px;
+}
+.library-head h3 .badge {
+  background: var(--amber);
+  color: #1a1206;
+  border-radius: 5px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+.library-head .spacer { flex: 1; }
+.library-head .icon-close {
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--text-mid);
+  width: 30px; height: 30px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.library-head .icon-close:hover { color: var(--text); border-color: var(--text-mid); }
+
+.library-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+  flex-wrap: wrap;
+}
+.lib-rail {
+  display: flex; gap: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 3px;
+}
+.lib-rail button {
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  padding: 5px 12px;
+  border-radius: 5px;
+  display: flex; align-items: center; gap: 6px;
+}
+.lib-rail button .count {
+  background: var(--surface3);
+  color: var(--text-mid);
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-family: var(--font-code);
+}
+.lib-rail button.active {
+  background: var(--surface3);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--border2);
+}
+.lib-rail button.active .count { background: var(--amber); color: #1a1206; }
+
+.library-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  padding: 22px;
+  max-height: 580px;
+  overflow-y: auto;
+}
+
+.mission-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  overflow: hidden;
+  transition: transform 0.12s, border-color 0.15s, box-shadow 0.2s;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+}
+.mission-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--amber);
+  box-shadow: var(--shadow-card), 0 0 0 1px rgba(251,191,36,0.15);
+}
+
+.mission-thumb {
+  position: relative;
+  aspect-ratio: 2.07 / 1;
+  background: #1f2a3d;
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+}
+.mission-thumb svg { display: block; width: 100%; height: 100%; }
+.mission-thumb .tier {
+  position: absolute;
+  top: 8px; left: 8px;
+  background: rgba(11,15,24,0.86);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+.mission-thumb .tier.beginner     { color: var(--green); border-color: rgba(34,197,94,0.4); }
+.mission-thumb .tier.intermediate { color: var(--amber); border-color: rgba(251,191,36,0.4); }
+.mission-thumb .tier.advanced     { color: var(--red);   border-color: rgba(239,68,68,0.4);  }
+.mission-thumb .ribbon {
+  position: absolute;
+  top: 8px; right: 8px;
+  background: var(--surface3);
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  padding: 3px 7px;
+  color: var(--text-mid);
+  font-weight: 700;
+}
+
+.mission-meta {
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mission-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.005em;
+}
+.mission-author {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-family: var(--font-code);
+  letter-spacing: 0.04em;
+}
+.mission-stars {
+  display: flex;
+  gap: 2px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.mission-stars .star.lit { color: var(--amber); text-shadow: 0 0 6px rgba(251,191,36,0.4); }
+.mission-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.mission-actions button {
+  flex: 1;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--text-mid);
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  font-family: var(--font-ui);
+}
+.mission-actions button.primary {
+  background: var(--amber);
+  color: #1a1206;
+  border-color: var(--amber);
+}
+.mission-actions button.primary:hover { box-shadow: var(--glow-amber); }
+.mission-actions button:not(.primary):hover { color: var(--text); border-color: var(--text-mid); }
+
+.btn-newmission {
+  background: var(--surface2);
+  border: 1px dashed var(--border2);
+  color: var(--text-mid);
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 6px;
+}
+.btn-newmission:hover {
+  color: var(--amber);
+  border-color: var(--amber);
+  background: rgba(251,191,36,0.05);
+}
+.lib-tools-right { margin-left: auto; display: flex; gap: 6px; }
+
+/* ─────────────────────────────────────────────────────────
+   2) PLAY MOCK
+   ───────────────────────────────────────────────────────── */
+.play-body {
+  display: grid;
+  grid-template-columns: minmax(320px, 28%) 8px minmax(0, 1fr) minmax(280px, 22%);
+  background: var(--bg);
+  height: 720px;
+}
+.play-editor {
+  background: #1e1e1e;
+  border-right: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+.play-editor::before {
+  /* fake Monaco gutter */
+  content: '';
+  position: absolute;
+  top: 0; left: 0; bottom: 0; width: 38px;
+  background: #1e1e1e;
+  border-right: 1px solid #2a2a2a;
+}
+.code-lines {
+  padding: 16px 16px 16px 50px;
+  font-family: var(--font-code);
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: #d4d4d4;
+}
+.code-lines .kw   { color: #c586c0; }
+.code-lines .fn   { color: #dcdcaa; }
+.code-lines .str  { color: #ce9178; }
+.code-lines .num  { color: #b5cea8; }
+.code-lines .com  { color: #6a9955; font-style: italic; }
+.code-lines .var  { color: #9cdcfe; }
+
+.play-resize {
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+
+.play-canvas-area {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  position: relative;
+  overflow: hidden;
+}
+.play-ports {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.port-chip {
+  display: flex; align-items: center; gap: 7px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  padding: 5px 9px 5px 7px;
+  border-radius: 7px;
+  font-size: 11px;
+}
+.port-chip .icon { font-size: 13px; }
+.port-chip .role { color: var(--text-mid); font-weight: 700; font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; }
+.port-chip .port { color: var(--amber); font-family: var(--font-code); font-weight: 700; font-size: 9px; }
+.port-chip .val { font-family: var(--font-code); color: var(--text); font-size: 11px; margin-left: 4px; }
+.port-chip-divider { width: 1px; height: 22px; background: var(--border); }
+
+.play-canvas-wrap {
+  flex: 1;
+  display: grid; place-items: center;
+  padding: 14px;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(59,130,246,0.05), transparent 60%),
+    var(--bg);
+  min-height: 0;
+}
+.field-svg {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 6px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.04);
+}
+
+.play-pos {
+  display: flex; align-items: center; gap: 14px;
+  padding: 8px 16px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+}
+.play-pos .label {
+  color: var(--text-dim);
+  font-weight: 800;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.play-pos .pose { display: flex; align-items: baseline; gap: 6px; }
+.play-pos .pose .k { color: var(--text-mid); font-size: 9px; font-weight: 700; letter-spacing: 0.12em; }
+.play-pos .pose .v { font-family: var(--font-code); color: var(--text); font-size: 11px; }
+
+/* Right column — Mission Map panel */
+.play-mission {
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.mm-head {
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 6px;
+  background: linear-gradient(180deg, var(--surface3) 0%, var(--surface) 100%);
+}
+.mm-tag {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: var(--amber);
+  font-weight: 800;
+}
+.mm-title {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.005em;
+  line-height: 1.2;
+}
+.mm-meta {
+  font-size: 11px;
+  color: var(--text-mid);
+  font-weight: 500;
+}
+.mm-score {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+}
+.mm-score-num {
+  font-family: var(--font-code);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--amber);
+  letter-spacing: -0.01em;
+}
+.mm-score-num .max { color: var(--text-dim); font-size: 14px; margin-left: 3px; }
+.mm-score-label { font-size: 10px; color: var(--text-mid); font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; }
+
+.mm-steps {
+  padding: 8px;
+  flex: 1;
+  overflow-y: auto;
+}
+.mm-step {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color 0.15s;
+}
+.mm-step:hover { border-color: var(--border2); }
+.mm-step .row1 {
+  display: flex; align-items: flex-start; gap: 9px;
+}
+.mm-step .check {
+  width: 18px; height: 18px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--border2);
+  display: grid; place-items: center;
+  font-size: 11px;
+  color: transparent;
+  margin-top: 1px;
+}
+.mm-step.done .check {
+  background: var(--green);
+  border-color: var(--green);
+  color: #052e16;
+  font-weight: 800;
+  box-shadow: var(--glow-green);
+}
+.mm-step .step-title {
+  flex: 1;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
+}
+.mm-step.done .step-title { color: var(--text); }
+.mm-step .points {
+  background: var(--surface3);
+  color: var(--amber);
+  font-family: var(--font-code);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  letter-spacing: 0.04em;
+}
+.mm-step.done .points {
+  background: var(--amber);
+  color: #1a1206;
+}
+.mm-step .hint-row {
+  display: flex; align-items: center; gap: 8px;
+  padding-left: 27px;
+}
+.mm-step .hint-btn {
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--text-mid);
+  padding: 3px 9px;
+  border-radius: 4px;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+.mm-step .hint-btn:hover { color: var(--amber); border-color: var(--amber); }
+.mm-step .hint-reveal {
+  font-size: 11px;
+  color: var(--text-mid);
+  font-style: italic;
+  padding-left: 27px;
+  border-left: 2px solid var(--amber);
+  margin-left: 6px;
+}
+
+.play-dock {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  grid-column: 1 / -1;
+}
+.dock-icon-btn {
+  width: 36px; height: 36px;
+  border-radius: 7px;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--text);
+  display: grid; place-items: center;
+  cursor: pointer;
+  font-size: 13px;
+}
+.dock-icon-btn.run { background: var(--green); color: #052e16; border-color: var(--green); }
+.dock-icon-btn.run:hover { box-shadow: var(--glow-green); }
+.dock-icon-btn.stop { background: var(--red); color: #fff; border-color: var(--red); }
+.play-dock .spacer { flex: 1; }
+.play-dock .status { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-mid); font-weight: 600; }
+.play-dock .status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: var(--glow-green); }
+.play-dock .speed {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 10px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--text-dim);
+}
+.play-dock .speed input { width: 80px; accent-color: var(--amber); }
+.play-dock .speed .val { font-family: var(--font-code); color: var(--amber); }
+
+/* ─────────────────────────────────────────────────────────
+   3) EDITOR MOCK (shared between Field & Conditions views)
+   ───────────────────────────────────────────────────────── */
+.editor-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  background: var(--bg);
+  height: 760px;
+}
+
+/* Distinct editor header (replaces the standard one) */
+.editor-header {
+  display: flex; align-items: center; gap: 14px;
+  padding: 0 18px;
+  height: 54px;
+  background: linear-gradient(180deg, var(--surface3), var(--surface));
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+.editor-header::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, var(--purple) 0%, var(--amber) 60%, transparent 100%);
+}
+.editor-mode-tag {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  color: var(--purple);
+  text-transform: uppercase;
+}
+.editor-mode-tag::before {
+  content: '';
+  width: 8px; height: 8px;
+  border-radius: 2px;
+  background: var(--purple);
+  box-shadow: 0 0 8px rgba(167,139,250,0.6);
+}
+.editor-header .mission-name-wrap {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 5px 11px;
+  min-width: 280px;
+}
+.editor-header .mission-name-wrap input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 700;
+  width: 100%;
+}
+.editor-header .editor-toolbar-actions { display: flex; gap: 6px; margin-left: 4px; }
+.editor-header .spacer { flex: 1; }
+
+.editor-canvas-area {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 60% 40%, rgba(167,139,250,0.05), transparent 60%),
+    var(--bg);
+}
+.editor-canvas-toolbar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.editor-tool-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text-mid);
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  display: flex; align-items: center; gap: 5px;
+}
+.editor-tool-btn:hover { color: var(--text); border-color: var(--text-mid); }
+.editor-tool-btn.active {
+  color: var(--amber);
+  border-color: var(--amber);
+  background: rgba(251,191,36,0.08);
+}
+.editor-tool-btn .glyph { font-size: 12px; }
+.editor-canvas-toolbar .sep { width: 1px; height: 20px; background: var(--border); margin: 0 2px; }
+.editor-canvas-toolbar .right { margin-left: auto; display: flex; gap: 8px; align-items: center; font-size: 10px; color: var(--text-dim); letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; }
+
+.editor-canvas-wrap {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  min-height: 0;
+  position: relative;
+}
+
+/* Right side: metadata + step list */
+.editor-side {
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.side-section {
+  border-bottom: 1px solid var(--border);
+  padding: 14px 16px 12px;
+}
+.side-section h4 {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.side-section h4 .count {
+  background: var(--surface3);
+  color: var(--amber);
+  font-family: var(--font-code);
+  font-size: 10px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  letter-spacing: 0.04em;
+}
+
+.field-row {
+  display: flex; flex-direction: column; gap: 5px;
+  margin-bottom: 10px;
+}
+.field-row label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--text-mid);
+  text-transform: uppercase;
+}
+.field-row input, .field-row textarea, .field-row select {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  outline: none;
+}
+.field-row input:focus, .field-row textarea:focus, .field-row select:focus { border-color: var(--blue); }
+.field-row textarea { resize: vertical; min-height: 50px; }
+.field-row .twin { display: flex; gap: 8px; }
+.field-row .twin > * { flex: 1; }
+
+.tier-pick {
+  display: flex; gap: 6px;
+}
+.tier-pick button {
+  flex: 1;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text-mid);
+  padding: 5px 0;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+  text-transform: uppercase;
+}
+.tier-pick button.active { background: var(--surface3); color: var(--text); box-shadow: inset 0 0 0 1px var(--border2); }
+.tier-pick button.active.beginner { color: var(--green); }
+.tier-pick button.active.intermediate { color: var(--amber); }
+.tier-pick button.active.advanced { color: var(--red); }
+
+.steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  flex: 1;
+}
+.editor-step {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  overflow: hidden;
+  transition: border-color 0.12s;
+}
+.editor-step:hover { border-color: var(--border2); }
+.editor-step.expanded { border-color: var(--amber); }
+
+.editor-step-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+.editor-step-index {
+  width: 22px; height: 22px;
+  border-radius: 5px;
+  background: var(--surface3);
+  color: var(--text-mid);
+  font-family: var(--font-code);
+  font-size: 11px;
+  font-weight: 700;
+  display: grid; place-items: center;
+  flex-shrink: 0;
+}
+.editor-step.expanded .editor-step-index {
+  background: var(--amber);
+  color: #1a1206;
+}
+.editor-step-title {
+  flex: 1;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+}
+.editor-step-pts {
+  background: var(--surface3);
+  color: var(--amber);
+  font-family: var(--font-code);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+.editor-step-chev { color: var(--text-dim); font-size: 11px; transition: transform 0.2s; }
+.editor-step.expanded .editor-step-chev { transform: rotate(180deg); color: var(--amber); }
+
+.editor-step-body {
+  padding: 0 12px 14px;
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.editor-step.expanded .editor-step-body { display: flex; }
+.requires-row {
+  display: flex; gap: 6px; flex-wrap: wrap;
+}
+.requires-chip {
+  background: var(--surface3);
+  border: 1px solid var(--border2);
+  color: var(--text-mid);
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-family: var(--font-code);
+  letter-spacing: 0.02em;
+  display: flex; align-items: center; gap: 5px;
+}
+.requires-chip.active {
+  background: rgba(34,197,94,0.1);
+  border-color: var(--green);
+  color: var(--green);
+}
+
+/* Add step button */
+.btn-addstep {
+  width: 100%;
+  border: 1px dashed var(--border2);
+  background: transparent;
+  color: var(--text-mid);
+  padding: 8px;
+  border-radius: 7px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  margin-top: 6px;
+}
+.btn-addstep:hover { color: var(--amber); border-color: var(--amber); background: rgba(251,191,36,0.04); }
+
+/* ─────────────────────────────────────────────────────────
+   Blockly-style condition workspace (mocked, not real Blockly)
+   ───────────────────────────────────────────────────────── */
+.condition-pane {
+  margin-top: 6px;
+  background: #f5f5f7;
+  border: 1px solid var(--border2);
+  border-radius: 9px;
+  padding: 14px;
+  display: flex;
+  gap: 10px;
+  min-height: 240px;
+}
+.condition-toolbox {
+  width: 130px;
+  flex-shrink: 0;
+  background: #e8eaef;
+  border-radius: 7px;
+  padding: 8px;
+  display: flex; flex-direction: column; gap: 6px;
+  border: 1px solid #cdd2dc;
+}
+.toolbox-cat {
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #525a6e;
+  font-weight: 800;
+  padding: 4px 6px;
+}
+.tbox-block {
+  background: #5b6dad;
+  color: #fff;
+  padding: 6px 9px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-ui);
+  cursor: grab;
+  border: 1px solid #4a5a93;
+  box-shadow: 0 2px 0 #3e4a78;
+}
+.tbox-block.compose { background: #c97a3a; border-color: #a66128; box-shadow: 0 2px 0 #864e1f; }
+.tbox-block:hover { filter: brightness(1.08); }
+
+.condition-canvas {
+  flex: 1;
+  background: #ffffff;
+  border-radius: 7px;
+  border: 1px solid #cdd2dc;
+  padding: 18px;
+  position: relative;
+  background-image:
+    radial-gradient(rgba(0,0,0,0.06) 1px, transparent 1px);
+  background-size: 12px 12px;
+  background-position: 6px 6px;
+}
+.cond-block {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #1d2535;
+  background: #5b6dad;
+  color: #fff;
+  padding: 7px 11px;
+  border-radius: 6px;
+  border: 1px solid #4a5a93;
+  box-shadow: 0 2px 0 #3e4a78;
+  position: relative;
+}
+.cond-block.compose { background: #c97a3a; border-color: #a66128; box-shadow: 0 2px 0 #864e1f; }
+.cond-block.compose .cond-children {
+  display: flex; flex-direction: column;
+  gap: 6px;
+  margin-left: 8px;
+}
+.cond-block .pick {
+  background: #4a5a93;
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+.cond-block.compose .pick { background: #a66128; }
+.cond-stack { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+
+/* Editor field drag-handle styling */
+.drag-handle {
+  fill: var(--amber);
+  stroke: #1a1206;
+  stroke-width: 1.5;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
+  cursor: move;
+}
+.start-handle {
+  fill: var(--green);
+  stroke: #022c0e;
+  stroke-width: 1.5;
+}
+.selected-outline {
+  fill: none;
+  stroke: var(--amber);
+  stroke-width: 2.5;
+  stroke-dasharray: 6 4;
+  filter: drop-shadow(0 0 4px rgba(251,191,36,0.6));
+}
+
+/* ─────────────────────────────────────────────────────────
+   4) SCORE READOUT MOCK
+   ───────────────────────────────────────────────────────── */
+.score-stage {
+  padding: 60px 40px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+}
+.score-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 28px 30px;
+  box-shadow: var(--shadow-modal);
+  position: relative;
+  overflow: hidden;
+}
+.score-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--amber), var(--blue));
+}
+.score-tag {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--text-dim);
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.score-headline {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-top: 6px;
+}
+.score-headline .num { color: var(--amber); font-family: var(--font-code); }
+.score-headline .of { color: var(--text-dim); font-size: 22px; }
+.score-stars-big {
+  display: flex; gap: 6px;
+  font-size: 28px;
+  margin-top: 6px;
+}
+.score-stars-big .star.lit { color: var(--amber); text-shadow: 0 0 10px rgba(251,191,36,0.6); }
+.score-stars-big .star { color: var(--text-dim); }
+.score-divider { height: 1px; background: var(--border); margin: 18px 0; }
+.score-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 0;
+  font-size: 13px;
+  border-bottom: 1px dashed var(--border);
+}
+.score-row:last-child { border-bottom: none; }
+.score-row .left {
+  display: flex; align-items: center; gap: 9px;
+  color: var(--text);
+}
+.score-row .left .mark {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--green);
+  color: #052e16;
+  display: grid; place-items: center;
+  font-size: 10px;
+  font-weight: 800;
+}
+.score-row.miss .left .mark { background: var(--surface3); color: var(--text-dim); }
+.score-row.penalty .left .mark { background: var(--red); color: #fff; }
+.score-row .right {
+  font-family: var(--font-code);
+  font-weight: 700;
+  color: var(--amber);
+}
+.score-row.miss .right { color: var(--text-dim); }
+.score-row.penalty .right { color: var(--red); }
+.score-row.total {
+  border-top: 2px solid var(--border2);
+  margin-top: 6px;
+  padding-top: 14px;
+  font-size: 15px;
+  font-weight: 800;
+}
+.score-row.total .right { color: var(--amber); font-size: 18px; }
+.score-actions {
+  display: flex; gap: 8px;
+  margin-top: 22px;
+}
+.score-actions button {
+  flex: 1;
+  padding: 9px 14px;
+  border-radius: 8px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--text-mid);
+}
+.score-actions button.primary {
+  background: var(--amber);
+  color: #1a1206;
+  border-color: var(--amber);
+  box-shadow: var(--glow-amber);
+}
+.score-actions button:not(.primary):hover { color: var(--text); border-color: var(--text-mid); }
+.score-context {
+  margin-top: 16px;
+  font-size: 11px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+.score-card.obstacle::before { background: linear-gradient(90deg, var(--cyan), var(--purple)); }
+
+/* ─────────────────────────────────────────────────────────
+   Notes panel beneath each mock — explanatory text for the user
+   ───────────────────────────────────────────────────────── */
+.notes {
+  margin-top: 22px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+.note {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  border-left: 3px solid var(--amber);
+}
+.note .n-tag {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--amber);
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+.note p {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-mid);
+}
+.note p code {
+  background: var(--surface2);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: var(--font-code);
+  font-size: 11px;
+  color: var(--amber);
+}
+.note.blue   { border-left-color: var(--blue);  }
+.note.blue   .n-tag { color: var(--blue);  }
+.note.green  { border-left-color: var(--green); }
+.note.green  .n-tag { color: var(--green); }
+.note.purple { border-left-color: var(--purple); }
+.note.purple .n-tag { color: var(--purple); }
+.note.cyan   { border-left-color: var(--cyan); }
+.note.cyan   .n-tag { color: var(--cyan); }
+
+footer.proto-footer {
+  margin-top: 60px;
+  padding: 32px 28px 60px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: var(--font-code);
+  letter-spacing: 0.06em;
+}
+footer.proto-footer a { color: var(--amber); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<!-- ──────────────────────── VIEW SWITCHER ──────────────────────── -->
+<div class="proto-bar">
+  <div class="proto-title">
+    <strong>Missions UX</strong>
+    <span class="pill">Prototype · 2026-05-23</span>
+  </div>
+  <div class="view-switcher" id="switcher">
+    <button data-view="library"    class="active">Library</button>
+    <button data-view="play">Play Mode</button>
+    <button data-view="editor-field">Editor: Field</button>
+    <button data-view="editor-cond">Editor: Conditions</button>
+    <button data-view="score">Score Readout</button>
+  </div>
+  <div class="proto-caption" id="caption">Click a mission card to enter Play mode. "+ New" opens the Editor.</div>
+</div>
+
+<!-- ──────────────────────── STAGE ──────────────────────── -->
+<div class="proto-stage">
+
+<!-- ════════════════════════════════════════════════════════
+     1) LIBRARY
+     ════════════════════════════════════════════════════════ -->
+<section class="mock active" data-view="library">
+  <div class="mock-heading">
+    <h2>1 · <span class="accent">Mission Library</span> — discovery surface</h2>
+    <p>Opens as a modal over Sandbox mode when the user clicks <strong>Missions</strong> in the toolbar. Cards show auto-captured thumbnails of the field at start state.</p>
+  </div>
+
+  <div class="app-frame library-stage">
+    <div class="fake-header">
+      <div class="fake-logo">🤖</div>
+      <div class="fake-tabs">
+        <button class="fake-tab active">🧱 Blocks</button>
+        <button class="fake-tab">🐍 Python</button>
+      </div>
+      <button class="fake-pill" style="background: var(--amber); color: #1a1206; border-color: var(--amber); box-shadow: var(--glow-amber);">
+        <span class="icon">🎯</span> Missions
+      </button>
+      <div class="spacer"></div>
+      <button class="btn-mini">⚙ Settings</button>
+      <button class="btn-mini amber" style="box-shadow: var(--glow-amber);">❤️ Support</button>
+    </div>
+
+    <div class="library-backdrop">
+      <div class="library-modal">
+        <div class="library-head">
+          <h3>🎯 Mission Library <span class="badge">8 MISSIONS</span></h3>
+          <div class="spacer"></div>
+          <button class="btn-newmission">+ New Mission</button>
+          <button class="btn-mini">📥 Import file…</button>
+          <button class="icon-close" title="Close">✕</button>
+        </div>
+
+        <div class="library-toolbar">
+          <div class="lib-rail">
+            <button class="active">All <span class="count">8</span></button>
+            <button>Bundled <span class="count">5</span></button>
+            <button>My Missions <span class="count">2</span></button>
+            <button>Imported <span class="count">1</span></button>
+          </div>
+          <div class="lib-tools-right">
+            <span style="font-size: 10px; color: var(--text-dim); letter-spacing: 0.14em; text-transform: uppercase; font-weight: 800; align-self: center;">Sort</span>
+            <button class="btn-mini">Difficulty ▾</button>
+          </div>
+        </div>
+
+        <div class="library-grid">
+
+          <!-- Mission 1: Red Zone then Push (the running example in the spec) -->
+          <div class="mission-card">
+            <div class="mission-thumb">
+              <svg viewBox="0 0 207 100" preserveAspectRatio="none">
+                <!-- mat -->
+                <rect width="207" height="100" fill="#dfd2a8"/>
+                <!-- yellow strip -->
+                <rect x="60" y="36" width="32" height="28" fill="#e5cb5e" opacity="0.85"/>
+                <!-- green zone -->
+                <rect x="125" y="6" width="22" height="22" fill="#7fbf6a" opacity="0.8"/>
+                <text x="136" y="20" font-size="9" font-family="JetBrains Mono" fill="#1a3a1a" text-anchor="middle" font-weight="700">G</text>
+                <!-- red zone -->
+                <rect x="166" y="70" width="22" height="22" fill="#cf6b6b" opacity="0.8"/>
+                <text x="177" y="84" font-size="9" font-family="JetBrains Mono" fill="#3a1a1a" text-anchor="middle" font-weight="700">R</text>
+                <!-- black line (mid) -->
+                <line x1="0" y1="50" x2="207" y2="50" stroke="#222" stroke-width="0.6"/>
+                <!-- obstacle 1 (purple, on green) -->
+                <rect x="130" y="11" width="11" height="11" fill="#9b59b6" stroke="#5e2c79"/>
+                <text x="135.5" y="20" font-size="6" font-family="JetBrains Mono" fill="#fff" text-anchor="middle" font-weight="700">1</text>
+                <!-- robot at start -->
+                <g transform="translate(30,85) rotate(-90)">
+                  <rect x="-7" y="-5" width="14" height="10" fill="#3b82f6" stroke="#0b3a83" stroke-width="0.5"/>
+                  <circle cx="8" cy="0" r="2" fill="#fbbf24"/>
+                </g>
+              </svg>
+              <span class="tier beginner">Beginner</span>
+              <span class="ribbon">⭐ Bundled</span>
+            </div>
+            <div class="mission-meta">
+              <div class="mission-title">Red Zone then Push</div>
+              <div class="mission-author">Sanad Foundation · 2 steps · 25 pts</div>
+              <div class="mission-stars">
+                <span class="star lit">★</span><span class="star lit">★</span><span class="star">★</span>
+              </div>
+              <div class="mission-actions">
+                <button>Edit</button>
+                <button class="primary">▶ Play</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mission 2: Colour Crawl -->
+          <div class="mission-card">
+            <div class="mission-thumb">
+              <svg viewBox="0 0 207 100" preserveAspectRatio="none">
+                <rect width="207" height="100" fill="#dfd2a8"/>
+                <rect x="40" y="20" width="22" height="22" fill="#cf6b6b" opacity="0.8"/>
+                <rect x="80" y="20" width="22" height="22" fill="#e5cb5e" opacity="0.85"/>
+                <rect x="120" y="20" width="22" height="22" fill="#7fbf6a" opacity="0.8"/>
+                <rect x="160" y="20" width="22" height="22" fill="#5b8fc7" opacity="0.85"/>
+                <line x1="0" y1="65" x2="207" y2="65" stroke="#222" stroke-width="0.6"/>
+                <g transform="translate(28,82) rotate(-90)">
+                  <rect x="-7" y="-5" width="14" height="10" fill="#3b82f6" stroke="#0b3a83" stroke-width="0.5"/>
+                  <circle cx="8" cy="0" r="2" fill="#fbbf24"/>
+                </g>
+              </svg>
+              <span class="tier beginner">Beginner</span>
+              <span class="ribbon">⭐ Bundled</span>
+            </div>
+            <div class="mission-meta">
+              <div class="mission-title">Colour Crawl</div>
+              <div class="mission-author">Sanad Foundation · 4 steps · 40 pts</div>
+              <div class="mission-stars">
+                <span class="star lit">★</span><span class="star lit">★</span><span class="star lit">★</span>
+              </div>
+              <div class="mission-actions">
+                <button>Edit</button>
+                <button class="primary">▶ Play</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mission 3: Energy Storage Pickup -->
+          <div class="mission-card">
+            <div class="mission-thumb">
+              <svg viewBox="0 0 207 100" preserveAspectRatio="none">
+                <rect width="207" height="100" fill="#dfd2a8"/>
+                <rect x="20" y="10" width="40" height="32" fill="#5b8fc7" opacity="0.6"/>
+                <text x="40" y="28" font-size="6" fill="#1a3a5a" text-anchor="middle" font-weight="700" font-family="Exo 2">HOME</text>
+                <rect x="148" y="58" width="40" height="32" fill="#7fbf6a" opacity="0.7"/>
+                <text x="168" y="76" font-size="6" fill="#1a3a1a" text-anchor="middle" font-weight="700" font-family="Exo 2">ENERGY</text>
+                <!-- obstacles -->
+                <rect x="76" y="32" width="8" height="8" fill="#9b59b6" stroke="#5e2c79"/>
+                <rect x="92" y="46" width="8" height="8" fill="#9b59b6" stroke="#5e2c79"/>
+                <rect x="108" y="62" width="8" height="8" fill="#9b59b6" stroke="#5e2c79"/>
+                <g transform="translate(30,84) rotate(-90)">
+                  <rect x="-7" y="-5" width="14" height="10" fill="#3b82f6" stroke="#0b3a83" stroke-width="0.5"/>
+                  <circle cx="8" cy="0" r="2" fill="#fbbf24"/>
+                </g>
+              </svg>
+              <span class="tier intermediate">Intermediate</span>
+              <span class="ribbon">⭐ Bundled</span>
+            </div>
+            <div class="mission-meta">
+              <div class="mission-title">Energy Storage Pickup</div>
+              <div class="mission-author">Sanad Foundation · 5 steps · 60 pts</div>
+              <div class="mission-stars">
+                <span class="star lit">★</span><span class="star">★</span><span class="star">★</span>
+              </div>
+              <div class="mission-actions">
+                <button>Edit</button>
+                <button class="primary">▶ Play</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mission 4: Slalom Course (obstacle course) -->
+          <div class="mission-card">
+            <div class="mission-thumb">
+              <svg viewBox="0 0 207 100" preserveAspectRatio="none">
+                <rect width="207" height="100" fill="#dfd2a8"/>
+                <rect x="170" y="38" width="32" height="24" fill="#7fbf6a" opacity="0.8" stroke="#3a7a30" stroke-width="0.8" stroke-dasharray="2,1"/>
+                <text x="186" y="54" font-size="6" fill="#1a3a1a" text-anchor="middle" font-weight="700">FINISH</text>
+                <!-- slalom poles -->
+                <circle cx="60"  cy="40" r="4" fill="#c97a3a"/>
+                <circle cx="85"  cy="65" r="4" fill="#c97a3a"/>
+                <circle cx="110" cy="40" r="4" fill="#c97a3a"/>
+                <circle cx="135" cy="65" r="4" fill="#c97a3a"/>
+                <line x1="0" y1="92" x2="50" y2="92" stroke="#222" stroke-width="0.7"/>
+                <g transform="translate(28,84) rotate(-90)">
+                  <rect x="-7" y="-5" width="14" height="10" fill="#3b82f6" stroke="#0b3a83" stroke-width="0.5"/>
+                  <circle cx="8" cy="0" r="2" fill="#fbbf24"/>
+                </g>
+              </svg>
+              <span class="tier intermediate">Intermediate</span>
+              <span class="ribbon">⭐ Bundled · OBSTACLE</span>
+            </div>
+            <div class="mission-meta">
+              <div class="mission-title">Slalom Course</div>
+              <div class="mission-author">Sanad Foundation · target 15s · 100 pts</div>
+              <div class="mission-stars">
+                <span class="star lit">★</span><span class="star lit">★</span><span class="star">★</span>
+              </div>
+              <div class="mission-actions">
+                <button>Edit</button>
+                <button class="primary">▶ Play</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mission 5: Sample Submerged 2025 -->
+          <div class="mission-card">
+            <div class="mission-thumb">
+              <svg viewBox="0 0 207 100" preserveAspectRatio="none">
+                <rect width="207" height="100" fill="#dfd2a8"/>
+                <rect x="0"   y="50" width="207" height="40" fill="#3b6da3" opacity="0.18"/>
+                <rect x="40"  y="58" width="14" height="10" fill="#22d3ee" stroke="#0e7090"/>
+                <rect x="80"  y="62" width="14" height="14" fill="#22d3ee" stroke="#0e7090"/>
+                <rect x="120" y="58" width="14" height="10" fill="#22d3ee" stroke="#0e7090"/>
+                <rect x="160" y="64" width="14" height="14" fill="#22d3ee" stroke="#0e7090"/>
+                <rect x="2"   y="6"  width="40" height="22" fill="#5b8fc7" opacity="0.5"/>
+                <text x="22" y="20" font-size="6" fill="#1a3a5a" text-anchor="middle" font-weight="700">HOME</text>
+                <g transform="translate(30,85) rotate(-90)">
+                  <rect x="-7" y="-5" width="14" height="10" fill="#3b82f6" stroke="#0b3a83" stroke-width="0.5"/>
+                  <circle cx="8" cy="0" r="2" fill="#fbbf24"/>
+                </g>
+              </svg>
+              <span class="tier advanced">Advanced</span>
+              <span class="ribbon">⭐ Bundled</span>
+            </div>
+            <div class="mission-meta">
+              <div class="mission-title">Sample · Submerged 2024</div>
+              <div class="mission-author">Sanad Foundation · 8 steps · 240 pts</div>
+              <div class="mission-stars">
+                <span class="star">★</span><span class="star">★</span><span class="star">★</span>
+              </div>
+              <div class="mission-actions">
+                <button>Edit</button>
+                <button class="primary">▶ Play</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mission 6: My Coach's Practice (user-authored) -->
+          <div class="mission-card">
+            <div class="mission-thumb">
+              <svg viewBox="0 0 207 100" preserveAspectRatio="none">
+                <rect width="207" height="100" fill="#dfd2a8"/>
+                <rect x="100" y="34" width="22" height="22" fill="#cf6b6b" opacity="0.8"/>
+                <rect x="100" y="34" width="22" height="22" fill="none" stroke="#9b3030" stroke-width="0.6" stroke-dasharray="2,1"/>
+                <g transform="translate(30,85) rotate(-90)">
+                  <rect x="-7" y="-5" width="14" height="10" fill="#3b82f6" stroke="#0b3a83" stroke-width="0.5"/>
+                  <circle cx="8" cy="0" r="2" fill="#fbbf24"/>
+                </g>
+              </svg>
+              <span class="tier beginner">Beginner</span>
+              <span class="ribbon">👤 MINE</span>
+            </div>
+            <div class="mission-meta">
+              <div class="mission-title">Tuesday Practice — Red Square</div>
+              <div class="mission-author">Coach Maher · 1 step · 10 pts · today</div>
+              <div class="mission-stars">
+                <span class="star lit">★</span><span class="star lit">★</span><span class="star lit">★</span>
+              </div>
+              <div class="mission-actions">
+                <button>Edit</button>
+                <button class="primary">▶ Play</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mission 7: From URL -->
+          <div class="mission-card">
+            <div class="mission-thumb">
+              <svg viewBox="0 0 207 100" preserveAspectRatio="none">
+                <rect width="207" height="100" fill="#dfd2a8"/>
+                <rect x="60" y="20" width="20" height="60" fill="#7fbf6a" opacity="0.7"/>
+                <rect x="120" y="20" width="20" height="60" fill="#7fbf6a" opacity="0.7"/>
+                <rect x="160" y="40" width="40" height="20" fill="#e5cb5e" opacity="0.85"/>
+                <rect x="68" y="48" width="6" height="6" fill="#9b59b6"/>
+                <rect x="128" y="48" width="6" height="6" fill="#9b59b6"/>
+                <g transform="translate(30,50) rotate(0)">
+                  <rect x="-7" y="-5" width="14" height="10" fill="#3b82f6" stroke="#0b3a83" stroke-width="0.5"/>
+                  <circle cx="8" cy="0" r="2" fill="#fbbf24"/>
+                </g>
+              </svg>
+              <span class="tier advanced">Advanced</span>
+              <span class="ribbon">📥 IMPORTED</span>
+            </div>
+            <div class="mission-meta">
+              <div class="mission-title">Tunnel Run (community)</div>
+              <div class="mission-author">@robotic_kid · 6 steps · 75 pts</div>
+              <div class="mission-stars">
+                <span class="star">★</span><span class="star">★</span><span class="star">★</span>
+              </div>
+              <div class="mission-actions">
+                <button>Edit</button>
+                <button class="primary">▶ Play</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mission 8: My WIP -->
+          <div class="mission-card">
+            <div class="mission-thumb" style="background: repeating-linear-gradient(45deg, #2a3144 0 8px, #1f2535 8px 16px);">
+              <svg viewBox="0 0 207 100" preserveAspectRatio="none" style="opacity:0.35">
+                <rect width="207" height="100" fill="#dfd2a8"/>
+                <g transform="translate(30,85) rotate(-90)">
+                  <rect x="-7" y="-5" width="14" height="10" fill="#3b82f6" stroke="#0b3a83" stroke-width="0.5"/>
+                </g>
+              </svg>
+              <span class="tier beginner">Beginner</span>
+              <span class="ribbon">📝 DRAFT</span>
+            </div>
+            <div class="mission-meta">
+              <div class="mission-title">Untitled — yesterday</div>
+              <div class="mission-author">No steps yet · saved locally</div>
+              <div class="mission-stars">
+                <span class="star">★</span><span class="star">★</span><span class="star">★</span>
+              </div>
+              <div class="mission-actions">
+                <button class="primary" style="background: var(--purple); color: #fff; border-color: var(--purple);">✎ Resume editing</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div class="note">
+      <div class="n-tag">Thumbnails</div>
+      <p>Auto-captured on every Save in the editor. The image shows the mission at its <em>start state</em> — robot at start pose, field laid out, no trail.</p>
+    </div>
+    <div class="note blue">
+      <div class="n-tag">Sources rail</div>
+      <p><code>Bundled</code> ships with the repo. <code>My Missions</code> lives in <code>localStorage</code>. <code>Imported</code> comes from drag-dropped <code>.llmission</code> files — kept separate so the user knows what's outside content.</p>
+    </div>
+    <div class="note green">
+      <div class="n-tag">Star ratings</div>
+      <p>3★ at ≥ 90% of max score, 2★ at ≥ 60%, 1★ at any positive score. Nothing is ever locked — practice tool, not a gate.</p>
+    </div>
+    <div class="note purple">
+      <div class="n-tag">Drafts</div>
+      <p>Missions saved-but-not-finished get the dashed thumbnail and a <code>Resume editing</code> primary action instead of Play.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════
+     2) PLAY MODE
+     ════════════════════════════════════════════════════════ -->
+<section class="mock" data-view="play">
+  <div class="mock-heading">
+    <h2>2 · <span class="accent">Play Mode</span> — running a mission</h2>
+    <p>The standard sandbox layout, but with a Mission Map panel pinned to the right and the project-name area replaced by an "Exit Mission" affordance.</p>
+  </div>
+
+  <div class="app-frame">
+    <!-- Standard header, but project-name replaced by Mission ribbon -->
+    <div class="fake-header">
+      <div class="fake-logo">🤖</div>
+      <div class="fake-pill" style="background: rgba(34,197,94,0.08); border-color: rgba(34,197,94,0.4); color: var(--green);">
+        <span class="icon">🎯</span> PLAYING · Red Zone then Push
+        <button class="btn-mini danger" style="margin-left: 6px; padding: 2px 8px;">✕ Exit</button>
+      </div>
+      <div class="fake-tabs">
+        <button class="fake-tab active">🧱 Blocks</button>
+        <button class="fake-tab">🐍 Python</button>
+      </div>
+      <div class="spacer"></div>
+      <button class="btn-mini">⚙</button>
+      <button class="btn-mini">❤️ Support</button>
+    </div>
+
+    <div class="play-body">
+      <!-- Left: code editor -->
+      <div class="play-editor">
+        <div class="code-lines">
+<span style="color:#858585">1</span>  <span class="com"># Drive forward to the red zone</span>
+<span style="color:#858585">2</span>  <span class="kw">from</span> spike <span class="kw">import</span> PrimeHub, MotorPair, port
+<span style="color:#858585">3</span>  <span class="kw">import</span> runloop
+<span style="color:#858585">4</span>
+<span style="color:#858585">5</span>  hub   = <span class="fn">PrimeHub</span>()
+<span style="color:#858585">6</span>  drive = <span class="fn">MotorPair</span>(port.A, port.B)
+<span style="color:#858585">7</span>
+<span style="color:#858585">8</span>  <span class="kw">async def</span> <span class="fn">main</span>():
+<span style="color:#858585">9</span>      <span class="kw">await</span> drive.<span class="fn">move</span>(<span class="num">1200</span>)
+<span style="color:#858585">10</span> <span class="kw">await</span> drive.<span class="fn">move_for_degrees</span>(
+<span style="color:#858585">11</span>     <span class="num">90</span>, <span class="num">50</span>, <span class="num">-50</span>)
+<span style="color:#858585">12</span> <span class="kw">await</span> drive.<span class="fn">move</span>(<span class="num">500</span>)
+<span style="color:#858585">13</span>
+<span style="color:#858585">14</span> runloop.<span class="fn">run</span>(<span class="fn">main</span>())
+        </div>
+      </div>
+
+      <div class="play-resize"></div>
+
+      <!-- Centre: canvas -->
+      <div class="play-canvas-area">
+        <div class="play-ports">
+          <div class="port-chip">
+            <span class="icon">🛞</span>
+            <span><span class="role">Left</span> <span class="port">A</span></span>
+            <span class="val">0°/s</span>
+          </div>
+          <div class="port-chip">
+            <span class="icon">🛞</span>
+            <span><span class="role">Right</span> <span class="port">B</span></span>
+            <span class="val">0°/s</span>
+          </div>
+          <div class="port-chip-divider"></div>
+          <div class="port-chip">
+            <span class="icon">🎨</span>
+            <span><span class="role">Color</span> <span class="port">C</span></span>
+            <span class="val">red</span>
+            <span style="width: 12px; height: 12px; background: #cf6b6b; border-radius: 3px; margin-left: 2px;"></span>
+          </div>
+          <div class="port-chip">
+            <span class="icon">📏</span>
+            <span><span class="role">Distance</span> <span class="port">D</span></span>
+            <span class="val">340</span>
+          </div>
+          <div class="port-chip">
+            <span class="icon">👇</span>
+            <span><span class="role">Force</span> <span class="port">E</span></span>
+            <span class="val">0.0 N</span>
+          </div>
+        </div>
+
+        <div class="play-canvas-wrap">
+          <!-- Faux field showing the robot mid-mission, having reached the red zone -->
+          <svg class="field-svg" viewBox="0 0 2362 1143" preserveAspectRatio="xMidYMid meet">
+            <!-- mat -->
+            <rect x="0" y="0" width="2362" height="1143" fill="#dfd2a8"/>
+
+            <!-- yellow strip -->
+            <rect x="700" y="421" width="362" height="320" fill="#e5cb5e" opacity="0.85"/>
+
+            <!-- green zone (math y=843, h=200 → canvas y = 1143-843-200 = 100) -->
+            <rect x="1600" y="100" width="200" height="200" fill="#7fbf6a" opacity="0.8"/>
+            <text x="1700" y="220" font-size="80" font-family="Exo 2" fill="#1a3a1a" text-anchor="middle" font-weight="800">GREEN</text>
+
+            <!-- red zone (math y=243, h=200 → canvas y = 700) -->
+            <rect x="1900" y="700" width="200" height="200" fill="#cf6b6b" opacity="0.85"/>
+            <text x="2000" y="820" font-size="80" font-family="Exo 2" fill="#3a1a1a" text-anchor="middle" font-weight="800">RED</text>
+
+            <!-- black centre line (math y=463 → canvas y=680) -->
+            <line x1="0" y1="680" x2="2362" y2="680" stroke="#1d1d1d" stroke-width="6"/>
+            <!-- launch line (math y=143 → canvas y=1000) -->
+            <line x1="0" y1="1000" x2="680" y2="1000" stroke="#1d1d1d" stroke-width="4"/>
+
+            <!-- centre circle (math y=572 → canvas y=571) -->
+            <circle cx="1181" cy="571" r="80" fill="rgba(200,200,200,0.18)" stroke="#888" stroke-width="2"/>
+
+            <!-- obstacle 1 on green (math y=943, h=100 → canvas y = 100) - wait it's centered at 943 so corner 893-100/2=843 → canvas 1143-843-100 = 200 wait corrected math y centre 943, w/h 100, so bottom-left math = (1700-50, 943-50). canvas top-left = (1650, 1143-893-100=150). Hmm just place it centered on the green visual zone. -->
+            <rect x="1650" y="150" width="100" height="100" fill="#9b59b6" stroke="#5e2c79" stroke-width="3"/>
+            <text x="1700" y="215" font-size="55" font-family="JetBrains Mono" fill="#fff" text-anchor="middle" font-weight="700">1</text>
+
+            <!-- obstacle 2 -->
+            <rect x="1940" y="740" width="120" height="120" fill="#e67e22" stroke="#a04d10" stroke-width="3"/>
+            <text x="2000" y="817" font-size="60" font-family="JetBrains Mono" fill="#fff" text-anchor="middle" font-weight="700">2</text>
+
+            <!-- robot now sitting at red zone (north-facing) -->
+            <g transform="translate(2000,780) rotate(-90)">
+              <rect x="-90" y="-65" width="180" height="130" fill="#3b82f6" stroke="#0b3a83" stroke-width="3"/>
+              <circle cx="105" cy="0" r="14" fill="#fbbf24" stroke="#1a1206" stroke-width="2"/>
+              <!-- bumper -->
+              <rect x="90" y="-25" width="12" height="50" fill="#fbbf24" opacity="0.6"/>
+              <!-- heading marker -->
+              <polygon points="80,-20 80,20 110,0" fill="#fbbf24"/>
+            </g>
+
+            <!-- trail from start to red zone (rough path) -->
+            <path d="M 350 980 L 350 380 L 1900 380 L 1900 750 L 2000 800" fill="none" stroke="#3b82f6" stroke-width="3" stroke-dasharray="8 6" opacity="0.55"/>
+
+            <!-- start pose marker -->
+            <g transform="translate(350,980)" opacity="0.45">
+              <circle r="14" fill="none" stroke="#22c55e" stroke-width="3" stroke-dasharray="3 3"/>
+              <text x="0" y="-22" font-size="32" font-family="Exo 2" fill="#22c55e" text-anchor="middle" font-weight="700">START</text>
+            </g>
+          </svg>
+        </div>
+
+        <div class="play-pos">
+          <span class="label">Position</span>
+          <span class="pose"><span class="k">X</span><span class="v">200.0 cm</span></span>
+          <span class="pose"><span class="k">Y</span><span class="v">34.3 cm</span></span>
+          <span class="pose"><span class="k">Heading</span><span class="v">90°</span></span>
+          <span class="pose"><span class="k">Yaw</span><span class="v">0.0°</span></span>
+        </div>
+      </div>
+
+      <!-- Right: Mission Map -->
+      <div class="play-mission">
+        <div class="mm-head">
+          <div class="mm-tag">▶ MISSION IN PROGRESS</div>
+          <div class="mm-title">Red Zone then Push</div>
+          <div class="mm-meta">Beginner · 2 steps · 0:14 elapsed</div>
+        </div>
+        <div class="mm-score">
+          <div>
+            <div class="mm-score-label">Score</div>
+            <div class="mm-score-num">10<span class="max">/25</span></div>
+          </div>
+          <div class="mission-stars">
+            <span class="star lit">★</span><span class="star">★</span><span class="star">★</span>
+          </div>
+        </div>
+
+        <div class="mm-steps">
+
+          <div class="mm-step done">
+            <div class="row1">
+              <span class="check">✓</span>
+              <span class="step-title">Reach the red zone</span>
+              <span class="points">+10</span>
+            </div>
+            <div class="hint-row">
+              <span style="font-size: 10px; color: var(--text-dim); letter-spacing: 0.1em;">DONE · 12.4s</span>
+            </div>
+          </div>
+
+          <div class="mm-step">
+            <div class="row1">
+              <span class="check"></span>
+              <span class="step-title">Push obstacle 1 off the green zone</span>
+              <span class="points">15</span>
+            </div>
+            <div class="hint-row">
+              <button class="hint-btn">💡 Show hint</button>
+            </div>
+            <div class="hint-reveal" style="margin-top: 4px;">
+              "Turn right, then drive forward into the green zone."
+            </div>
+          </div>
+
+        </div>
+
+        <div style="padding: 10px 12px; border-top: 1px solid var(--border); background: var(--surface2); font-size: 10px; color: var(--text-dim); letter-spacing: 0.1em; text-transform: uppercase; font-weight: 800; display: flex; justify-content: space-between;">
+          <span>Requires <code style="color: var(--amber); font-family: var(--font-code); background: transparent;">reach-red</code></span>
+        </div>
+      </div>
+
+      <!-- Dock spanning full width -->
+      <div class="play-dock">
+        <button class="dock-icon-btn run">▶</button>
+        <button class="dock-icon-btn stop">■</button>
+        <button class="dock-icon-btn" title="Reset robot to start">↺</button>
+        <div class="speed">
+          <span>Speed</span>
+          <input type="range" min="0.25" max="4" step="0.25" value="1">
+          <span class="val">1x</span>
+        </div>
+        <div class="spacer"></div>
+        <div class="status">
+          <span class="dot"></span>
+          <span>Running · step 1 of 2 complete</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div class="note green">
+      <div class="n-tag">Mode signal</div>
+      <p>The header's green "PLAYING" pill replaces the usual project-name input. <code>Exit Mission</code> takes you back to the Library.</p>
+    </div>
+    <div class="note blue">
+      <div class="n-tag">Score updates live</div>
+      <p>Each step's condition is polled at 30 Hz. When a step completes, the check goes green, the score number ticks up, and the points pill flips amber-filled.</p>
+    </div>
+    <div class="note">
+      <div class="n-tag">Hints on demand</div>
+      <p><code>Show hint</code> reveals the author's hint inline with an amber side-border. v1 has no scoring penalty for using hints — practice tool first.</p>
+    </div>
+    <div class="note purple">
+      <div class="n-tag">Locked field</div>
+      <p>In Play mode the field is read-only: obstacles, zones, and the robot's start pose come from the mission file. The user only controls their code.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════
+     3) EDITOR · FIELD
+     ════════════════════════════════════════════════════════ -->
+<section class="mock" data-view="editor-field">
+  <div class="mock-heading">
+    <h2>3 · <span class="accent">Editor Mode</span> — placing the field</h2>
+    <p>Full-interface replacement. The canvas becomes a drag-to-place editor. The right column hosts metadata and the step list. No code editor in this mode — Playtest button runs the mission for a quick check.</p>
+  </div>
+
+  <div class="app-frame">
+    <div class="editor-header">
+      <div class="editor-mode-tag">Editor Mode</div>
+      <div class="mission-name-wrap">
+        <span style="opacity: 0.6;">🎯</span>
+        <input value="Red Zone then Push" />
+      </div>
+      <div class="editor-toolbar-actions">
+        <button class="btn-mini amber">💾 Save</button>
+        <button class="btn-mini">📂 Load</button>
+        <button class="btn-mini green">▶ Playtest</button>
+      </div>
+      <div class="spacer"></div>
+      <span style="font-size: 10px; color: var(--text-dim); letter-spacing: 0.14em; text-transform: uppercase; font-weight: 800;">Auto-saved · 14s ago</span>
+      <button class="btn-mini danger">✕ Exit Editor</button>
+    </div>
+
+    <div class="editor-body">
+
+      <!-- Left: canvas with drag handles -->
+      <div class="editor-canvas-area">
+        <div class="editor-canvas-toolbar">
+          <button class="editor-tool-btn active"><span class="glyph">↖</span> Select</button>
+          <button class="editor-tool-btn"><span class="glyph">▭</span> + Obstacle</button>
+          <button class="editor-tool-btn"><span class="glyph">▢</span> + Zone</button>
+          <button class="editor-tool-btn"><span class="glyph">⬢</span> Set robot start</button>
+          <div class="sep"></div>
+          <button class="editor-tool-btn"><span class="glyph">⏪</span> Undo</button>
+          <button class="editor-tool-btn"><span class="glyph">⏩</span> Redo</button>
+          <div class="right">
+            <span>Selected: <code style="background: var(--surface2); padding: 1px 6px; border-radius: 3px; color: var(--amber); font-family: var(--font-code); letter-spacing: 0;">obstacle:1</code></span>
+            <span style="color: var(--text-mid);">Δ&nbsp;X 1700, Y 943, 100×100mm</span>
+          </div>
+        </div>
+
+        <div class="editor-canvas-wrap">
+          <svg class="field-svg" viewBox="0 0 2362 1143" preserveAspectRatio="xMidYMid meet">
+            <rect x="0" y="0" width="2362" height="1143" fill="#dfd2a8"/>
+
+            <!-- yellow strip -->
+            <rect x="700" y="421" width="362" height="320" fill="#e5cb5e" opacity="0.85"/>
+
+            <!-- green zone -->
+            <rect x="1600" y="100" width="200" height="200" fill="#7fbf6a" opacity="0.8" stroke="#3a7a30" stroke-width="3" stroke-dasharray="6 4"/>
+            <text x="1700" y="220" font-size="55" font-family="Exo 2" fill="#1a3a1a" text-anchor="middle" font-weight="800">ZONE: green</text>
+
+            <!-- red zone -->
+            <rect x="1900" y="700" width="200" height="200" fill="#cf6b6b" opacity="0.85" stroke="#9b3030" stroke-width="3" stroke-dasharray="6 4"/>
+            <text x="2000" y="820" font-size="55" font-family="Exo 2" fill="#3a1a1a" text-anchor="middle" font-weight="800">ZONE: red</text>
+
+            <!-- centre and lines -->
+            <line x1="0" y1="680" x2="2362" y2="680" stroke="#1d1d1d" stroke-width="6" opacity="0.8"/>
+            <line x1="0" y1="1000" x2="680" y2="1000" stroke="#1d1d1d" stroke-width="4" opacity="0.8"/>
+            <circle cx="1181" cy="571" r="80" fill="rgba(200,200,200,0.18)" stroke="#888" stroke-width="2"/>
+
+            <!-- obstacle 1 (selected — show amber dashed outline) -->
+            <rect x="1650" y="150" width="100" height="100" fill="#9b59b6" stroke="#5e2c79" stroke-width="3"/>
+            <text x="1700" y="215" font-size="55" font-family="JetBrains Mono" fill="#fff" text-anchor="middle" font-weight="700">1</text>
+            <rect class="selected-outline" x="1635" y="135" width="130" height="130"/>
+            <!-- corner resize handles -->
+            <circle class="drag-handle" cx="1635" cy="135" r="10"/>
+            <circle class="drag-handle" cx="1765" cy="135" r="10"/>
+            <circle class="drag-handle" cx="1635" cy="265" r="10"/>
+            <circle class="drag-handle" cx="1765" cy="265" r="10"/>
+
+            <!-- obstacle 2 -->
+            <rect x="1940" y="740" width="120" height="120" fill="#e67e22" stroke="#a04d10" stroke-width="3"/>
+            <text x="2000" y="817" font-size="60" font-family="JetBrains Mono" fill="#fff" text-anchor="middle" font-weight="700">2</text>
+
+            <!-- robot start pose handle -->
+            <g transform="translate(350,980) rotate(-90)">
+              <rect x="-90" y="-65" width="180" height="130" fill="#3b82f6" stroke="#0b3a83" stroke-width="3" opacity="0.4"/>
+              <polygon points="80,-20 80,20 110,0" fill="#fbbf24"/>
+              <circle class="start-handle" cx="0" cy="0" r="16"/>
+              <text x="0" y="6" font-size="24" font-family="JetBrains Mono" fill="#022c0e" text-anchor="middle" font-weight="800">⌖</text>
+            </g>
+            <text x="350" y="1090" font-size="40" font-family="Exo 2" fill="#22c55e" text-anchor="middle" font-weight="800">ROBOT START · drag to place</text>
+
+            <!-- ruler ticks -->
+            <g opacity="0.3">
+              <line x1="0" y1="0" x2="0" y2="20" stroke="#000"/>
+              <line x1="500" y1="0" x2="500" y2="20" stroke="#000"/>
+              <line x1="1000" y1="0" x2="1000" y2="20" stroke="#000"/>
+              <line x1="1500" y1="0" x2="1500" y2="20" stroke="#000"/>
+              <line x1="2000" y1="0" x2="2000" y2="20" stroke="#000"/>
+              <text x="500" y="50" font-size="25" font-family="JetBrains Mono" fill="#000" text-anchor="middle">500</text>
+              <text x="1000" y="50" font-size="25" font-family="JetBrains Mono" fill="#000" text-anchor="middle">1000</text>
+              <text x="1500" y="50" font-size="25" font-family="JetBrains Mono" fill="#000" text-anchor="middle">1500</text>
+              <text x="2000" y="50" font-size="25" font-family="JetBrains Mono" fill="#000" text-anchor="middle">2000</text>
+            </g>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Right: metadata + step list -->
+      <div class="editor-side">
+        <div class="side-section">
+          <h4>Metadata</h4>
+          <div class="field-row">
+            <label>Description</label>
+            <textarea>Drive to the red zone, then knock obstacle 1 off the green zone.</textarea>
+          </div>
+          <div class="field-row">
+            <label>Type</label>
+            <select>
+              <option>Mission (multi-step)</option>
+              <option>Obstacle Course</option>
+            </select>
+          </div>
+          <div class="field-row">
+            <label>Difficulty</label>
+            <div class="tier-pick">
+              <button class="active beginner">Beginner</button>
+              <button>Intermediate</button>
+              <button>Advanced</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="side-section" style="flex: 1; overflow: hidden; display: flex; flex-direction: column;">
+          <h4>Steps <span class="count">2</span></h4>
+          <div class="steps-list">
+            <div class="editor-step">
+              <div class="editor-step-head">
+                <span class="editor-step-index">1</span>
+                <span class="editor-step-title">Reach the red zone</span>
+                <span class="editor-step-pts">10 pts</span>
+                <span class="editor-step-chev">▾</span>
+              </div>
+            </div>
+            <div class="editor-step">
+              <div class="editor-step-head">
+                <span class="editor-step-index">2</span>
+                <span class="editor-step-title">Push obstacle 1 off the green zone</span>
+                <span class="editor-step-pts">15 pts</span>
+                <span class="editor-step-chev">▾</span>
+              </div>
+            </div>
+            <button class="btn-addstep">＋ Add step</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div class="note purple">
+      <div class="n-tag">Mode switch</div>
+      <p>Header gradient flips to <em>purple → amber</em> and a "Editor Mode" tag replaces the logo cluster, so the user can never mistake which mode they're in.</p>
+    </div>
+    <div class="note">
+      <div class="n-tag">Direct manipulation</div>
+      <p>Selected obstacle shows an amber dashed outline plus four corner handles. Drag the body to move; drag corners to resize. The robot start has a single green crosshair handle.</p>
+    </div>
+    <div class="note blue">
+      <div class="n-tag">Live coordinates</div>
+      <p>The right side of the canvas toolbar shows the currently selected element's id and live position/size in mm — so authors can dial in exact placements when they need to.</p>
+    </div>
+    <div class="note green">
+      <div class="n-tag">Playtest</div>
+      <p>Clicking <code>▶ Playtest</code> snapshots to a temp slot and switches to Play mode. Back-to-Editor returns to the live edit state — the temp save is just a bootstrap.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════
+     4) EDITOR · CONDITIONS (step expanded with Blockly)
+     ════════════════════════════════════════════════════════ -->
+<section class="mock" data-view="editor-cond">
+  <div class="mock-heading">
+    <h2>4 · <span class="accent">Editor Mode</span> — authoring a step's condition</h2>
+    <p>Clicking a step expands it inline. The condition picker is a small Blockly workspace with a zone/sensor/contact toolbox. Dropdowns auto-populate from what's in the field.</p>
+  </div>
+
+  <div class="app-frame">
+    <div class="editor-header">
+      <div class="editor-mode-tag">Editor Mode</div>
+      <div class="mission-name-wrap">
+        <span style="opacity: 0.6;">🎯</span>
+        <input value="Red Zone then Push" />
+      </div>
+      <div class="editor-toolbar-actions">
+        <button class="btn-mini amber">💾 Save</button>
+        <button class="btn-mini">📂 Load</button>
+        <button class="btn-mini green">▶ Playtest</button>
+      </div>
+      <div class="spacer"></div>
+      <span style="font-size: 10px; color: var(--text-dim); letter-spacing: 0.14em; text-transform: uppercase; font-weight: 800;">Editing step 2</span>
+      <button class="btn-mini danger">✕ Exit Editor</button>
+    </div>
+
+    <div class="editor-body" style="grid-template-columns: minmax(0, 40%) 1fr;">
+
+      <!-- Left: canvas (smaller, since condition pane takes prominence) -->
+      <div class="editor-canvas-area">
+        <div class="editor-canvas-toolbar">
+          <button class="editor-tool-btn"><span class="glyph">↖</span> Select</button>
+          <button class="editor-tool-btn"><span class="glyph">▭</span> + Obstacle</button>
+          <button class="editor-tool-btn"><span class="glyph">▢</span> + Zone</button>
+          <div class="right">
+            <span style="color: var(--purple);">⬢ Showing step 2's targets</span>
+          </div>
+        </div>
+
+        <div class="editor-canvas-wrap">
+          <svg class="field-svg" viewBox="0 0 2362 1143" preserveAspectRatio="xMidYMid meet">
+            <rect x="0" y="0" width="2362" height="1143" fill="#dfd2a8"/>
+            <rect x="700" y="421" width="362" height="320" fill="#e5cb5e" opacity="0.6"/>
+            <rect x="1600" y="100" width="200" height="200" fill="#7fbf6a" opacity="0.85" stroke="#22c55e" stroke-width="6"/>
+            <text x="1700" y="220" font-size="60" font-family="Exo 2" fill="#1a3a1a" text-anchor="middle" font-weight="800">green</text>
+            <rect x="1900" y="700" width="200" height="200" fill="#cf6b6b" opacity="0.5"/>
+            <text x="2000" y="820" font-size="55" font-family="Exo 2" fill="#3a1a1a" text-anchor="middle" font-weight="800" opacity="0.55">red</text>
+
+            <line x1="0" y1="680" x2="2362" y2="680" stroke="#1d1d1d" stroke-width="6" opacity="0.5"/>
+            <line x1="0" y1="1000" x2="680" y2="1000" stroke="#1d1d1d" stroke-width="4" opacity="0.5"/>
+
+            <!-- Obstacle 1 — highlighted (the condition's subject) -->
+            <rect x="1650" y="150" width="100" height="100" fill="#9b59b6" stroke="#fbbf24" stroke-width="6"/>
+            <text x="1700" y="215" font-size="55" font-family="JetBrains Mono" fill="#fff" text-anchor="middle" font-weight="700">1</text>
+            <!-- glow ring -->
+            <circle cx="1700" cy="200" r="115" fill="none" stroke="#fbbf24" stroke-width="3" stroke-dasharray="4 6" opacity="0.6"/>
+            <text x="1700" y="360" font-size="42" font-family="Exo 2" fill="#fbbf24" text-anchor="middle" font-weight="800">obstacle:1</text>
+
+            <rect x="1940" y="740" width="120" height="120" fill="#e67e22" stroke="#a04d10" stroke-width="3" opacity="0.55"/>
+            <text x="2000" y="817" font-size="60" font-family="JetBrains Mono" fill="#fff" text-anchor="middle" font-weight="700" opacity="0.55">2</text>
+
+            <g transform="translate(350,980) rotate(-90)" opacity="0.45">
+              <rect x="-90" y="-65" width="180" height="130" fill="#3b82f6" stroke="#0b3a83" stroke-width="3"/>
+              <polygon points="80,-20 80,20 110,0" fill="#fbbf24"/>
+            </g>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Right: expanded step with condition picker -->
+      <div class="editor-side" style="border-left: 1px solid var(--border);">
+        <div class="side-section">
+          <h4>Steps <span class="count">2</span></h4>
+          <div class="steps-list">
+            <div class="editor-step">
+              <div class="editor-step-head">
+                <span class="editor-step-index">1</span>
+                <span class="editor-step-title">Reach the red zone</span>
+                <span class="editor-step-pts">10 pts</span>
+                <span class="editor-step-chev">▾</span>
+              </div>
+            </div>
+
+            <div class="editor-step expanded">
+              <div class="editor-step-head">
+                <span class="editor-step-index">2</span>
+                <span class="editor-step-title">Push obstacle 1 off the green zone</span>
+                <span class="editor-step-pts">15 pts</span>
+                <span class="editor-step-chev">▾</span>
+              </div>
+              <div class="editor-step-body">
+
+                <div class="field-row twin">
+                  <div style="flex: 2;">
+                    <label style="font-size: 10px; font-weight: 700; letter-spacing: 0.12em; color: var(--text-mid); text-transform: uppercase; display: block; margin-bottom: 5px;">Title</label>
+                    <input value="Push obstacle 1 off the green zone" />
+                  </div>
+                  <div>
+                    <label style="font-size: 10px; font-weight: 700; letter-spacing: 0.12em; color: var(--text-mid); text-transform: uppercase; display: block; margin-bottom: 5px;">Points</label>
+                    <input value="15" />
+                  </div>
+                </div>
+
+                <div class="field-row">
+                  <label>Hint (shown on player request)</label>
+                  <input value="Turn right, then drive forward into the green zone." />
+                </div>
+
+                <div class="field-row">
+                  <label>Requires (complete first)</label>
+                  <div class="requires-row">
+                    <span class="requires-chip active">✓ reach-red</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label style="font-size: 10px; font-weight: 700; letter-spacing: 0.12em; color: var(--text-mid); text-transform: uppercase; display: block; margin-bottom: 8px;">Completes when</label>
+                  <div class="condition-pane">
+                    <div class="condition-toolbox">
+                      <div class="toolbox-cat">Place</div>
+                      <div class="tbox-block">robot in zone</div>
+                      <div class="tbox-block">obstacle in zone</div>
+                      <div class="toolbox-cat">Sensor</div>
+                      <div class="tbox-block">color sees</div>
+                      <div class="tbox-block">distance</div>
+                      <div class="tbox-block">force</div>
+                      <div class="toolbox-cat">Compose</div>
+                      <div class="tbox-block compose">NOT</div>
+                      <div class="tbox-block compose">ALL of</div>
+                      <div class="tbox-block compose">ANY of</div>
+                    </div>
+                    <div class="condition-canvas">
+                      <div class="cond-stack">
+                        <div class="cond-block compose">
+                          NOT
+                          <div class="cond-children">
+                            <div class="cond-block">
+                              obstacle <span class="pick">1 ▾</span> is in zone <span class="pick">Green ▾</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div style="position: absolute; bottom: 10px; right: 12px; font-size: 9px; color: #525a6e; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.05em;">condition.kind = "not"</div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <button class="btn-addstep">＋ Add step</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div class="note purple">
+      <div class="n-tag">Blockly reuse</div>
+      <p>The condition workspace is a Blockly sibling — a separate toolbox with predicate blocks. The blue blocks return booleans; the amber blocks compose them (<code>NOT / ALL of / ANY of</code>).</p>
+    </div>
+    <div class="note">
+      <div class="n-tag">Auto-populated dropdowns</div>
+      <p>The <code>obstacle (1 ▾)</code> and <code>zone (Green ▾)</code> pickers list exactly what's currently in the field editor. You can only reference things that exist.</p>
+    </div>
+    <div class="note blue">
+      <div class="n-tag">Canvas focuses on the subject</div>
+      <p>When a step is selected, the canvas dims unrelated elements and outlines the condition's subject in amber — making the connection between the code and the world visible.</p>
+    </div>
+    <div class="note green">
+      <div class="n-tag">Direct serialisation</div>
+      <p>The block tree maps 1:1 to the schema's <code>condition</code> primitive — no JS code generation, no eval. Save writes the predicate AST straight into <code>mission.json</code>.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════
+     5) SCORE READOUT
+     ════════════════════════════════════════════════════════ -->
+<section class="mock" data-view="score">
+  <div class="mock-heading">
+    <h2>5 · <span class="accent">Score Readouts</span> — end of run</h2>
+    <p>Different score shapes for the two challenge types. Mission shows step-sum with checks for what was completed; obstacle course shows base ± penalties.</p>
+  </div>
+
+  <div class="score-stage">
+
+    <div class="score-card">
+      <div class="score-tag">Mission Complete</div>
+      <div class="score-headline">
+        <span class="num">25</span><span class="of"> / 25</span>
+      </div>
+      <div class="score-stars-big">
+        <span class="star lit">★</span><span class="star lit">★</span><span class="star lit">★</span>
+      </div>
+      <div class="score-context">Personal best — previously 10 / 25 (1★)</div>
+
+      <div class="score-divider"></div>
+
+      <div class="score-row">
+        <div class="left"><span class="mark">✓</span> Reach the red zone</div>
+        <div class="right">+10</div>
+      </div>
+      <div class="score-row">
+        <div class="left"><span class="mark">✓</span> Push obstacle 1 off the green zone</div>
+        <div class="right">+15</div>
+      </div>
+      <div class="score-row total">
+        <div class="left">Total</div>
+        <div class="right">25 / 25</div>
+      </div>
+
+      <div class="score-actions">
+        <button>↺ Play again</button>
+        <button>← Library</button>
+        <button class="primary">→ Next mission</button>
+      </div>
+    </div>
+
+    <div class="score-card obstacle">
+      <div class="score-tag" style="color: var(--cyan);">Obstacle Course · Complete</div>
+      <div class="score-headline">
+        <span class="num" style="color: var(--cyan);">83</span><span class="of"> / 100</span>
+      </div>
+      <div class="score-stars-big">
+        <span class="star lit">★</span><span class="star lit">★</span><span class="star">★</span>
+      </div>
+      <div class="score-context">Target time 12.0s · you ran 14.2s</div>
+
+      <div class="score-divider"></div>
+
+      <div class="score-row">
+        <div class="left"><span class="mark">✓</span> Reached the finish zone</div>
+        <div class="right">+100</div>
+      </div>
+      <div class="score-row penalty">
+        <div class="left"><span class="mark">−</span> Collisions (3 contacts)</div>
+        <div class="right">−15</div>
+      </div>
+      <div class="score-row penalty">
+        <div class="left"><span class="mark">−</span> Over budget (2.2s)</div>
+        <div class="right">−2</div>
+      </div>
+      <div class="score-row total">
+        <div class="left">Total</div>
+        <div class="right" style="color: var(--cyan);">83 / 100</div>
+      </div>
+
+      <div class="score-actions">
+        <button>↺ Play again</button>
+        <button>← Library</button>
+        <button class="primary" style="background: var(--cyan); color: #052a33; border-color: var(--cyan); box-shadow: 0 0 14px rgba(34,211,238,0.4);">↑ Try faster</button>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="notes">
+    <div class="note">
+      <div class="n-tag">Components first</div>
+      <p>The numbers <em>that fed</em> the total are listed alongside the total. Kids learn what to optimise — they shouldn't have to guess why their score is what it is.</p>
+    </div>
+    <div class="note cyan">
+      <div class="n-tag">Two scoring shapes</div>
+      <p>Missions use <code>step_sum</code> (each completed step adds points). Obstacle courses use <code>base − penalties</code> (start at 100 if you finish, lose for collisions and time-over).</p>
+    </div>
+    <div class="note green">
+      <div class="n-tag">Personal best</div>
+      <p>Best score per <code>(mission_id, modifier_hash)</code> persists in <code>localStorage</code>. The "previously…" line nudges kids to beat their own time.</p>
+    </div>
+    <div class="note purple">
+      <div class="n-tag">Next-mission CTA</div>
+      <p>When a mission completes, the primary action becomes "Next mission" — surfacing a curated next pick instead of dumping the user back into the library cold.</p>
+    </div>
+  </div>
+</section>
+
+</div><!-- /proto-stage -->
+
+<footer class="proto-footer">
+  Prototype to accompany <a href="../../docs/superpowers/specs/2026-05-23-missions-and-scoring-design.md">2026-05-23 missions-and-scoring design spec</a> · branch <code>feat/missions-design</code>
+</footer>
+
+<script>
+const captions = {
+  'library':       'Click a mission card to enter Play mode. "+ New" opens the Editor.',
+  'play':          'Mission Map panel on the right. Step 1 done, step 2 hint revealed.',
+  'editor-field':  'Drag-handle field editor. Obstacle 1 is selected (amber dashed outline).',
+  'editor-cond':   'Step 2 expanded. Condition picker is a Blockly workspace with auto-populated dropdowns.',
+  'score':         'Side-by-side mission vs obstacle-course score readouts.',
+};
+
+const switcher = document.getElementById('switcher');
+const caption  = document.getElementById('caption');
+const mocks    = document.querySelectorAll('.mock');
+
+switcher.addEventListener('click', e => {
+  const btn = e.target.closest('button[data-view]');
+  if (!btn) return;
+  const view = btn.dataset.view;
+  switcher.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
+  mocks.forEach(m => m.classList.toggle('active', m.dataset.view === view));
+  caption.textContent = captions[view] || '';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+// Keyboard: ←/→ to flip views
+document.addEventListener('keydown', e => {
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  const buttons = [...switcher.querySelectorAll('button')];
+  const active = buttons.findIndex(b => b.classList.contains('active'));
+  const next = e.key === 'ArrowRight'
+    ? (active + 1) % buttons.length
+    : (active - 1 + buttons.length) % buttons.length;
+  buttons[next].click();
+});
+</script>
+
+</body>
+</html>

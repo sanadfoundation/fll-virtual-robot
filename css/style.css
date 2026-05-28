@@ -255,6 +255,26 @@ header h1 .sub  { color: var(--text-mid); font-weight: 600; }
   white-space: nowrap;
 }
 
+/* Compact variant — used by mission editor header, library cards,
+   mission map exit, step list "+ Add step" etc. Theme-aware: uses
+   the surface/border/text CSS vars so light + dark both look right. */
+.btn-mini {
+  padding: 4px 10px;
+  font-size: 11px;
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border2);
+}
+.btn-mini:hover { background: var(--surface3); }
+
+/* Coloured variants for the editor header (Save / Playtest / Exit). */
+.btn.amber  { background: var(--amber); color: #1a1206; border-color: var(--amber); }
+.btn.green  { background: var(--green); color: #052e16; border-color: var(--green); }
+.btn.danger { background: var(--red);   color: #ffffff; border-color: var(--red); }
+.btn.amber:hover,
+.btn.green:hover,
+.btn.danger:hover { filter: brightness(1.08); }
+
 .btn-run {
   background: var(--green);
   color: #052e16;

@@ -200,6 +200,18 @@ const OBSTACLES = [
   { x: 2000, y: 343, w: 120, h: 120, fill: '#e67e22', stroke: '#a04d10', label: '2' },
 ];
 
+// Map a line color name to a CSS stroke string for canvas rendering.
+function lineColorToStroke(color) {
+  return {
+    black:  '#222',
+    red:    '#cc4444',
+    green:  '#30c060',
+    blue:   '#3070c0',
+    yellow: '#d0a830',
+    orange: '#d06010',
+  }[color] || '#222';
+}
+
 // ── Robot state ──────────────────────────────────────────────────────────────
 
 function makeRobotState() {
@@ -271,6 +283,11 @@ class RobotSimulator {
     // semantics); the rest bail after their preempt-await resolves.
     this._motionSeq = 0;
 
+    // Obstacle-contact subscription registry. Missions engine subscribes via
+    // onObstacleContact(); _dispatchObstacleContact() is the call site wired
+    // from the Box2D BeginContact listener (see _initPhysics / TODO below).
+    this._obstacleContactSubs = new Set();
+
     // Force-sensor pipeline state. emaN is the smoothed physics force in Newtons;
     // manualStartMs is the timestamp the user pressed the Hub-panel button (null
     // = released); the public combined value lives on robot.sensors.forceN.
@@ -286,6 +303,11 @@ class RobotSimulator {
     this.physics      = null;
     this.robotBody    = null;
     this._obstacles   = [];
+    // Currently-rendered field-objects array. Defaults to module-level
+    // FIELD_OBJECTS but can be replaced by setMissionField() when a mission
+    // is loaded. restoreDefaultField() resets it.
+    this._fieldObjects = FIELD_OBJECTS;
+    this._walls = [];  // mission-specific static walls (Box2D bodies)
     this._physicsReady = this._initPhysics();
 
     this._scale = 1;
@@ -442,6 +464,17 @@ class RobotSimulator {
       this._draw();
       this._dirty = false;
     }
+    // Drive mission engine ticks at the draw-loop rate (~60 Hz).
+    if (window.missionApp && window.missionApp.mode === 'play' &&
+        window.missionApp.engine.startTimeMs != null) {
+      const snap = this.getStateSnapshot();
+      const now  = Date.now();
+      window.missionApp.engine.tick(snap, now);
+      window.missionApp.ui.updateProgress(window.missionApp.engine);
+      if (typeof window.missionApp.ui.updateTimer === 'function') {
+        window.missionApp.ui.updateTimer(window.missionApp.engine, now);
+      }
+    }
     this._raf = requestAnimationFrame(() => this._drawLoop());
   }
 
@@ -456,6 +489,7 @@ class RobotSimulator {
     this._drawRuler(ctx, s);
     this._drawTrail(ctx);
     this._drawObstacles(ctx, s);
+    this._drawWalls(ctx, s);
     this._drawRobot(ctx, s);
     this._drawDistanceSensorRay(ctx, s);
     this._updateSensorPanel();
@@ -463,6 +497,12 @@ class RobotSimulator {
 
   _drawObstacles(ctx, s) {
     if (!this.physics || !this._obstacles.length) return;
+    // In editor mode, the SVG overlay shows the AUTHORED obstacles; suppress
+    // the simulator's default ones so authors see a fresh canvas.
+    if (typeof document !== 'undefined' &&
+        document.body && document.body.dataset && document.body.dataset.mode === 'editor') {
+      return;
+    }
     for (const o of this._obstacles) {
       const pose = this.physics.readPose(o.body);
       ctx.save();
@@ -499,6 +539,27 @@ class RobotSimulator {
     }
   }
 
+  // Render mission-authored static walls. Walls are AABB rects in math y-up
+  // coords; canvas top-left y = FIELD_H_MM - y - h. Slate-grey fill with a
+  // darker outline so they read as immovable structure rather than props.
+  _drawWalls(ctx, s) {
+    if (!this._walls || !this._walls.length) return;
+    if (typeof document !== 'undefined' &&
+        document.body && document.body.dataset && document.body.dataset.mode === 'editor') {
+      return;
+    }
+    ctx.save();
+    ctx.lineWidth = 2 * s;
+    for (const w of this._walls) {
+      ctx.fillStyle   = w.cfg.fill   || '#4a5568';
+      ctx.strokeStyle = w.cfg.stroke || '#2d3748';
+      const canvasY = (FIELD_H_MM - w.cfg.y - w.cfg.h) * s;
+      ctx.fillRect(w.cfg.x * s, canvasY, w.cfg.w * s, w.cfg.h * s);
+      ctx.strokeRect(w.cfg.x * s, canvasY, w.cfg.w * s, w.cfg.h * s);
+    }
+    ctx.restore();
+  }
+
   _drawField(ctx, W, H, s) {
     // Background
     ctx.fillStyle = '#f0e8d0';
@@ -517,7 +578,13 @@ class RobotSimulator {
     // Field objects. FIELD_OBJECTS uses math y-up; convert to canvas y here.
     // Rectangles: math (x, y) is bottom-left ⇒ canvas top-left = (x, FIELD_H_MM - y - h).
     // Lines / circles: math y ⇒ canvas y = FIELD_H_MM - y.
-    for (const obj of FIELD_OBJECTS) {
+    const _inEditorMode = typeof document !== 'undefined' &&
+      document.body && document.body.dataset && document.body.dataset.mode === 'editor';
+    for (const obj of this._fieldObjects) {
+      // In editor mode, skip ALL FIELD_OBJECTS — the SVG overlay paints
+      // authored elements on a fresh mat. The ruler component along the edges
+      // still renders independently for measurement reference.
+      if (_inEditorMode) continue;
       ctx.save();
       if (obj.type === 'rect') {
         const canvasY = (FIELD_H_MM - obj.y - obj.h) * s;
@@ -1156,6 +1223,40 @@ class RobotSimulator {
     return true;
   }
 
+  // Swap the rendered field + obstacles to match a mission's authored field.
+  // Called by the missions boot wiring on mode transition into 'play'.
+  // The mission's zones become FIELD_OBJECTS-shaped rects (with sensorColor
+  // so colour-sensor reads work); the mission's obstacles become live Box2D
+  // bodies tracked in this._obstacles.
+  setMissionField(missionField) {
+    if (!missionField) return;
+    const { fieldObjects, obstacles, walls } = MISSIONS.fieldSwap.applyMissionField(
+      missionField,
+      { obstacles: this._obstacles, walls: this._walls || [] },
+      this.physics,
+    );
+    this._fieldObjects = fieldObjects;
+    this._obstacles = obstacles;
+    this._walls = walls;
+    this._dirty = true;
+    if (this._draw) this._draw();
+  }
+
+  // Restore the sim's default sandbox field + obstacles. Called when exiting
+  // a mission back to sandbox mode.
+  restoreDefaultField() {
+    const { obstacles, walls } = MISSIONS.fieldSwap.restoreDefaultObstacles(
+      OBSTACLES,
+      { obstacles: this._obstacles, walls: this._walls || [] },
+      this.physics,
+    );
+    this._fieldObjects = FIELD_OBJECTS;
+    this._obstacles = obstacles;
+    this._walls = walls;
+    this._dirty = true;
+    if (this._draw) this._draw();
+  }
+
   // Hit-test the robot footprint in math y-up world coords. Transforms the
   // probe into the robot's body-local frame (heading along +X-local) and
   // checks ±ROBOT_BODY_H/2 along forward, ±ROBOT_BODY_W/2 lateral. `pad_mm`
@@ -1495,7 +1596,8 @@ class RobotSimulator {
       const clamped = window.kinematics.clampRobotPose(
         { x: pose.x, y: pose.y, angle: pose.angle },
         { bodyW: ROBOT_BODY_W, bodyH: ROBOT_BODY_H, bumperDepth: BUMPER_DEPTH_MM,
-          fieldW: FIELD_W_MM, fieldH: FIELD_H_MM },
+          fieldW: FIELD_W_MM, fieldH: FIELD_H_MM,
+          walls: (this._walls || []).map(w => w.cfg) },
       );
       if (clamped.clamped) {
         this.physics.setKinematicPose(this.robotBody, clamped.x, clamped.y, pose.angle);
@@ -1864,28 +1966,7 @@ class RobotSimulator {
   }
 
   _colorAtPosition(x, y) {
-    for (const obj of FIELD_OBJECTS) {
-      if (!obj.sensorColor) continue;
-      if (obj.type === 'line') {
-        const dist = this._pointToLineDist(x, y, obj.x1, obj.y1, obj.x2, obj.y2);
-        if (dist <= Math.max((obj.lw || 1) / 2, 20)) return obj.sensorColor;
-      } else if (obj.type === 'rect') {
-        if (x >= obj.x && x <= obj.x + obj.w && y >= obj.y && y <= obj.y + obj.h)
-          return obj.sensorColor;
-      } else if (obj.type === 'circle') {
-        const dx = x - obj.x, dy = y - obj.y;
-        if (Math.sqrt(dx * dx + dy * dy) <= obj.r) return obj.sensorColor;
-      }
-    }
-    return 'none';
-  }
-
-  _pointToLineDist(px, py, x1, y1, x2, y2) {
-    const dx = x2 - x1, dy = y2 - y1;
-    const lenSq = dx * dx + dy * dy;
-    if (lenSq === 0) return Math.hypot(px - x1, py - y1);
-    const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / lenSq));
-    return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+    return window.MISSIONS.fieldSwap.colorAtPosition(x, y, this._fieldObjects);
   }
 
   // ── LED display helpers ─────────────────────────────────────────────────────
@@ -2030,6 +2111,53 @@ class RobotSimulator {
   }
   getMotorSpeed(port)         { return (this.robot.motors_velocity && this.robot.motors_velocity[port]) || 0; }
   getMotorPosition(port)      { return this.robot.motors[port] || 0; }
+
+  // Read-only snapshot for the missions ChallengeEngine. Returns a fresh
+  // object — callers can mutate without affecting simulator state. Sensor
+  // values mirror what's displayed in the right-rail panel.
+  getStateSnapshot() {
+    const obstacles = {};
+    const obstacleList = this._obstacles.length
+      ? this._obstacles
+      : OBSTACLES.map(cfg => ({ cfg, body: null }));
+    for (const o of obstacleList) {
+      const pos = (o.body && this.physics)
+        ? this.physics.readPose(o.body)
+        : { x: o.cfg.x, y: o.cfg.y };
+      obstacles[o.cfg.label] = { x: pos.x, y: pos.y };
+    }
+    return {
+      robot: { x: this.robot.x, y: this.robot.y, heading: this.robot.heading },
+      obstacles,
+      sensors: {
+        C: this.robot.sensors.colorValue,
+        D: this.robot.sensors.distanceMM,
+        E: this.robot.sensors.forceN,
+      },
+    };
+  }
+
+  // ── Obstacle contact subscription ────────────────────────────────────────────
+
+  // Subscribe to obstacle-contact events. `cb` is called with the obstacle's
+  // label (string) each time the robot body first contacts that obstacle in a
+  // physics step. Returns an unsubscribe function.
+  //
+  // TODO (Task 19 integration): wire _dispatchObstacleContact into the Box2D
+  // BeginContact listener inside _initPhysics so that real physics contacts
+  // (robot ↔ obstacle body) automatically invoke all subscribers. The test
+  // seam below is sufficient for missions engine unit tests and integration
+  // tests that don't drive real physics.
+  onObstacleContact(cb) {
+    this._obstacleContactSubs.add(cb);
+    return () => this._obstacleContactSubs.delete(cb);
+  }
+
+  // Wired into the Box2D contact listener by _initPhysics. Tests can call it
+  // directly to synthesise contacts without driving real physics.
+  _dispatchObstacleContact(obstacleId) {
+    for (const cb of this._obstacleContactSubs) cb(obstacleId);
+  }
 
   // ── Audio ───────────────────────────────────────────────────────────────────
 

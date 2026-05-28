@@ -222,6 +222,25 @@ function initSim() {
     forceBtn.addEventListener('pointerleave',  () => sim.manualRelease());
     forceBtn.addEventListener('pointercancel', () => sim.manualRelease());
   }
+
+  // Boot the missions layer. Gated by ?missions=1 — the feature is in
+  // development and stays hidden in production until the query param is
+  // set. The 🎯 header button is hidden in HTML by default; we only
+  // reveal it (and boot the missions layer) when the gate is open.
+  if (window.MISSIONS && window.MISSIONS.isEnabled && window.MISSIONS.isEnabled(window.location)) {
+    const btn = document.getElementById('btn-missions');
+    if (btn) btn.hidden = false;
+    if (window.MISSIONS.boot) {
+      window.MISSIONS.boot({
+        sim: window.sim,
+        doc: document,
+        location: window.location,
+        fetch: window.fetch.bind(window),
+        storage: window.localStorage,
+      }).then((app) => { window.missionApp = app; })
+        .catch((e) => console.warn('missions: boot failed', e));
+    }
+  }
 }
 
 // Blockly caches its parent div's dimensions in workspace metrics — positioning
@@ -313,6 +332,17 @@ function applyStoredProjectType() {
 
 // ── Run / Stop ────────────────────────────────────────────────────────────────
 
+// Finalize the mission engine if a mission is currently being played and the
+// engine is mid-run. Safe no-op otherwise. Called from the Blockly Run path,
+// the Stop handler, and the Python worker's done/error messages.
+function finalizeMissionIfActive() {
+  const app = window.missionApp;
+  if (!app || app.mode !== 'play') return;
+  const eng = app.engine;
+  if (eng.startTimeMs == null || eng.progress.finalized) return;
+  eng.finalize(Date.now() - eng.startTimeMs);
+}
+
 async function handleRun() {
   if (!sim) return;
   // Re-entry guard: the Run button is disabled while a run is in flight, but
@@ -324,10 +354,32 @@ async function handleRun() {
   clearOutput();
   if (window._watch) window._watch.clear();
 
+  // Start the mission engine when a mission is active. Reset first so a
+  // re-Run after Stop clears the prior finalized progress + frozen timer
+  // (otherwise tick() short-circuits on progress.finalized and the timer
+  // never resumes).
+  if (window.missionApp && window.missionApp.mode === 'play') {
+    window.missionApp.engine.reset();
+    window.missionApp.engine.start(Date.now());
+    if (window.missionApp.ui) {
+      window.missionApp.ui.updateProgress(window.missionApp.engine);
+      if (typeof window.missionApp.ui.updateTimer === 'function') {
+        window.missionApp.ui.updateTimer(window.missionApp.engine, Date.now());
+      }
+    }
+  }
+
   if (currentMode === 'python') {
     await runPython();
   } else {
     await runBlockly();
+  }
+
+  // For Blockly, runBlockly awaits the AsyncFunction to completion, so we
+  // finalize the mission engine here. Python runs in a worker; its
+  // finalize is wired to the worker's `done` / `error` messages below.
+  if (currentMode !== 'python') {
+    finalizeMissionIfActive();
   }
 }
 
@@ -394,6 +446,8 @@ function handleStop() {
   setButtons(false);
   sim._setStatus('ready');
   appendOutput('[Stopped]', 'warn');
+  // Finalize the mission engine when the user stops the program manually.
+  finalizeMissionIfActive();
 }
 
 // "New" — start a fresh project of the given type. Only the buffer for
@@ -446,6 +500,17 @@ function handleReset() {
   // reset() clears _stopRequested as part of normalising state; re-assert it
   // so any worker command Python sends before it sees SystemExit still aborts.
   if (wasRunning) sim._stopRequested = true;
+  // Also reset the mission engine if a mission is loaded — otherwise the
+  // Elapsed/Left timers stay frozen at the previous run's stop value.
+  if (window.missionApp && window.missionApp.engine && window.missionApp.mode === 'play') {
+    window.missionApp.engine.reset();
+    if (window.missionApp.ui) {
+      window.missionApp.ui.updateProgress(window.missionApp.engine);
+      if (typeof window.missionApp.ui.updateTimer === 'function') {
+        window.missionApp.ui.updateTimer(window.missionApp.engine, Date.now());
+      }
+    }
+  }
   clearOutput();
   if (window._watch) window._watch.clear();
   appendOutput('[Ready] Simulator reset.', 'info');
@@ -591,10 +656,12 @@ function _pollForWorker() {
       appendOutput('[Done] Simulation complete.', 'info');
       setButtons(false);
       sim._setStatus('ready');
+      finalizeMissionIfActive();
     } else if (data.type === 'error') {
       appendOutput('[Error] ' + data.message, 'error');
       setButtons(false);
       sim._setStatus('error');
+      finalizeMissionIfActive();
     }
   });
 }
