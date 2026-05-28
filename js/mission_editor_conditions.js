@@ -20,12 +20,37 @@
       extensions: ['cond_dynamic_dropdowns'],
     },
     {
+      // Numeric sensor: distance (mm) and force (N) only. Color uses its own
+      // block (cond_sensor_color) so the VALUE field can be a color-name
+      // dropdown instead of a free-text input.
       type: 'cond_sensor',
       message0: 'sensor %1 %2 %3',
       args0: [
-        { type: 'field_dropdown', name: 'PORT', options: [['Color (C)', 'C'], ['Distance (D)', 'D'], ['Force (E)', 'E']] },
+        { type: 'field_dropdown', name: 'PORT', options: [['Distance (D)', 'D'], ['Force (E)', 'E']] },
         { type: 'field_dropdown', name: 'OP', options: [['==','=='], ['!=','!='], ['<','<'], ['<=','<='], ['>','>'], ['>=','>=']] },
         { type: 'field_input', name: 'VALUE', text: '0' },
+      ],
+      output: 'Boolean',
+      colour: 210,
+    },
+    {
+      // Color sensor: port is fixed to C; VALUE is a dropdown of LEGO color
+      // names. Only equality operators make sense for an enum-like value.
+      type: 'cond_sensor_color',
+      message0: 'color sensor (C) %1 %2',
+      args0: [
+        { type: 'field_dropdown', name: 'OP', options: [['==','=='], ['!=','!=']] },
+        { type: 'field_dropdown', name: 'VALUE', options: [
+          ['red',    'red'],
+          ['green',  'green'],
+          ['blue',   'blue'],
+          ['yellow', 'yellow'],
+          ['orange', 'orange'],
+          ['purple', 'purple'],
+          ['black',  'black'],
+          ['white',  'white'],
+          ['none',   'none'],
+        ] },
       ],
       output: 'Boolean',
       colour: 210,
@@ -88,6 +113,11 @@
         case 'zone':
           return { type: 'cond_zone', fields: { ZONE: c.zone || '' }, children: {}, parent: null };
         case 'sensor':
+          // Color sensor on port C uses the dedicated color block; everything
+          // else is the numeric cond_sensor.
+          if (c.port === 'C' && typeof c.value === 'string') {
+            return { type: 'cond_sensor_color', fields: { OP: c.op, VALUE: c.value }, children: {}, parent: null };
+          }
           return { type: 'cond_sensor', fields: { PORT: c.port, OP: c.op, VALUE: String(c.value) }, children: {}, parent: null };
         case 'contact':
           return { type: 'cond_contact', fields: { OBSTACLE: c.obstacle || '' }, children: {}, parent: null };
@@ -122,6 +152,7 @@
       { kind: 'block', type: 'cond_zone' },
       { kind: 'block', type: 'cond_contact' },
       { kind: 'label', text: 'Sensor' },
+      { kind: 'block', type: 'cond_sensor_color' },
       { kind: 'block', type: 'cond_sensor' },
       { kind: 'label', text: 'Compose' },
       { kind: 'block', type: 'cond_not' },
@@ -308,6 +339,14 @@
             port: fieldOf(b, 'PORT'),
             op: fieldOf(b, 'OP'),
             value: Number.isNaN(asNum) || raw === '' ? raw : asNum,
+          };
+        }
+        case 'cond_sensor_color': {
+          return {
+            kind: 'sensor',
+            port: 'C',
+            op: fieldOf(b, 'OP'),
+            value: fieldOf(b, 'VALUE'),
           };
         }
         case 'cond_contact':

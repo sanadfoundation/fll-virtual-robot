@@ -53,13 +53,62 @@ test('conditions: deselecting hides the section', () => {
   assert.strictEqual(doc.getElementById('editor-cond-section').hidden, true);
 });
 
-test('conditions: attaching defines all six predicate blocks', () => {
+test('conditions: attaching defines all seven predicate blocks (including cond_sensor_color)', () => {
   const { ctx } = setup();
-  // Defined-blocks map is populated by attach (via ensureBlockDefs).
   const defined = ctx.Blockly._definedBlocks;
-  for (const t of ['cond_zone', 'cond_sensor', 'cond_contact', 'cond_not', 'cond_all_of', 'cond_any_of']) {
+  for (const t of ['cond_zone', 'cond_sensor', 'cond_sensor_color', 'cond_contact', 'cond_not', 'cond_all_of', 'cond_any_of']) {
     assert.ok(defined[t], `expected block type "${t}" to be defined`);
   }
+});
+
+test('cond_sensor_color: emits { kind: sensor, port: C, op, value: <color name> }', () => {
+  const { ctx, app } = setup();
+  app.enterEditor();
+  app.setEditorState(ctx.MISSIONS.editor.state.addStep(app.editorState));
+  const id = app.editorState.steps[0].id;
+  app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'step', id }));
+  const ws = ctx.Blockly._lastWorkspace();
+  ws._setBlocks([makeBlock('cond_sensor_color', { OP: '==', VALUE: 'red' })]);
+  assert.deepStrictEqual(app.editorState.steps[0].condition,
+    { kind: 'sensor', port: 'C', op: '==', value: 'red' });
+});
+
+test('cond_sensor_color: != operator emits the same shape', () => {
+  const { ctx, app } = setup();
+  app.enterEditor();
+  app.setEditorState(ctx.MISSIONS.editor.state.addStep(app.editorState));
+  const id = app.editorState.steps[0].id;
+  app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'step', id }));
+  const ws = ctx.Blockly._lastWorkspace();
+  ws._setBlocks([makeBlock('cond_sensor_color', { OP: '!=', VALUE: 'blue' })]);
+  assert.deepStrictEqual(app.editorState.steps[0].condition,
+    { kind: 'sensor', port: 'C', op: '!=', value: 'blue' });
+});
+
+test('loadIntoWorkspace: a port-C string-valued sensor condition spawns cond_sensor_color, NOT cond_sensor', () => {
+  const { ctx, app } = setup();
+  app.enterEditor();
+  const s0 = ctx.MISSIONS.editor.state.addStep(app.editorState);
+  const sId = s0.steps[0].id;
+  const withCond = ctx.MISSIONS.editor.state.editStep(s0, sId,
+    { condition: { kind: 'sensor', port: 'C', op: '==', value: 'red' } });
+  app.setEditorState(withCond);
+  app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'step', id: sId }));
+  const ws = ctx.Blockly._lastWorkspace();
+  assert.strictEqual(ws.getTopBlocks()[0].type, 'cond_sensor_color');
+});
+
+test('loadIntoWorkspace: a port-D numeric-valued sensor condition still spawns cond_sensor', () => {
+  const { ctx, app } = setup();
+  app.enterEditor();
+  const s0 = ctx.MISSIONS.editor.state.addStep(app.editorState);
+  const sId = s0.steps[0].id;
+  const withCond = ctx.MISSIONS.editor.state.editStep(s0, sId,
+    { condition: { kind: 'sensor', port: 'D', op: '<', value: 100 } });
+  app.setEditorState(withCond);
+  app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'step', id: sId }));
+  const ws = ctx.Blockly._lastWorkspace();
+  assert.strictEqual(ws.getTopBlocks()[0].type, 'cond_sensor');
 });
 
 function makeBlock(type, fields, children, parent) {
