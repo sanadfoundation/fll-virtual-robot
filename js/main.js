@@ -223,8 +223,14 @@ function initSim() {
     forceBtn.addEventListener('pointercancel', () => sim.manualRelease());
   }
 
-  // Boot the missions layer. No-op when there's no #mission=… hash.
-  if (window.MISSIONS && window.MISSIONS.boot) {
+  // Boot the missions layer. Gated by ?missions=1 — the feature is
+  // in development and stays hidden in production until the query param
+  // is set. Hide the 🎯 header button too so end users don't see the
+  // affordance until the gate is open.
+  if (window.MISSIONS && window.MISSIONS.isEnabled && !window.MISSIONS.isEnabled(window.location)) {
+    const btn = document.getElementById('btn-missions');
+    if (btn) btn.hidden = true;
+  } else if (window.MISSIONS && window.MISSIONS.boot) {
     window.MISSIONS.boot({
       sim: window.sim,
       doc: document,
