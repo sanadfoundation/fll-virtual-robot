@@ -123,6 +123,11 @@
       state.clear();
       _scheduleRender();
     },
+    remove(name) {
+      if (!state.has(name)) return;
+      state.delete(name);
+      _scheduleRender();
+    },
     _snapshot() {
       const out = {};
       for (const [k, v] of state.entries()) out[k] = v.value;

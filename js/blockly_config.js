@@ -4010,7 +4010,21 @@ function generateBlocklyJS(workspace) {
   }
   const body = orphanStubs.join('') + parts.join('');
 
-  const userVars = (workspace.getAllVariables && workspace.getAllVariables()) || [];
+  // Filter to variables that are actually referenced by a block. Blockly's
+  // variableMap keeps a variable alive after the user deletes the blocks
+  // that used it (or after a right-click "Delete the X variable" that
+  // happened in another browser session and round-tripped through llsp3),
+  // so getAllVariables() can return ghost entries that would otherwise
+  // re-appear in the watch panel as `name: 0` on every Run.
+  const allVars = (workspace.getAllVariables && workspace.getAllVariables()) || [];
+  const userVars = workspace.getVariableUsesById
+    ? allVars.filter(v => {
+        const id = (v.getId && v.getId()) || v.id_ || v.id;
+        if (!id) return true;
+        const uses = workspace.getVariableUsesById(id) || [];
+        return uses.length > 0;
+      })
+    : allVars;
   const userVarDecls = userVars
     .map(v => `var ${_sanitizeVarName(v.name)} = 0;`)
     .join('\n');

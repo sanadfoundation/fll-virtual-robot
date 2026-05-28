@@ -255,6 +255,19 @@ function initBlocklyWorkspace() {
           const xml = Blockly.Xml.domToText(Blockly.Xml.workspaceToDom(blocklyWs));
           lsSet(BLOCKLY_KEY, xml);
         } catch (err) { /* workspace may be mid-dispose */ }
+        // Keep the watch panel in sync with the variable list. Without this,
+        // values from the prior run linger until the next Run, even after the
+        // user deletes the variable.
+        if (e && window._watch) {
+          const E = (typeof Blockly !== 'undefined' && Blockly.Events) || {};
+          if (e.type === E.VAR_DELETE || e.type === 'var_delete') {
+            if (e.varName) window._watch.remove(e.varName);
+          } else if (e.type === E.VAR_RENAME || e.type === 'var_rename') {
+            // Old name's row is now misleading; the next Run will declare the
+            // new name. Drop the stale row.
+            if (e.oldName) window._watch.remove(e.oldName);
+          }
+        }
       });
     }
   } catch (e) {

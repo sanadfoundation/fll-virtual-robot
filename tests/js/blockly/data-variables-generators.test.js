@@ -164,3 +164,60 @@ test('generateBlocklyJS preamble declares each variable into _watch', () => {
     js.workspaceToCode = origWorkspaceToCode;
   }
 });
+
+test('generateBlocklyJS skips variables that no block references', () => {
+  // Issue: deleting blocks that referenced a variable leaves the variable
+  // in the workspace's variableMap. Without this filter the unused variable
+  // pops back into the watch panel as `name: 0` on every run.
+  const { Blockly, env } = setupGenerators();
+  const js = Blockly.JavaScript;
+  const origWorkspaceToCode = js.workspaceToCode;
+  js.workspaceToCode = () => '';
+  try {
+    const stub = {
+      getAllVariables() {
+        return [
+          { name: 'used',   getId: () => 'used-id' },
+          { name: 'orphan', getId: () => 'orphan-id' },
+        ];
+      },
+      getVariableUsesById(id) {
+        return id === 'used-id' ? [{}] : [];
+      },
+    };
+    const code = env.window.generateBlocklyJS(stub);
+    assert.ok(code.includes('var v_used = 0;'),
+      'declares the used variable');
+    assert.ok(code.includes('_watch.declare("used", v_used);'),
+      'watch-declares the used variable');
+    assert.ok(!code.includes('v_orphan'),
+      'orphan variable is not declared in code');
+    assert.ok(!code.includes('"orphan"'),
+      'orphan variable is not declared in the watch');
+  } finally {
+    js.workspaceToCode = origWorkspaceToCode;
+  }
+});
+
+test('generateBlocklyJS without getVariableUsesById falls back to declaring all variables', () => {
+  // Defensive: the codegen runs in environments (older Blockly, test stubs)
+  // where getVariableUsesById isn't available. In that case we keep the
+  // previous behavior — declare everything getAllVariables returns.
+  const { Blockly, env } = setupGenerators();
+  const js = Blockly.JavaScript;
+  const origWorkspaceToCode = js.workspaceToCode;
+  js.workspaceToCode = () => '';
+  try {
+    const stub = {
+      getAllVariables() {
+        return [{ name: 'a' }, { name: 'b' }];
+      },
+      // no getVariableUsesById
+    };
+    const code = env.window.generateBlocklyJS(stub);
+    assert.ok(code.includes('var v_a = 0;'));
+    assert.ok(code.includes('var v_b = 0;'));
+  } finally {
+    js.workspaceToCode = origWorkspaceToCode;
+  }
+});

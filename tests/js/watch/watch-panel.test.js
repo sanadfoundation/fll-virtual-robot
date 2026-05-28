@@ -38,6 +38,43 @@ test('clear empties the registry', () => {
   assert.deepEqual(api._snapshot(), {});
 });
 
+test('remove drops a single variable and leaves the rest', () => {
+  const { api } = loadWatchPanel();
+  api.declare('score', 0);
+  api.set('ready', true);
+  api.remove('score');
+  assert.deepEqual(api._snapshot(), { ready: true });
+});
+
+test('remove for an unknown variable is a no-op', () => {
+  const { api } = loadWatchPanel();
+  api.declare('score', 7);
+  api.remove('nope');
+  assert.deepEqual(api._snapshot(), { score: 7 });
+});
+
+test('remove rerenders so the row leaves the DOM', () => {
+  const { api, list, flushRaf } = loadWatchPanel();
+  api.declare('alpha', 1);
+  api.declare('beta', 2);
+  flushRaf();
+  assert.strictEqual(list.children.length, 2);
+  api.remove('alpha');
+  flushRaf();
+  const names = list.children.map(row => row.dataset.name);
+  assert.deepEqual(names, ['beta']);
+});
+
+test('remove of the last variable slides the pane out', () => {
+  const { api, pane, flushRaf } = loadWatchPanel();
+  api.declare('only', 1);
+  flushRaf(); flushRaf();
+  assert.ok(pane.classList.contains('visible'));
+  api.remove('only');
+  flushRaf();
+  assert.ok(!pane.classList.contains('visible'));
+});
+
 test('render mounts a row per variable, sorted alphabetically', () => {
   const { api, list, flushRaf } = loadWatchPanel();
   api.declare('zeta', 0);
