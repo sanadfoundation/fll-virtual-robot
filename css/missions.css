@@ -154,9 +154,16 @@
   justify-content: flex-end;
 }
 
-/* Mission entry-point pill in the header */
+/* Mission entry-point pill in the header. The hidden attribute applies via
+   the default UA rule [hidden]{display:none}, but .btn {display:flex} has
+   higher specificity and silently overrode it — leaving the button visible
+   in prod even though the ?missions=1 gate was closed. Re-establish the
+   contract that hidden actually hides. */
 .mission-pill {
   position: relative;
+}
+.mission-pill[hidden] {
+  display: none;
 }
 .mission-pill[data-active="true"] {
   background: var(--amber);
