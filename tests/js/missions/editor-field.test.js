@@ -166,6 +166,62 @@ test('drag: when nothing is selected, _test_dragMove is a no-op', () => {
   assert.strictEqual(app.editorState, before);
 });
 
+test('pointerdown on empty SVG with a selection: does NOT engage drag', () => {
+  // Regression: clicking empty canvas while an obstacle was highlighted
+  // teleported the obstacle to the click point. Drag should only engage
+  // when the pointerdown lands on the selected element itself.
+  const { ctx, doc, app } = setup();
+  app.enterEditor();
+  app.setEditorState(ctx.MISSIONS.editor.state.addObstacle(app.editorState, { x: 100, y: 100 }));
+  const id = app.editorState.field.obstacles[0].id;
+  app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'obstacle', id }));
+
+  const svg = doc.getElementById('editor-canvas-overlay').querySelector('.editor-overlay-svg');
+  assert.ok(svg, 'expected SVG root to be present');
+
+  svg._fire('pointerdown', { target: svg, pointerId: 1 });
+
+  // The gating means "drag" is NOT engaged after a pointerdown on empty area.
+  assert.strictEqual(ctx.MISSIONS.editor.field._test_isDragging(), false);
+});
+
+test('pointerdown on the selected obstacle element: engages drag', () => {
+  const { ctx, doc, app } = setup();
+  app.enterEditor();
+  app.setEditorState(ctx.MISSIONS.editor.state.addObstacle(app.editorState, { x: 100, y: 100 }));
+  const id = app.editorState.field.obstacles[0].id;
+  app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'obstacle', id }));
+
+  const svg = doc.getElementById('editor-canvas-overlay').querySelector('.editor-overlay-svg');
+  // Mock querySelector only handles single selectors, so look up by class then
+  // filter for data-id manually.
+  const allObstacles = Array.from(svg.querySelectorAll('.editor-obstacle'));
+  const obstacleEl = allObstacles.find(el => el.getAttribute('data-id') === id);
+  assert.ok(obstacleEl, 'expected obstacle element to be selectable by id');
+
+  svg._fire('pointerdown', { target: obstacleEl, pointerId: 1 });
+
+  assert.strictEqual(ctx.MISSIONS.editor.field._test_isDragging(), true);
+});
+
+test('pointerdown on a non-selected element with another selection: does NOT engage drag', () => {
+  // Two obstacles; #1 is selected; user pointerdown's on #2 without selecting first.
+  // Drag should not engage — that would teleport #1 to where the user is clicking on #2.
+  const { ctx, doc, app } = setup();
+  app.enterEditor();
+  app.setEditorState(ctx.MISSIONS.editor.state.addObstacle(app.editorState, { x: 100, y: 100 }));
+  app.setEditorState(ctx.MISSIONS.editor.state.addObstacle(app.editorState, { x: 800, y: 800 }));
+  const id1 = app.editorState.field.obstacles[0].id;
+  const id2 = app.editorState.field.obstacles[1].id;
+  app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'obstacle', id: id1 }));
+
+  const svg = doc.getElementById('editor-canvas-overlay').querySelector('.editor-overlay-svg');
+  const otherEl = svg.querySelector(`[data-kind="obstacle"][data-id="${id2}"]`);
+  svg._fire('pointerdown', { target: otherEl, pointerId: 1 });
+
+  assert.strictEqual(ctx.MISSIONS.editor.field._test_isDragging(), false);
+});
+
 test('delete: pressing Delete while an obstacle is selected removes it', () => {
   const { ctx, doc, app } = setup();
   app.enterEditor();

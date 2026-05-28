@@ -24,6 +24,9 @@
     let startGroup = null;
     let activeTool = 'select';
     let palette = null;
+    let dragging = false;
+    let resizing = false;
+    let drawingLine = null;  // { x1, y1, previewEl } while drawing a line
 
     function ensureSvg() {
       if (svg) return;
@@ -56,9 +59,6 @@
         const py = FIELD_H_MM - pyTop;
         handleSvgClick({ _fieldPoint: { x: px, y: py } });
       });
-      let dragging = false;
-      let resizing = false;
-      let drawingLine = null;  // { x1, y1, previewEl } while drawing a line
       svg.addEventListener('pointerdown', (ev) => {
         if (activeTool === 'line') {
           // Start drawing a line. Capture pointer and create a preview line.
@@ -95,6 +95,17 @@
           return;
         }
         if (!app.editorState || !app.editorState.selection) return;
+        // Only engage drag when the pointerdown lands on the currently-selected
+        // element (matched via data-id + data-kind). Empty-canvas clicks fall
+        // through to handleSvgClick, which deselects. Without this gate, an
+        // empty-canvas click would teleport the selected item to the click point.
+        const sel = app.editorState.selection;
+        const t = ev && ev.target;
+        const targetId   = t && typeof t.getAttribute === 'function' ? t.getAttribute('data-id')   : null;
+        const targetKind = t && typeof t.getAttribute === 'function' ? t.getAttribute('data-kind') : null;
+        const startMatch = sel.kind === 'start' && targetKind === 'robot-start';
+        const idMatch    = sel.kind !== 'start' && targetKind === sel.kind && targetId === sel.id;
+        if (!startMatch && !idMatch) return;
         dragging = true;
         if (svg.setPointerCapture && ev.pointerId !== undefined) {
           try { svg.setPointerCapture(ev.pointerId); } catch (_e) {}
@@ -476,6 +487,7 @@
 
     editor.field._test_dragMove = dragMoveToPoint;
     editor.field._test_deleteSelected = deleteSelected;
+    editor.field._test_isDragging = () => dragging;
 
     if (doc.addEventListener) {
       doc.addEventListener('keydown', (ev) => {
@@ -490,5 +502,5 @@
     }
   }
 
-  editor.field = { attach, _test_dragMove: null, _test_deleteSelected: null, _test_resize: null };
+  editor.field = { attach, _test_dragMove: null, _test_deleteSelected: null, _test_resize: null, _test_isDragging: null };
 })(typeof window !== 'undefined' ? window : globalThis);
