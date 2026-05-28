@@ -326,10 +326,10 @@ body[data-mode="editor"] .editor-overlay-svg { pointer-events: auto; }
 
 .editor-step-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 48px 24px 24px 24px 24px;
+  grid-template-columns: minmax(0, 1fr) 48px 24px 24px 24px 56px 24px;
   grid-template-areas:
-    "title points up   down req  del"
-    "hint  hint   hint hint hint hint";
+    "title points up   down req  edit del"
+    "hint  hint   hint hint hint hint hint";
   gap: 4px 3px;
   align-items: center;
   padding: 7px 8px;
@@ -364,6 +364,7 @@ body[data-mode="editor"] .editor-overlay-svg { pointer-events: auto; }
 .step-up-btn       { grid-area: up; }
 .step-down-btn     { grid-area: down; }
 .step-requires-btn { grid-area: req; }
+.step-edit-btn     { grid-area: edit; }
 .step-delete-btn   { grid-area: del; }
 
 .step-up-btn,
@@ -382,6 +383,27 @@ body[data-mode="editor"] .editor-overlay-svg { pointer-events: auto; }
   padding: 0;
   display: grid;
   place-items: center;
+}
+.step-edit-btn {
+  background: var(--amber);
+  border: 1px solid var(--amber);
+  color: #1a1206;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0 6px;
+  display: grid;
+  place-items: center;
+  white-space: nowrap;
+}
+.step-edit-btn:hover { filter: brightness(1.08); }
+.editor-step-row.selected .step-edit-btn {
+  background: #f59e0b;
+  border-color: #f59e0b;
 }
 .step-up-btn:hover,
 .step-down-btn:hover,

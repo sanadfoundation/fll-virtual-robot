@@ -104,6 +104,45 @@ test('steps: clicking down arrow moves the step later', () => {
   assert.deepStrictEqual(app.editorState.steps.map(s => s.id), [b.id, a.id]);
 });
 
+test('steps: each row has an Edit button that selects the step (opens condition picker)', () => {
+  const { doc, app } = setup();
+  app.enterEditor();
+  doc.getElementById('btn-add-step')._click();
+  const id = app.editorState.steps[0].id;
+  const row = doc.getElementById('editor-steps-list').children[0];
+  const editBtn = row.querySelector('.step-edit-btn');
+  assert.ok(editBtn, 'expected each row to have a .step-edit-btn');
+  editBtn._click();
+  assert.deepStrictEqual(app.editorState.selection, { kind: 'step', id });
+});
+
+test('steps: inputs have placeholder + title affordances', () => {
+  const { doc, app } = setup();
+  app.enterEditor();
+  doc.getElementById('btn-add-step')._click();
+  const row = doc.getElementById('editor-steps-list').children[0];
+  const title  = row.querySelector('.step-title-input');
+  const points = row.querySelector('.step-points-input');
+  const hint   = row.querySelector('.step-hint-input');
+  assert.ok(title.getAttribute('placeholder'),  'step title input needs a placeholder');
+  assert.ok(title.getAttribute('title'),        'step title input needs a tooltip');
+  assert.ok(points.getAttribute('title'),       'step points input needs a tooltip');
+  assert.ok(hint.getAttribute('placeholder'),   'step hint input needs a placeholder');
+  assert.ok(hint.getAttribute('title'),         'step hint input needs a tooltip');
+});
+
+test('steps: row buttons have title tooltips', () => {
+  const { doc, app } = setup();
+  app.enterEditor();
+  doc.getElementById('btn-add-step')._click();
+  const row = doc.getElementById('editor-steps-list').children[0];
+  for (const cls of ['.step-up-btn', '.step-down-btn', '.step-requires-btn', '.step-edit-btn', '.step-delete-btn']) {
+    const btn = row.querySelector(cls);
+    assert.ok(btn, `expected ${cls} button to exist`);
+    assert.ok(btn.getAttribute('title'), `expected ${cls} to have a title attribute`);
+  }
+});
+
 test('steps: clicking a row selects it', () => {
   const { doc, app } = setup();
   app.enterEditor();

@@ -82,6 +82,9 @@
       const title = doc.createElement('input');
       title.classList.add('step-title-input');
       title.setAttribute('type', 'text');
+      title.setAttribute('placeholder', 'Step title (e.g. Drive to red zone)');
+      title.setAttribute('title', 'Title — shown to the player in the Mission Map panel');
+      title.setAttribute('aria-label', 'Step title');
       title.value = step.title;
       title.addEventListener('input', (e) => {
         if (e.stopPropagation) e.stopPropagation();
@@ -92,6 +95,9 @@
       const points = doc.createElement('input');
       points.classList.add('step-points-input');
       points.setAttribute('type', 'number');
+      points.setAttribute('placeholder', 'pts');
+      points.setAttribute('title', 'Points awarded when this step completes');
+      points.setAttribute('aria-label', 'Step points');
       points.value = String(step.points);
       points.addEventListener('input', (e) => {
         if (e.stopPropagation) e.stopPropagation();
@@ -103,6 +109,9 @@
       const hint = doc.createElement('input');
       hint.classList.add('step-hint-input');
       hint.setAttribute('type', 'text');
+      hint.setAttribute('placeholder', 'Optional hint shown to the player');
+      hint.setAttribute('title', 'Hint — appears in the Mission Map when this step is active');
+      hint.setAttribute('aria-label', 'Step hint');
       hint.value = step.hint || '';
       hint.addEventListener('input', (e) => {
         if (e.stopPropagation) e.stopPropagation();
@@ -113,6 +122,8 @@
       const up = doc.createElement('button');
       up.classList.add('step-up-btn');
       up.setAttribute('type', 'button');
+      up.setAttribute('title', 'Move step up');
+      up.setAttribute('aria-label', 'Move step up');
       up.textContent = '↑';
       up.addEventListener('click', (e) => {
         if (e && e.stopPropagation) e.stopPropagation();
@@ -124,6 +135,8 @@
       const down = doc.createElement('button');
       down.classList.add('step-down-btn');
       down.setAttribute('type', 'button');
+      down.setAttribute('title', 'Move step down');
+      down.setAttribute('aria-label', 'Move step down');
       down.textContent = '↓';
       down.addEventListener('click', (e) => {
         if (e && e.stopPropagation) e.stopPropagation();
@@ -137,6 +150,8 @@
       const reqBtn = doc.createElement('button');
       reqBtn.classList.add('step-requires-btn');
       reqBtn.setAttribute('type', 'button');
+      reqBtn.setAttribute('title', 'Set step dependencies (must complete first)');
+      reqBtn.setAttribute('aria-label', 'Step dependencies');
       reqBtn.textContent = '⛓';
       let panel = null;
       reqBtn.addEventListener('click', (e) => {
@@ -176,9 +191,24 @@
         row.appendChild(panel);
       });
 
+      const editBtn = doc.createElement('button');
+      editBtn.classList.add('step-edit-btn');
+      editBtn.setAttribute('type', 'button');
+      editBtn.setAttribute('title', 'Edit this step\'s completion condition');
+      editBtn.setAttribute('aria-label', 'Edit step condition');
+      editBtn.textContent = '✎ Edit';
+      editBtn.addEventListener('click', (e) => {
+        if (e && e.stopPropagation) e.stopPropagation();
+        e._handled = true;
+        app.setEditorState(MISSIONS.editor.state.setSelection(
+          app.editorState, { kind: 'step', id: step.id }));
+      });
+
       const del = doc.createElement('button');
       del.classList.add('step-delete-btn');
       del.setAttribute('type', 'button');
+      del.setAttribute('title', 'Delete this step');
+      del.setAttribute('aria-label', 'Delete step');
       del.textContent = '🗑';
       del.addEventListener('click', () => {
         app.setEditorState(MISSIONS.editor.state.deleteStep(app.editorState, step.id));
@@ -198,6 +228,7 @@
       row.appendChild(up);
       row.appendChild(down);
       row.appendChild(reqBtn);
+      row.appendChild(editBtn);
       row.appendChild(del);
       return row;
     }
