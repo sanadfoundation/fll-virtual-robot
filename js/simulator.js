@@ -485,6 +485,7 @@ class RobotSimulator {
     this._drawRuler(ctx, s);
     this._drawTrail(ctx);
     this._drawObstacles(ctx, s);
+    this._drawWalls(ctx, s);
     this._drawRobot(ctx, s);
     this._drawDistanceSensorRay(ctx, s);
     this._updateSensorPanel();
@@ -532,6 +533,27 @@ class RobotSimulator {
 
       ctx.restore();
     }
+  }
+
+  // Render mission-authored static walls. Walls are AABB rects in math y-up
+  // coords; canvas top-left y = FIELD_H_MM - y - h. Slate-grey fill with a
+  // darker outline so they read as immovable structure rather than props.
+  _drawWalls(ctx, s) {
+    if (!this._walls || !this._walls.length) return;
+    if (typeof document !== 'undefined' &&
+        document.body && document.body.dataset && document.body.dataset.mode === 'editor') {
+      return;
+    }
+    ctx.save();
+    ctx.fillStyle   = '#4a5568';
+    ctx.strokeStyle = '#2d3748';
+    ctx.lineWidth   = 2 * s;
+    for (const w of this._walls) {
+      const canvasY = (FIELD_H_MM - w.cfg.y - w.cfg.h) * s;
+      ctx.fillRect(w.cfg.x * s, canvasY, w.cfg.w * s, w.cfg.h * s);
+      ctx.strokeRect(w.cfg.x * s, canvasY, w.cfg.w * s, w.cfg.h * s);
+    }
+    ctx.restore();
   }
 
   _drawField(ctx, W, H, s) {
