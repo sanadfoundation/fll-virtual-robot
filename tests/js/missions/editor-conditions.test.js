@@ -246,6 +246,40 @@ test('dropdowns: obstacle option DISPLAY uses label when set; falls back to id',
   assert.deepStrictEqual(opts[1], [id2, id2]);
 });
 
+test('selecting a step collapses meta + steps sections to give the condition workspace room', () => {
+  const { ctx, doc, app } = setup();
+  app.enterEditor();
+  app.setEditorState(ctx.MISSIONS.editor.state.addStep(app.editorState));
+  const id = app.editorState.steps[0].id;
+
+  // Before selecting a step: both sections should still be marked open.
+  const metaEl  = doc.getElementById('editor-meta-section');
+  const stepsEl = doc.getElementById('editor-steps-section');
+  // The mock starts with attrs from the production HTML; we set them manually
+  // to mirror the initial state.
+  metaEl.setAttribute('open',  '');
+  stepsEl.setAttribute('open', '');
+
+  app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'step', id }));
+
+  assert.strictEqual(metaEl.getAttribute('open'),  null, 'meta should be collapsed');
+  assert.strictEqual(stepsEl.getAttribute('open'), null, 'steps should be collapsed');
+});
+
+test('deselecting a step re-expands meta + steps sections', () => {
+  const { ctx, doc, app } = setup();
+  app.enterEditor();
+  app.setEditorState(ctx.MISSIONS.editor.state.addStep(app.editorState));
+  const id = app.editorState.steps[0].id;
+  app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'step', id }));
+  app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, null));
+
+  const metaEl  = doc.getElementById('editor-meta-section');
+  const stepsEl = doc.getElementById('editor-steps-section');
+  assert.strictEqual(metaEl.getAttribute('open'),  '', 'meta should be open again');
+  assert.strictEqual(stepsEl.getAttribute('open'), '', 'steps should be open again');
+});
+
 test('dropdowns: obstacle option VALUE is always the id (so the underlying condition stays stable across renames)', () => {
   const { ctx, app } = setup();
   app.enterEditor();

@@ -393,6 +393,13 @@
       if (!section) return;
       section.hidden = false;
       if (panel && panel.classList) panel.classList.add('has-condition-open');
+      // Auto-collapse meta + steps so the condition workspace gets the
+      // whole panel height. The flyout needs vertical room to render all
+      // its blocks (all_of/any_of were getting clipped at the bottom).
+      const metaEl  = doc.getElementById('editor-meta-section');
+      const stepsEl = doc.getElementById('editor-steps-section');
+      if (metaEl  && metaEl.removeAttribute)  metaEl.removeAttribute('open');
+      if (stepsEl && stepsEl.removeAttribute) stepsEl.removeAttribute('open');
       ensureWorkspace();
       if (!workspace) return;
 
@@ -441,6 +448,12 @@
     function hide() {
       if (section) section.hidden = true;
       if (panel && panel.classList) panel.classList.remove('has-condition-open');
+      // Restore the collapsed sections when the condition picker hides
+      // (e.g. on step deselect) so meta + steps are visible again.
+      const metaEl  = doc.getElementById('editor-meta-section');
+      const stepsEl = doc.getElementById('editor-steps-section');
+      if (metaEl  && metaEl.setAttribute)  metaEl.setAttribute('open',  '');
+      if (stepsEl && stepsEl.setAttribute) stepsEl.setAttribute('open', '');
       currentStepId = null;
       lastLoadedConditionJSON = null;
     }

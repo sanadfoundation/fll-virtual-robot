@@ -86,6 +86,47 @@
   padding-bottom: 12px;
 }
 
+/* <details>-based collapsible sections. Hide the default disclosure
+   triangle and rotate our own caret next to the h4. */
+details.editor-meta-section,
+details.editor-steps-section {
+  padding-bottom: 0;
+}
+details.editor-meta-section > summary,
+details.editor-steps-section > summary {
+  cursor: pointer;
+  list-style: none;
+  position: relative;
+}
+details.editor-meta-section > summary::-webkit-details-marker,
+details.editor-steps-section > summary::-webkit-details-marker {
+  display: none;
+}
+details.editor-meta-section > summary::before,
+details.editor-steps-section > summary::before {
+  content: '▸';
+  position: absolute;
+  left: 4px;
+  top: 14px;
+  color: var(--text-dim);
+  font-size: 9px;
+  transition: transform 0.12s ease;
+  pointer-events: none;
+}
+details.editor-meta-section[open] > summary::before,
+details.editor-steps-section[open] > summary::before {
+  transform: rotate(90deg);
+}
+details.editor-meta-section > summary h4,
+details.editor-steps-section > summary h4 {
+  padding-left: 18px;
+  margin: 0;
+}
+details.editor-meta-section > .editor-section-body,
+details.editor-steps-section > .editor-section-body {
+  padding-bottom: 12px;
+}
+
 .editor-field {
   display: flex;
   flex-direction: column;
@@ -438,8 +479,12 @@ body[data-mode="editor"] .editor-overlay-svg { pointer-events: auto; }
    all six condition blocks regardless of how much vertical space the
    step list above is taking. Min-height keeps it usable on short windows. */
 .editor-right-panel.has-condition-open .editor-cond-workspace {
-  height: calc(100vh - 300px);
-  min-height: 480px;
+  /* Meta + steps are auto-collapsed when a step is selected, so the
+     condition workspace gets ~the full panel height. Generous min-height
+     so the Blockly flyout fits all 7 condition blocks (3 labels + 7
+     blocks ≈ 350 mm of stacked content). */
+  height: calc(100vh - 180px);
+  min-height: 600px;
 }
 
 /* Make the right panel scroll its content when there's a lot of UI active

@@ -171,9 +171,9 @@ function makeEditorDoc(idsExtra = []) {
     // inspector
     'editor-inspector-section', 'editor-inspector-body',
     // metadata
-    'editor-meta-desc', 'editor-meta-difficulty', 'editor-meta-type',
+    'editor-meta-section', 'editor-meta-desc', 'editor-meta-difficulty', 'editor-meta-type',
     // steps
-    'editor-steps-list', 'btn-add-step',
+    'editor-steps-section', 'editor-steps-list', 'btn-add-step',
     // conditions
     'editor-cond-section', 'editor-cond-workspace',
     // shared with Plan 1 (sandbox surfaces hidden in editor mode)
