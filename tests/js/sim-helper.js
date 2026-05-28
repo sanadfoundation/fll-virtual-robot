@@ -15,6 +15,9 @@ const FORCE_SENSOR_LOGIC_CODE = fs.readFileSync(
 const RULER_CODE = fs.readFileSync(
   path.resolve(__dirname, '../../js/ruler.js'), 'utf8',
 );
+const FIELD_SWAP_CODE = fs.readFileSync(
+  path.resolve(__dirname, '../../js/mission_field_swap.js'), 'utf8',
+);
 const SIM_CODE = fs.readFileSync(
   path.resolve(__dirname, '../../js/simulator.js'), 'utf8',
 );
@@ -42,6 +45,10 @@ function createSimWithDocument(windowOverrides) {
   context.window.forceSensorLogic = context.forceSensorLogic;
   vm.runInContext(RULER_CODE, context);
   context.window.ruler = context.ruler;
+  vm.runInContext(FIELD_SWAP_CODE, context);
+  // mission_field_swap UMD wrapper writes to `window.MISSIONS.fieldSwap` —
+  // the sim's _colorAtPosition delegates here.
+  context.window.MISSIONS = context.window.MISSIONS || context.MISSIONS;
   vm.runInContext(SIM_CODE, context);
 
   const sim = new context.window.RobotSimulator('robot-canvas');
