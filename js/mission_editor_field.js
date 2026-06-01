@@ -234,26 +234,32 @@
       if (sel.kind === 'obstacle') {
         const o = next.field.obstacles.find(x => x.id === sel.id);
         if (!o) return;
-        const anchorX = o.x - o.w / 2;
-        const anchorY = o.y - o.h / 2;
-        const newW = Math.max(20, point.x - anchorX);
-        const newH = Math.max(20, point.y - anchorY);
+        const leftX = o.x - o.w / 2;
+        const topY  = o.y + o.h / 2;
+        const newW  = Math.max(20, point.x - leftX);
+        const newH  = Math.max(20, topY - point.y);
         next = MISSIONS.editor.state.moveObstacle(next, sel.id, {
-          x: anchorX + newW / 2,
-          y: anchorY + newH / 2,
+          x: leftX + newW / 2,
+          y: topY - newH / 2,
         });
         next = MISSIONS.editor.state.resizeObstacle(next, sel.id, { w: newW, h: newH });
       } else if (sel.kind === 'zone') {
         const z = next.field.zones.find(x => x.id === sel.id);
         if (!z) return;
+        const topY = z.y + z.h;
         const newW = Math.max(20, point.x - z.x);
-        const newH = Math.max(20, point.y - z.y);
+        const newH = Math.max(20, topY - point.y);
+        const newY = topY - newH;
+        next = MISSIONS.editor.state.moveZone(next, sel.id, { x: z.x, y: newY });
         next = MISSIONS.editor.state.resizeZone(next, sel.id, { w: newW, h: newH });
       } else if (sel.kind === 'wall') {
         const w = next.field.walls.find(x => x.id === sel.id);
         if (!w) return;
+        const topY = w.y + w.h;
         const newW = Math.max(20, point.x - w.x);
-        const newH = Math.max(20, point.y - w.y);
+        const newH = Math.max(20, topY - point.y);
+        const newY = topY - newH;
+        next = MISSIONS.editor.state.moveWall(next, sel.id, { x: w.x, y: newY });
         next = MISSIONS.editor.state.resizeWall(next, sel.id, { w: newW, h: newH });
       } else {
         return;
@@ -443,8 +449,8 @@
       startGroup.appendChild(handle);
 
       // Resize handles for the currently selected obstacle or zone.
-      // The handle sits at the math top-right corner of the rect. Drag to
-      // resize; the math bottom-left corner stays anchored.
+      // The handle sits at the math bottom-right corner of the rect. Drag to
+      // resize; the math top-left corner stays anchored.
       if (state.selection) {
         const sel = state.selection;
         let anchorX = null, anchorY = null, cornerX = null, cornerY = null;
@@ -452,22 +458,22 @@
         if (sel.kind === 'obstacle') {
           const o = state.field.obstacles.find(x => x.id === sel.id);
           if (o) {
-            anchorX = o.x - o.w / 2; anchorY = o.y - o.h / 2;
-            cornerX = o.x + o.w / 2; cornerY = o.y + o.h / 2;
+            anchorX = o.x - o.w / 2; anchorY = o.y + o.h / 2;  // top-left
+            cornerX = o.x + o.w / 2; cornerY = o.y - o.h / 2;  // bottom-right
             kind = 'obstacle'; id = o.id;
           }
         } else if (sel.kind === 'zone') {
           const z = state.field.zones.find(x => x.id === sel.id);
           if (z) {
-            anchorX = z.x; anchorY = z.y;
-            cornerX = z.x + z.w; cornerY = z.y + z.h;
+            anchorX = z.x; anchorY = z.y + z.h;                 // top-left
+            cornerX = z.x + z.w; cornerY = z.y;                 // bottom-right
             kind = 'zone'; id = z.id;
           }
         } else if (sel.kind === 'wall') {
           const w = state.field.walls.find(x => x.id === sel.id);
           if (w) {
-            anchorX = w.x; anchorY = w.y;
-            cornerX = w.x + w.w; cornerY = w.y + w.h;
+            anchorX = w.x; anchorY = w.y + w.h;                 // top-left
+            cornerX = w.x + w.w; cornerY = w.y;                 // bottom-right
             kind = 'wall'; id = w.id;
           }
         }

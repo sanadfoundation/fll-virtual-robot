@@ -273,3 +273,53 @@ test('field: zone without a label has no .editor-zone-label', () => {
   const overlay = doc.getElementById('editor-canvas-overlay');
   assert.strictEqual(overlay.querySelector('.editor-zone-label'), null);
 });
+
+test('resize: zone handle is rendered at bottom-right (math: x+w, y)', () => {
+  // Zone at x=100, y=100, w=200, h=200. Bottom-right in math = (300, 100).
+  const { ctx, doc, app } = setup();
+  app.enterEditor();
+  let s = ctx.MISSIONS.editor.state.addZone(app.editorState, { x: 100, y: 100 });
+  const id = s.field.zones[0].id;
+  s = ctx.MISSIONS.editor.state.setSelection(s, { kind: 'zone', id });
+  app.setEditorState(s);
+  const overlay = doc.getElementById('editor-canvas-overlay');
+  const handle = overlay.querySelector('.editor-resize-handle');
+  assert.ok(handle, 'resize handle should be rendered');
+  assert.strictEqual(parseFloat(handle.getAttribute('cx')), 300);  // x + w
+  assert.strictEqual(parseFloat(handle.getAttribute('cy')), 100);  // y (bottom in math)
+});
+
+test('resize: dragging zone handle anchors top-left, grows down from topY', () => {
+  // Zone at x=100, y=100, w=200, h=200. topY = 300 (fixed).
+  // Drag handle to point {x:350, y:50}: newW=250, newH=topY-50=250, newY=50.
+  const { ctx, doc, app } = setup();
+  app.enterEditor();
+  let s = ctx.MISSIONS.editor.state.addZone(app.editorState, { x: 100, y: 100 });
+  const id = s.field.zones[0].id;
+  s = ctx.MISSIONS.editor.state.setSelection(s, { kind: 'zone', id });
+  app.setEditorState(s);
+  ctx.MISSIONS.editor.field._test_resize({ x: 350, y: 50 });
+  const z = app.editorState.field.zones[0];
+  assert.strictEqual(z.w, 250);
+  assert.strictEqual(z.h, 250);
+  assert.strictEqual(z.x, 100);   // left edge unchanged
+  assert.strictEqual(z.y, 50);    // bottom edge moved down
+});
+
+test('resize: dragging obstacle handle anchors top-left', () => {
+  // Obstacle at x=500, y=500, w=100, h=100.
+  // leftX = 450, topY = 550 (fixed).
+  // Drag to {x:600, y:450}: newW=150, newH=100, center=(525, 500).
+  const { ctx, doc, app } = setup();
+  app.enterEditor();
+  let s = ctx.MISSIONS.editor.state.addObstacle(app.editorState, { x: 500, y: 500 });
+  const id = s.field.obstacles[0].id;
+  s = ctx.MISSIONS.editor.state.setSelection(s, { kind: 'obstacle', id });
+  app.setEditorState(s);
+  ctx.MISSIONS.editor.field._test_resize({ x: 600, y: 450 });
+  const o = app.editorState.field.obstacles[0];
+  assert.strictEqual(o.w, 150);
+  assert.strictEqual(o.h, 100);
+  assert.strictEqual(o.x, 525);
+  assert.strictEqual(o.y, 500);
+});
