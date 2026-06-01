@@ -1228,14 +1228,12 @@ class RobotSimulator {
   // The mission's zones become FIELD_OBJECTS-shaped rects (with sensorColor
   // so colour-sensor reads work); the mission's obstacles become live Box2D
   // bodies tracked in this._obstacles.
-  setMissionField(missionField, opts) {
+  setMissionField(missionField) {
     if (!missionField) return;
-    const showLabels = !!(opts && opts.showLabels);
     const { fieldObjects, obstacles, walls } = MISSIONS.fieldSwap.applyMissionField(
       missionField,
       { obstacles: this._obstacles, walls: this._walls || [] },
       this.physics,
-      showLabels,
     );
     this._fieldObjects = fieldObjects;
     this._obstacles = obstacles;

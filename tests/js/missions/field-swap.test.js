@@ -67,29 +67,18 @@ test('zoneToFieldObject: unknown color falls back to grey', () => {
   assert.strictEqual(fo.stroke, '#888');
 });
 
-test('zoneToFieldObject: includes label when showLabel=true and zone.label is set', () => {
+test('zoneToFieldObject: includes label when zone.label is set', () => {
   const { MISSIONS } = makeEnv();
   const fo = MISSIONS.fieldSwap.zoneToFieldObject(
     { x: 0, y: 0, w: 100, h: 100, color: 'red', label: 'Goal A' },
-    true,
   );
   assert.strictEqual(fo.label, 'Goal A');
 });
 
-test('zoneToFieldObject: label is empty string when showLabel=false even if zone.label is set', () => {
-  const { MISSIONS } = makeEnv();
-  const fo = MISSIONS.fieldSwap.zoneToFieldObject(
-    { x: 0, y: 0, w: 100, h: 100, color: 'red', label: 'Goal A' },
-    false,
-  );
-  assert.strictEqual(fo.label, '');
-});
-
-test('zoneToFieldObject: label is empty string when showLabel=true but zone has no label', () => {
+test('zoneToFieldObject: label is empty string when zone has no label', () => {
   const { MISSIONS } = makeEnv();
   const fo = MISSIONS.fieldSwap.zoneToFieldObject(
     { x: 0, y: 0, w: 100, h: 100, color: 'red' },
-    true,
   );
   assert.strictEqual(fo.label, '');
 });

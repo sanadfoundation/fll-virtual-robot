@@ -73,21 +73,3 @@ test('meta: loadFromMission populates the form', () => {
   assert.strictEqual(doc.getElementById('editor-meta-desc').value, 'Existing');
   assert.strictEqual(doc.getElementById('editor-meta-difficulty').value, 'intermediate');
 });
-
-test('meta: show_zone_labels checkbox updates state', () => {
-  const { doc, app } = setup();
-  app.enterEditor();
-  const cb = doc.getElementById('editor-meta-show-labels');
-  assert.ok(cb, 'should have a show-labels checkbox');
-  cb.checked = true;
-  cb._fire('change', { target: cb });
-  assert.strictEqual(app.editorState.show_zone_labels, true);
-});
-
-test('meta: show_zone_labels reflected from state on enter', () => {
-  const { doc, app } = setup();
-  app.enterEditor();
-  // Default is false
-  const cb = doc.getElementById('editor-meta-show-labels');
-  assert.strictEqual(cb.checked, false);
-});

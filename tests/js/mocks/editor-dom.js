@@ -173,7 +173,6 @@ function makeEditorDoc(idsExtra = []) {
     // metadata
     'editor-meta-section', 'editor-meta-desc', 'editor-meta-difficulty', 'editor-meta-type',
     'editor-meta-time-limit',
-    'editor-meta-show-labels',    // ← add this line
     // steps
     'editor-steps-section', 'editor-steps-list', 'btn-add-step',
     // conditions
