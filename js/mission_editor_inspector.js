@@ -24,6 +24,7 @@
       span.textContent = labelText;
       row.appendChild(span);
       row.appendChild(inputEl);
+      if (inputEl.setAttribute) inputEl.setAttribute('data-field', labelText);
       return row;
     }
 
@@ -261,10 +262,13 @@
     }
 
     function render(state) {
-      // Preserve focus across rebuilds so text inputs (label, etc.) don't lose focus mid-word.
+      // Preserve focus across rebuilds so inputs don't lose focus mid-edit.
       const prevActive = (typeof document !== 'undefined') ? document.activeElement : null;
-      const prevPlaceholder = (prevActive && prevActive.tagName === 'INPUT' && body.contains(prevActive))
-        ? prevActive.placeholder : null;
+      const prevInBody = prevActive && prevActive.tagName === 'INPUT' && body.contains(prevActive);
+      const prevPlaceholder = prevInBody ? prevActive.placeholder : null;
+      const prevDataField = prevInBody
+        ? (prevActive.getAttribute ? prevActive.getAttribute('data-field') : null)
+        : null;
 
       clearBody();
       if (!state || !state.selection) { section.hidden = true; return; }
@@ -297,11 +301,14 @@
         section.hidden = true;
       }
 
-      // Re-focus the previously focused text input (match by placeholder).
-      if (prevPlaceholder && body.querySelectorAll) {
+      // Re-focus: match by placeholder (text inputs) or data-field label (number inputs).
+      if ((prevPlaceholder || prevDataField) && body.querySelectorAll) {
         const inputs = body.querySelectorAll('input');
         for (var i = 0; i < inputs.length; i++) {
-          if (inputs[i].placeholder === prevPlaceholder) {
+          const matchPlaceholder = prevPlaceholder && inputs[i].placeholder === prevPlaceholder;
+          const matchDataField = prevDataField && (inputs[i].getAttribute
+            ? inputs[i].getAttribute('data-field') === prevDataField : false);
+          if (matchPlaceholder || matchDataField) {
             inputs[i].focus && inputs[i].focus();
             break;
           }
