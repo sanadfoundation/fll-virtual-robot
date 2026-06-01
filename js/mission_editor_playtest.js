@@ -60,23 +60,16 @@
 
   function showError(msg) {
     if (!savedDoc) return;
-    const toolbar = savedDoc.getElementById('header-editor-controls');
-    if (!toolbar) return;
-    let tag = toolbar.querySelector('.editor-error');
-    if (!tag) {
-      tag = savedDoc.createElement('span');
-      tag.classList.add('editor-error');
-      toolbar.appendChild(tag);
-    }
-    tag.textContent = `⚠ ${msg}`;
+    const banner = savedDoc.getElementById('editor-playtest-error');
+    if (!banner) return;
+    banner.textContent = `⚠ ${msg}`;
+    banner.hidden = false;
   }
 
   function clearError() {
     if (!savedDoc) return;
-    const toolbar = savedDoc.getElementById('header-editor-controls');
-    if (!toolbar) return;
-    const tag = toolbar.querySelector('.editor-error');
-    if (tag) toolbar.removeChild(tag);
+    const banner = savedDoc.getElementById('editor-playtest-error');
+    if (banner) banner.hidden = true;
   }
 
   editor.playtest = { attach, playtest, returnToEditor };

@@ -452,6 +452,18 @@ body[data-mode="editor"] .editor-overlay-svg { pointer-events: auto; }
   font-weight: 700;
 }
 
+.editor-playtest-error {
+  margin: 10px 12px 0;
+  padding: 8px 12px;
+  background: rgba(239,68,68,0.1);
+  border: 1px solid var(--red);
+  color: var(--red);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
 /* Inspector — appears when a field element is selected. */
 .editor-inspector-section {
   border-bottom: 1px solid var(--border);

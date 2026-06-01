@@ -178,7 +178,9 @@ function makeEditorDoc(idsExtra = []) {
     'editor-steps-section', 'editor-steps-list', 'btn-add-step',
     // conditions
     'editor-cond-section', 'editor-cond-workspace',
-    'btn-cond-back',    // ← add this line
+    'btn-cond-back',
+    // playtest error banner
+    'editor-playtest-error',
     // shared with Plan 1 (sandbox surfaces hidden in editor mode)
     'mission-map', 'mission-map-title', 'mm-exit',
     // library modal
