@@ -236,3 +236,33 @@ test('setMeta: changing description does NOT touch scoring', () => {
   const next = ctx.MISSIONS.editor.state.setMeta(s, { description: 'hello' });
   assert.deepStrictEqual(next.scoring, s.scoring);
 });
+
+test('setZoneLabel: sets label on the matching zone', () => {
+  const ctx = env();
+  let s = ctx.MISSIONS.editor.state.createBlank();
+  s = ctx.MISSIONS.editor.state.addZone(s, { x: 0, y: 0 });
+  const id = s.field.zones[0].id;
+  s = ctx.MISSIONS.editor.state.setZoneLabel(s, id, 'Goal A');
+  assert.strictEqual(s.field.zones[0].label, 'Goal A');
+  assert.strictEqual(s.dirty, true);
+});
+
+test('setZoneLabel: no-op on unknown id', () => {
+  const ctx = env();
+  let s = ctx.MISSIONS.editor.state.createBlank();
+  s = ctx.MISSIONS.editor.state.addZone(s, { x: 0, y: 0 });
+  const before = JSON.stringify(s.field.zones[0]);
+  s = ctx.MISSIONS.editor.state.setZoneLabel(s, 'bad-id', 'Oops');
+  assert.strictEqual(JSON.stringify(s.field.zones[0]), before);
+});
+
+test('setZoneLabel: does not affect other zones', () => {
+  const ctx = env();
+  let s = ctx.MISSIONS.editor.state.createBlank();
+  s = ctx.MISSIONS.editor.state.addZone(s, { x: 0, y: 0 });
+  s = ctx.MISSIONS.editor.state.addZone(s, { x: 500, y: 500 });
+  const id0 = s.field.zones[0].id;
+  s = ctx.MISSIONS.editor.state.setZoneLabel(s, id0, 'Zone A');
+  assert.strictEqual(s.field.zones[0].label, 'Zone A');
+  assert.strictEqual(s.field.zones[1].label, undefined);
+});

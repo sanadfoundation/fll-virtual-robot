@@ -209,6 +209,13 @@
     return next;
   }
 
+  function setZoneLabel(state, id, label) {
+    const next = dirty(state);
+    const z = next.field.zones.find(z => z.id === id);
+    if (z) z.label = label;
+    return next;
+  }
+
   function setZoneColor(state, id, color) {
     const next = dirty(state);
     const z = next.field.zones.find(z => z.id === id);
@@ -396,7 +403,7 @@
     addLine, moveLineEndpoint, setLineProps, deleteLine,
     addWall, moveWall, resizeWall, deleteWall,
     setRobotStart, setSelection, setMeta,
-    setObstacleLabel, setZoneColor, setObstacleColor, setWallColor,
+    setObstacleLabel, setZoneLabel, setZoneColor, setObstacleColor, setWallColor,
     addStep, editStep, deleteStep, reorderStep,
     serializeToMission, loadFromMission, validate,
     _clone: clone,
