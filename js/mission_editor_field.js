@@ -552,6 +552,12 @@
     if (doc.addEventListener) {
       doc.addEventListener('keydown', (ev) => {
         if (app.mode !== 'editor') return;
+        if (ev.key === 'Escape') {
+          if (app.editorState && app.editorState.selection) {
+            app.setEditorState(MISSIONS.editor.state.setSelection(app.editorState, null));
+          }
+          return;
+        }
         if (ev.key === 'Delete' || ev.key === 'Backspace') {
           // Don't steal Delete from text inputs (title, description, step inputs).
           const tag = (ev.target && ev.target.tagName && ev.target.tagName.toLowerCase()) || '';
