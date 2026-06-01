@@ -251,19 +251,10 @@ test('selecting a step collapses meta + steps sections to give the condition wor
   app.enterEditor();
   app.setEditorState(ctx.MISSIONS.editor.state.addStep(app.editorState));
   const id = app.editorState.steps[0].id;
-
-  // Before selecting a step: both sections should still be marked open.
-  const metaEl  = doc.getElementById('editor-meta-section');
-  const stepsEl = doc.getElementById('editor-steps-section');
-  // The mock starts with attrs from the production HTML; we set them manually
-  // to mirror the initial state.
-  metaEl.setAttribute('open',  '');
-  stepsEl.setAttribute('open', '');
-
   app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'step', id }));
-
-  assert.strictEqual(metaEl.getAttribute('open'),  null, 'meta should be collapsed');
-  assert.strictEqual(stepsEl.getAttribute('open'), null, 'steps should be collapsed');
+  // With condition-mode, the sections are hidden entirely.
+  const panel = doc.getElementById('editor-right-panel');
+  assert.ok(panel.classList.contains('condition-mode'));
 });
 
 test('deselecting a step re-expands meta + steps sections', () => {
@@ -273,11 +264,8 @@ test('deselecting a step re-expands meta + steps sections', () => {
   const id = app.editorState.steps[0].id;
   app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'step', id }));
   app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, null));
-
-  const metaEl  = doc.getElementById('editor-meta-section');
-  const stepsEl = doc.getElementById('editor-steps-section');
-  assert.strictEqual(metaEl.getAttribute('open'),  '', 'meta should be open again');
-  assert.strictEqual(stepsEl.getAttribute('open'), '', 'steps should be open again');
+  const panel = doc.getElementById('editor-right-panel');
+  assert.ok(!panel.classList.contains('condition-mode'));
 });
 
 test('dropdowns: obstacle option VALUE is always the id (so the underlying condition stays stable across renames)', () => {
@@ -333,4 +321,39 @@ test('dropdowns: zone option falls back to color when no label set', () => {
   const opts = ctx.MISSIONS.editor.conditions._zoneOptions(app.editorState);
   const color = app.editorState.field.zones[0].color;
   assert.strictEqual(opts[0][0], color);
+});
+
+test('condition-mode: panel gets condition-mode class when step selected', () => {
+  const { ctx, doc, app } = setup();
+  app.enterEditor();
+  app.setEditorState(ctx.MISSIONS.editor.state.addStep(app.editorState));
+  const id = app.editorState.steps[0].id;
+  app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'step', id }));
+  const panel = doc.getElementById('editor-right-panel');
+  assert.ok(panel.classList.contains('condition-mode'),
+    'panel should have condition-mode class when step selected');
+});
+
+test('condition-mode: panel loses condition-mode class when step deselected', () => {
+  const { ctx, doc, app } = setup();
+  app.enterEditor();
+  app.setEditorState(ctx.MISSIONS.editor.state.addStep(app.editorState));
+  const id = app.editorState.steps[0].id;
+  app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'step', id }));
+  app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, null));
+  const panel = doc.getElementById('editor-right-panel');
+  assert.ok(!panel.classList.contains('condition-mode'),
+    'panel should not have condition-mode class after deselect');
+});
+
+test('condition-mode: back button click deselects the step', () => {
+  const { ctx, doc, app } = setup();
+  app.enterEditor();
+  app.setEditorState(ctx.MISSIONS.editor.state.addStep(app.editorState));
+  const id = app.editorState.steps[0].id;
+  app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'step', id }));
+  // Simulate back button click
+  const backBtn = doc.getElementById('btn-cond-back');
+  backBtn._fire('click');
+  assert.strictEqual(app.editorState.selection, null);
 });

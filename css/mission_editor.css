@@ -555,3 +555,36 @@ body[data-mode="editor"] .editor-overlay-svg { pointer-events: auto; }
 .editor-right-panel {
   overflow-y: auto;
 }
+
+/* Condition-mode: full panel dedicated to the Blockly condition workspace. */
+.editor-right-panel.condition-mode .editor-meta-section,
+.editor-right-panel.condition-mode .editor-steps-section,
+.editor-right-panel.condition-mode .editor-inspector-section {
+  display: none;
+}
+
+.editor-right-panel.condition-mode .editor-cond-workspace {
+  height: calc(100vh - 120px);
+  min-height: 500px;
+  margin: 0 8px;
+}
+
+.editor-right-panel.condition-mode {
+  flex: 0 0 620px;
+  max-width: 620px;
+  min-width: 580px;
+}
+
+.editor-cond-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 4px;
+}
+.editor-cond-header span {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
