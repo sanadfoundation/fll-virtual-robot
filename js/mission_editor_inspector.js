@@ -37,6 +37,7 @@
 
       const labelInput = doc.createElement('input');
       labelInput.setAttribute('type', 'text');
+      labelInput.setAttribute('placeholder', 'e.g. Barrel');
       labelInput.value = o.label || '';
       labelInput.addEventListener('input', (e) => {
         app.setEditorState(
