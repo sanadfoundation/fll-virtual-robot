@@ -13,6 +13,13 @@
   // SVG viewBox is in mm; we keep math y-up coordinates by setting
   // transform="scale(1,-1) translate(0,-FIELD_H_MM)" on the root group.
 
+  function snapLineToAxis(x1, y1, x2, y2) {
+    const dx = Math.abs(x2 - x1);
+    const dy = Math.abs(y2 - y1);
+    if (dx >= dy) return { x2, y2: y1 };  // horizontal snap
+    return { x2: x1, y2 };                 // vertical snap
+  }
+
   function attach(app, doc) {
     const overlay = doc.getElementById('editor-canvas-overlay');
     if (!overlay) return;
@@ -116,10 +123,15 @@
           if (typeof svg.getBoundingClientRect !== 'function') return;
           const rect = svg.getBoundingClientRect();
           if (!rect.width) return;
-          const px = (ev.clientX - rect.left) * (FIELD_W_MM / rect.width);
-          const pyTop = (ev.clientY - rect.top)  * (FIELD_H_MM / rect.height);
+          let px = (ev.clientX - rect.left) * (FIELD_W_MM / rect.width);
+          let py = FIELD_H_MM - (ev.clientY - rect.top)  * (FIELD_H_MM / rect.height);
+          if (ev.shiftKey) {
+            const snapped = snapLineToAxis(drawingLine.x1, drawingLine.y1, px, py);
+            px = snapped.x2;
+            py = snapped.y2;
+          }
           drawingLine.previewEl.setAttribute('x2', px);
-          drawingLine.previewEl.setAttribute('y2', FIELD_H_MM - pyTop);
+          drawingLine.previewEl.setAttribute('y2', py);
           return;
         }
         if (!dragging && !resizing) return;
@@ -139,8 +151,13 @@
             if (rect.width) {
               const px = (ev.clientX - rect.left) * (FIELD_W_MM / rect.width);
               const pyTop = (ev.clientY - rect.top)  * (FIELD_H_MM / rect.height);
-              const x2 = px;
-              const y2 = FIELD_H_MM - pyTop;
+              let x2 = px;
+              let y2 = FIELD_H_MM - pyTop;
+              if (ev.shiftKey) {
+                const snapped = snapLineToAxis(drawingLine.x1, drawingLine.y1, x2, y2);
+                x2 = snapped.x2;
+                y2 = snapped.y2;
+              }
               // Only commit if the line has nonzero length.
               if (Math.abs(x2 - drawingLine.x1) > 5 || Math.abs(y2 - drawingLine.y1) > 5) {
                 app.setEditorState(MISSIONS.editor.state.addLine(app.editorState, {
@@ -268,6 +285,7 @@
     }
 
     editor.field._test_resize = resizeToPoint;
+    editor.field._test_snapToAxis = snapLineToAxis;
 
     function handleElementClick(ev, kind, id) {
       if (activeTool !== 'select') return;  // tool palette governs add-modes
@@ -544,5 +562,5 @@
     }
   }
 
-  editor.field = { attach, _test_dragMove: null, _test_deleteSelected: null, _test_resize: null, _test_isDragging: null };
+  editor.field = { attach, _test_dragMove: null, _test_deleteSelected: null, _test_resize: null, _test_isDragging: null, _test_snapToAxis: null };
 })(typeof window !== 'undefined' ? window : globalThis);

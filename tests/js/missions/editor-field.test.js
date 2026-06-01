@@ -323,3 +323,27 @@ test('resize: dragging obstacle handle anchors top-left', () => {
   assert.strictEqual(o.x, 525);
   assert.strictEqual(o.y, 500);
 });
+
+test('snapLineToAxis: wider dx snaps to horizontal (y2 stays at y1)', () => {
+  const { ctx } = setup();
+  const snap = ctx.MISSIONS.editor.field._test_snapToAxis;
+  const { x2, y2 } = snap(100, 200, 300, 250);
+  assert.strictEqual(x2, 300);
+  assert.strictEqual(y2, 200);
+});
+
+test('snapLineToAxis: taller dy snaps to vertical (x2 stays at x1)', () => {
+  const { ctx } = setup();
+  const snap = ctx.MISSIONS.editor.field._test_snapToAxis;
+  const { x2, y2 } = snap(100, 200, 120, 500);
+  assert.strictEqual(x2, 100);
+  assert.strictEqual(y2, 500);
+});
+
+test('snapLineToAxis: equal dx and dy snaps to horizontal', () => {
+  const { ctx } = setup();
+  const snap = ctx.MISSIONS.editor.field._test_snapToAxis;
+  const { x2, y2 } = snap(0, 0, 100, 100);
+  assert.strictEqual(x2, 100);
+  assert.strictEqual(y2, 0);
+});
