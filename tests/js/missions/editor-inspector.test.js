@@ -336,3 +336,53 @@ test('inspector: stale selection keeps section hidden without throwing', () => {
   const section = doc.getElementById('editor-inspector-section');
   assert.strictEqual(section.hidden, true);
 });
+
+// ── helper: add a zone and select it ──────────────────────────────────────────
+function addAndSelectZone(ctx, app) {
+  let s = app.editorState;
+  s = ctx.MISSIONS.editor.state.addZone(s, { x: 200, y: 200 });
+  const id = s.field.zones[0].id;
+  s = ctx.MISSIONS.editor.state.setSelection(s, { kind: 'zone', id });
+  app.setEditorState(s);
+  return { id };
+}
+
+// ── 16. zone inspector is shown when a zone is selected ───────────────────────
+test('inspector: zone inspector is shown when a zone is selected', () => {
+  const { ctx, doc, app } = setup();
+  app.enterEditor();
+  addAndSelectZone(ctx, app);
+  assert.strictEqual(doc.getElementById('editor-inspector-section').hidden, false);
+});
+
+// ── 17. zone inspector has a text input for label ──────────────────────────────
+test('inspector: zone inspector has a text input for label', () => {
+  const { ctx, doc, app } = setup();
+  app.enterEditor();
+  addAndSelectZone(ctx, app);
+  const body = doc.getElementById('editor-inspector-body');
+  function findInput(el, type) {
+    if (el.tag === 'input' && el.attrs && el.attrs.type === type) return el;
+    for (const c of (el.children || [])) { const r = findInput(c, type); if (r) return r; }
+    return null;
+  }
+  const labelInput = findInput(body, 'text');
+  assert.ok(labelInput, 'should have a text input for zone label');
+});
+
+// ── 18. typing in zone label input calls setZoneLabel on state ────────────────
+test('inspector: typing in zone label input calls setZoneLabel on state', () => {
+  const { ctx, doc, app } = setup();
+  app.enterEditor();
+  const { id } = addAndSelectZone(ctx, app);
+  const body = doc.getElementById('editor-inspector-body');
+  function findInput(el, type) {
+    if (el.tag === 'input' && el.attrs && el.attrs.type === type) return el;
+    for (const c of (el.children || [])) { const r = findInput(c, type); if (r) return r; }
+    return null;
+  }
+  const labelInput = findInput(body, 'text');
+  labelInput.value = 'Energy Zone';
+  labelInput._fire('input', { target: labelInput });
+  assert.strictEqual(app.editorState.field.zones[0].label, 'Energy Zone');
+});

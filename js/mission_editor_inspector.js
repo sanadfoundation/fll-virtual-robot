@@ -95,6 +95,17 @@
       idLine.textContent = `ID: ${z.id}`;
       wrap.appendChild(idLine);
 
+      const labelInput = doc.createElement('input');
+      labelInput.setAttribute('type', 'text');
+      labelInput.value = z.label || '';
+      labelInput.setAttribute('placeholder', 'e.g. Goal A');
+      labelInput.addEventListener('input', (e) => {
+        app.setEditorState(
+          MISSIONS.editor.state.setZoneLabel(app.editorState, z.id, e.target.value)
+        );
+      });
+      wrap.appendChild(makeField('Label (optional)', labelInput));
+
       const colorRow = doc.createElement('div');
       colorRow.classList.add('inspector-color-row');
       for (const c of ZONE_COLORS) {
