@@ -53,39 +53,40 @@ test('conditions: deselecting hides the section', () => {
   assert.strictEqual(doc.getElementById('editor-cond-section').hidden, true);
 });
 
-test('conditions: attaching defines all seven predicate blocks (including cond_sensor_color)', () => {
+test('conditions: attaching defines all six predicate blocks', () => {
   const { ctx } = setup();
   const defined = ctx.Blockly._definedBlocks;
-  for (const t of ['cond_zone', 'cond_sensor', 'cond_sensor_color', 'cond_contact', 'cond_not', 'cond_all_of', 'cond_any_of']) {
+  for (const t of ['cond_zone', 'cond_sensor', 'cond_contact', 'cond_not', 'cond_all_of', 'cond_any_of']) {
     assert.ok(defined[t], `expected block type "${t}" to be defined`);
   }
+  assert.ok(!defined['cond_sensor_color'], 'cond_sensor_color should be removed');
 });
 
-test('cond_sensor_color: emits { kind: sensor, port: C, op, value: <color name> }', () => {
+test('unified sensor: PORT=C emits { kind: sensor, port: C, op, value: <color name> }', () => {
   const { ctx, app } = setup();
   app.enterEditor();
   app.setEditorState(ctx.MISSIONS.editor.state.addStep(app.editorState));
   const id = app.editorState.steps[0].id;
   app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'step', id }));
   const ws = ctx.Blockly._lastWorkspace();
-  ws._setBlocks([makeBlock('cond_sensor_color', { OP: '==', VALUE: 'red' })]);
+  ws._setBlocks([makeBlock('cond_sensor', { PORT: 'C', OP: '==', VALUE_COLOR: 'red', VALUE_NUM: '0' })]);
   assert.deepStrictEqual(app.editorState.steps[0].condition,
     { kind: 'sensor', port: 'C', op: '==', value: 'red' });
 });
 
-test('cond_sensor_color: != operator emits the same shape', () => {
+test('unified sensor: PORT=C != operator emits the same shape', () => {
   const { ctx, app } = setup();
   app.enterEditor();
   app.setEditorState(ctx.MISSIONS.editor.state.addStep(app.editorState));
   const id = app.editorState.steps[0].id;
   app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'step', id }));
   const ws = ctx.Blockly._lastWorkspace();
-  ws._setBlocks([makeBlock('cond_sensor_color', { OP: '!=', VALUE: 'blue' })]);
+  ws._setBlocks([makeBlock('cond_sensor', { PORT: 'C', OP: '!=', VALUE_COLOR: 'blue', VALUE_NUM: '0' })]);
   assert.deepStrictEqual(app.editorState.steps[0].condition,
     { kind: 'sensor', port: 'C', op: '!=', value: 'blue' });
 });
 
-test('loadIntoWorkspace: a port-C string-valued sensor condition spawns cond_sensor_color, NOT cond_sensor', () => {
+test('loadIntoWorkspace: port-C sensor condition spawns cond_sensor with PORT=C', () => {
   const { ctx, app } = setup();
   app.enterEditor();
   const s0 = ctx.MISSIONS.editor.state.addStep(app.editorState);
@@ -95,7 +96,10 @@ test('loadIntoWorkspace: a port-C string-valued sensor condition spawns cond_sen
   app.setEditorState(withCond);
   app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'step', id: sId }));
   const ws = ctx.Blockly._lastWorkspace();
-  assert.strictEqual(ws.getTopBlocks()[0].type, 'cond_sensor_color');
+  const top = ws.getTopBlocks()[0];
+  assert.strictEqual(top.type, 'cond_sensor');
+  assert.strictEqual(top.fields.PORT, 'C');
+  assert.strictEqual(top.fields.VALUE_COLOR, 'red');
 });
 
 test('loadIntoWorkspace: a port-D numeric-valued sensor condition still spawns cond_sensor', () => {
@@ -159,16 +163,32 @@ test('generator: zone block emits { kind: zone, subject: robot, zone: <id> }', (
     { kind: 'zone', subject: 'robot', zone: 'red' });
 });
 
-test('generator: sensor block emits numeric value when input parses as number', () => {
+test('generator: sensor block emits numeric value when VALUE_NUM parses as number', () => {
   const { ctx, app } = setup();
   app.enterEditor();
   app.setEditorState(ctx.MISSIONS.editor.state.addStep(app.editorState));
   const id = app.editorState.steps[0].id;
   app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'step', id }));
   const ws = ctx.Blockly._lastWorkspace();
-  ws._setBlocks([makeBlock('cond_sensor', { PORT: 'D', OP: '<', VALUE: '100' })]);
+  ws._setBlocks([makeBlock('cond_sensor', { PORT: 'D', OP: '<', VALUE_NUM: '100', VALUE_COLOR: 'red' })]);
   assert.deepStrictEqual(app.editorState.steps[0].condition,
     { kind: 'sensor', port: 'D', op: '<', value: 100 });
+});
+
+test('loadIntoWorkspace: port-D sensor condition spawns cond_sensor with PORT=D and VALUE_NUM', () => {
+  const { ctx, app } = setup();
+  app.enterEditor();
+  const s0 = ctx.MISSIONS.editor.state.addStep(app.editorState);
+  const sId = s0.steps[0].id;
+  const withCond = ctx.MISSIONS.editor.state.editStep(s0, sId,
+    { condition: { kind: 'sensor', port: 'D', op: '<', value: 100 } });
+  app.setEditorState(withCond);
+  app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'step', id: sId }));
+  const ws = ctx.Blockly._lastWorkspace();
+  const top = ws.getTopBlocks()[0];
+  assert.strictEqual(top.type, 'cond_sensor');
+  assert.strictEqual(top.fields.PORT, 'D');
+  assert.strictEqual(top.fields.VALUE_NUM, '100');
 });
 
 test('generator: not wraps an inner block', () => {

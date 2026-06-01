@@ -20,42 +20,6 @@
       extensions: ['cond_dynamic_dropdowns'],
     },
     {
-      // Numeric sensor: distance (mm) and force (N) only. Color uses its own
-      // block (cond_sensor_color) so the VALUE field can be a color-name
-      // dropdown instead of a free-text input.
-      type: 'cond_sensor',
-      message0: 'sensor %1 %2 %3',
-      args0: [
-        { type: 'field_dropdown', name: 'PORT', options: [['Distance (D)', 'D'], ['Force (E)', 'E']] },
-        { type: 'field_dropdown', name: 'OP', options: [['==','=='], ['!=','!='], ['<','<'], ['<=','<='], ['>','>'], ['>=','>=']] },
-        { type: 'field_input', name: 'VALUE', text: '0' },
-      ],
-      output: 'Boolean',
-      colour: 210,
-    },
-    {
-      // Color sensor: port is fixed to C; VALUE is a dropdown of LEGO color
-      // names. Only equality operators make sense for an enum-like value.
-      type: 'cond_sensor_color',
-      message0: 'color sensor (C) %1 %2',
-      args0: [
-        { type: 'field_dropdown', name: 'OP', options: [['==','=='], ['!=','!=']] },
-        { type: 'field_dropdown', name: 'VALUE', options: [
-          ['red',    'red'],
-          ['green',  'green'],
-          ['blue',   'blue'],
-          ['yellow', 'yellow'],
-          ['orange', 'orange'],
-          ['purple', 'purple'],
-          ['black',  'black'],
-          ['white',  'white'],
-          ['none',   'none'],
-        ] },
-      ],
-      output: 'Boolean',
-      colour: 210,
-    },
-    {
       type: 'cond_contact',
       message0: 'robot has contacted obstacle %1',
       args0: [{ type: 'field_dropdown', name: 'OBSTACLE', options: [['(none)', '']] }],
@@ -118,13 +82,19 @@
       switch (c.kind) {
         case 'zone':
           return { type: 'cond_zone', fields: { ZONE: c.zone || '' }, children: {}, parent: null };
-        case 'sensor':
-          // Color sensor on port C uses the dedicated color block; everything
-          // else is the numeric cond_sensor.
-          if (c.port === 'C' && typeof c.value === 'string') {
-            return { type: 'cond_sensor_color', fields: { OP: c.op, VALUE: c.value }, children: {}, parent: null };
-          }
-          return { type: 'cond_sensor', fields: { PORT: c.port, OP: c.op, VALUE: String(c.value) }, children: {}, parent: null };
+        case 'sensor': {
+          var isColorC = c.port === 'C' && typeof c.value === 'string';
+          return {
+            type: 'cond_sensor',
+            fields: {
+              PORT:        c.port,
+              OP:          c.op,
+              VALUE_NUM:   isColorC ? '0' : String(c.value),
+              VALUE_COLOR: isColorC ? c.value : 'red',
+            },
+            children: {}, parent: null,
+          };
+        }
         case 'contact':
           return { type: 'cond_contact', fields: { OBSTACLE: c.obstacle || '' }, children: {}, parent: null };
         case 'not':
@@ -158,7 +128,6 @@
       { kind: 'block', type: 'cond_zone' },
       { kind: 'block', type: 'cond_contact' },
       { kind: 'label', text: 'Sensor' },
-      { kind: 'block', type: 'cond_sensor_color' },
       { kind: 'block', type: 'cond_sensor' },
       { kind: 'label', text: 'Compose' },
       { kind: 'block', type: 'cond_not' },
@@ -205,11 +174,18 @@
     switch (c.kind) {
       case 'zone':
         return { type: 'cond_zone', fields: { ZONE: c.zone || '' } };
-      case 'sensor':
+      case 'sensor': {
+        var isColorS = c.port === 'C' && typeof c.value === 'string';
         return {
           type: 'cond_sensor',
-          fields: { PORT: c.port, OP: c.op, VALUE: String(c.value) },
+          fields: {
+            PORT:        c.port,
+            OP:          c.op,
+            VALUE_NUM:   isColorS ? '0' : String(c.value),
+            VALUE_COLOR: isColorS ? c.value : 'red',
+          },
         };
+      }
       case 'contact':
         return { type: 'cond_contact', fields: { OBSTACLE: c.obstacle || '' } };
       case 'not': {
@@ -282,6 +258,55 @@
       }
     }
     Blockly.defineBlocksWithJsonArray(BLOCK_DEFS);
+
+    if (Blockly.Blocks && !Blockly.Blocks['cond_sensor']) {
+      var COLOR_OPTIONS = [
+        ['red','red'],['green','green'],['blue','blue'],['yellow','yellow'],
+        ['orange','orange'],['purple','purple'],['black','black'],['white','white'],['none','none'],
+      ];
+      var ALL_OPS = [['==','=='],['!=','!='],['<','<'],['<=','<='],['>', '>'],['>=','>=']];
+      var EQ_OPS  = [['==','=='],['!=','!=']];
+
+      function _adaptSensorBlock() {
+        var port = this.getFieldValue && this.getFieldValue('PORT');
+        var isColor = port === 'C';
+        var opField = this.getField && this.getField('OP');
+        if (opField) {
+          opField.menuGenerator_ = isColor ? EQ_OPS : ALL_OPS;
+          var cur = opField.getValue && opField.getValue();
+          if (cur && !(isColor ? EQ_OPS : ALL_OPS).some(function(o) { return o[1] === cur; })) {
+            opField.setValue && opField.setValue('==');
+          }
+        }
+        var numInput   = this.getInput && this.getInput('VAL_NUM');
+        var colorInput = this.getInput && this.getInput('VAL_COLOR');
+        if (numInput   && typeof numInput.setVisible   === 'function') numInput.setVisible(!isColor);
+        if (colorInput && typeof colorInput.setVisible === 'function') colorInput.setVisible(isColor);
+      }
+
+      Blockly.Blocks['cond_sensor'] = {
+        init: function () {
+          this.appendDummyInput()
+              .appendField('sensor')
+              .appendField(new Blockly.FieldDropdown([
+                ['Color (C)', 'C'], ['Distance (D)', 'D'], ['Force (E)', 'E'],
+              ]), 'PORT')
+              .appendField(new Blockly.FieldDropdown(ALL_OPS), 'OP');
+          this.appendDummyInput('VAL_NUM')
+              .appendField(new Blockly.FieldTextInput('0'), 'VALUE_NUM');
+          this.appendDummyInput('VAL_COLOR')
+              .appendField(new Blockly.FieldDropdown(COLOR_OPTIONS), 'VALUE_COLOR');
+          this.setInputsInline(true);
+          this.setOutput(true, 'Boolean');
+          this.setColour(210);
+          _adaptSensorBlock.call(this);
+          this.setOnChange(function (ev) {
+            if (ev && ev.name === 'PORT') _adaptSensorBlock.call(this);
+          });
+        },
+      };
+    }
+
     blocksRegistered = true;
   }
 
@@ -338,20 +363,25 @@
         case 'cond_zone':
           return { kind: 'zone', subject: 'robot', zone: fieldOf(b, 'ZONE') };
         case 'cond_sensor': {
-          const raw = fieldOf(b, 'VALUE');
-          const asNum = Number(raw);
+          var port = fieldOf(b, 'PORT');
+          var op   = fieldOf(b, 'OP');
+          if (port === 'C') {
+            return {
+              kind: 'sensor', port: 'C', op: op,
+              value: fieldOf(b, 'VALUE_COLOR'),
+            };
+          }
+          var raw   = fieldOf(b, 'VALUE_NUM');
+          var asNum = Number(raw);
           return {
-            kind: 'sensor',
-            port: fieldOf(b, 'PORT'),
-            op: fieldOf(b, 'OP'),
+            kind: 'sensor', port: port, op: op,
             value: Number.isNaN(asNum) || raw === '' ? raw : asNum,
           };
         }
         case 'cond_sensor_color': {
+          // Backward-compat guard for any residual old block references.
           return {
-            kind: 'sensor',
-            port: 'C',
-            op: fieldOf(b, 'OP'),
+            kind: 'sensor', port: 'C', op: fieldOf(b, 'OP'),
             value: fieldOf(b, 'VALUE'),
           };
         }
