@@ -335,6 +335,23 @@
         }
         rect.addEventListener('click', (ev) => handleElementClick(ev, 'zone', z.id));
         zonesGroup.appendChild(rect);
+        // Label — show even in editor when set, so authors can see what's what.
+        // The label is inside a transformed (math y-up) group, so we flip
+        // text back to upright by inverting Y around the centre.
+        if (z.label) {
+          const text = createSvg('text');
+          const cx = z.x + z.w / 2;
+          const cy = z.y + z.h / 2;
+          text.setAttribute('x', cx);
+          text.setAttribute('y', cy);
+          // Flip back to upright glyphs inside the y-up group.
+          text.setAttribute('transform', `translate(0, ${2 * cy}) scale(1, -1)`);
+          text.setAttribute('text-anchor', 'middle');
+          text.setAttribute('dominant-baseline', 'middle');
+          text.classList.add('editor-zone-label');
+          text.textContent = z.label;
+          zonesGroup.appendChild(text);
+        }
       }
       // Lines (rendered after zones, before obstacles)
       for (const line of (state.field.lines || [])) {

@@ -254,6 +254,17 @@ body[data-mode="editor"] .editor-overlay-svg { pointer-events: auto; }
   pointer-events: none;
 }
 
+.editor-zone-label {
+  font-family: var(--font-ui);
+  font-size: 22px;
+  font-weight: 700;
+  fill: rgba(255,255,255,0.85);
+  paint-order: stroke;
+  stroke: rgba(0,0,0,0.35);
+  stroke-width: 2;
+  pointer-events: none;
+}
+
 .editor-wall {
   fill: #4a5568;
   stroke: #2d3748;

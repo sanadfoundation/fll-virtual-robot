@@ -251,3 +251,25 @@ test('delete: robot start cannot be deleted', () => {
   ctx.MISSIONS.editor.field._test_deleteSelected();
   assert.deepStrictEqual(app.editorState.field.robot_start, beforeStart);
 });
+
+test('field: zone with a label renders an .editor-zone-label text element', () => {
+  const { ctx, doc, app } = setup();
+  app.enterEditor();
+  let s = ctx.MISSIONS.editor.state.addZone(app.editorState, { x: 100, y: 100 });
+  const id = s.field.zones[0].id;
+  s = ctx.MISSIONS.editor.state.setZoneLabel(s, id, 'Goal A');
+  app.setEditorState(s);
+  const overlay = doc.getElementById('editor-canvas-overlay');
+  const label = overlay.querySelector('.editor-zone-label');
+  assert.ok(label, 'expected an .editor-zone-label element');
+  assert.ok(label.textContent.includes('Goal A'), `label text should include 'Goal A', got: "${label.textContent}"`);
+});
+
+test('field: zone without a label has no .editor-zone-label', () => {
+  const { ctx, doc, app } = setup();
+  app.enterEditor();
+  const s = ctx.MISSIONS.editor.state.addZone(app.editorState, { x: 100, y: 100 });
+  app.setEditorState(s);
+  const overlay = doc.getElementById('editor-canvas-overlay');
+  assert.strictEqual(overlay.querySelector('.editor-zone-label'), null);
+});
