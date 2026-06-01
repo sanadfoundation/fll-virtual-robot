@@ -535,7 +535,7 @@ body[data-mode="editor"] .editor-overlay-svg { pointer-events: auto; }
   fill: var(--amber);
   stroke: #1a1206;
   stroke-width: 2;
-  cursor: nesw-resize;
+  cursor: nwse-resize;
   filter: drop-shadow(0 1px 3px rgba(0,0,0,0.4));
 }
 .editor-resize-handle:hover { filter: brightness(1.1) drop-shadow(0 1px 3px rgba(0,0,0,0.4)); }
