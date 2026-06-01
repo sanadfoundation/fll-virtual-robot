@@ -260,6 +260,11 @@
     }
 
     function render(state) {
+      // Preserve focus across rebuilds so text inputs (label, etc.) don't lose focus mid-word.
+      const prevActive = (typeof document !== 'undefined') ? document.activeElement : null;
+      const prevPlaceholder = (prevActive && prevActive.tagName === 'INPUT' && body.contains(prevActive))
+        ? prevActive.placeholder : null;
+
       clearBody();
       if (!state || !state.selection) { section.hidden = true; return; }
       const sel = state.selection;
@@ -289,6 +294,17 @@
         body.appendChild(renderWallInspector(w));
       } else {
         section.hidden = true;
+      }
+
+      // Re-focus the previously focused text input (match by placeholder).
+      if (prevPlaceholder && body.querySelectorAll) {
+        const inputs = body.querySelectorAll('input');
+        for (var i = 0; i < inputs.length; i++) {
+          if (inputs[i].placeholder === prevPlaceholder) {
+            inputs[i].focus && inputs[i].focus();
+            break;
+          }
+        }
       }
     }
 
