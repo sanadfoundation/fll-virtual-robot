@@ -310,3 +310,27 @@ test('workspace: switching step selection reloads the workspace', () => {
   app.setEditorState(ctx.MISSIONS.editor.state.setSelection(app.editorState, { kind: 'step', id: b.id }));
   assert.strictEqual(ws.getTopBlocks()[0].type, 'cond_contact');
 });
+
+test('dropdowns: zone option shows label+color when label is set', () => {
+  const { ctx, app } = setup();
+  app.enterEditor();
+  app.setEditorState(ctx.MISSIONS.editor.state.addZone(app.editorState, { x: 0, y: 0 }));
+  const id = app.editorState.field.zones[0].id;
+  app.setEditorState(ctx.MISSIONS.editor.state.setZoneLabel(app.editorState, id, 'Goal A'));
+  const opts = ctx.MISSIONS.editor.conditions._zoneOptions(app.editorState);
+  // Display should be "Goal A (red)" or similar — contains both label and color
+  assert.ok(opts[0][0].includes('Goal A'), `option label "${opts[0][0]}" should include 'Goal A'`);
+  assert.ok(opts[0][0].includes(app.editorState.field.zones[0].color),
+    `option label should include the color`);
+  // Value is always the id
+  assert.strictEqual(opts[0][1], id);
+});
+
+test('dropdowns: zone option falls back to color when no label set', () => {
+  const { ctx, app } = setup();
+  app.enterEditor();
+  app.setEditorState(ctx.MISSIONS.editor.state.addZone(app.editorState, { x: 0, y: 0 }));
+  const opts = ctx.MISSIONS.editor.conditions._zoneOptions(app.editorState);
+  const color = app.editorState.field.zones[0].color;
+  assert.strictEqual(opts[0][0], color);
+});

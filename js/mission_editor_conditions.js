@@ -97,7 +97,10 @@
   function zoneOptions(state) {
     const zones = (state && state.field && state.field.zones) || [];
     if (zones.length === 0) return [['(no zones yet)', '']];
-    return zones.map(z => [`${z.color || z.id}`, z.id]);
+    return zones.map(z => {
+      const display = z.label ? `${z.label} (${z.color || z.id})` : (z.color || z.id);
+      return [display, z.id];
+    });
   }
 
   function obstacleOptions(state) {
