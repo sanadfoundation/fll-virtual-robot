@@ -115,7 +115,7 @@
     app.onChange(({ mode, mission }) => {
       if (mode === 'play' && mission) {
         if (sim && typeof sim.setMissionField === 'function') {
-          sim.setMissionField(mission.field);
+          sim.setMissionField(mission.field, { showLabels: !!mission.show_zone_labels });
         }
         if (sim && typeof sim.placeRobot === 'function') {
           sim.placeRobot(mission.field.robot_start.x,

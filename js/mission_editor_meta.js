@@ -7,7 +7,8 @@
     const desc = doc.getElementById('editor-meta-desc');
     const type = doc.getElementById('editor-meta-type');
     const diff = doc.getElementById('editor-meta-difficulty');
-    const tl   = doc.getElementById('editor-meta-time-limit');
+    const tl         = doc.getElementById('editor-meta-time-limit');
+    const showLabels = doc.getElementById('editor-meta-show-labels');
 
     function bind(el, eventName, key) {
       if (!el) return;
@@ -37,6 +38,15 @@
       });
     }
 
+    if (showLabels) {
+      showLabels.addEventListener('change', (e) => {
+        if (app.mode !== 'editor' || !app.editorState) return;
+        app.setEditorState(
+          MISSIONS.editor.state.setMeta(app.editorState, { show_zone_labels: e.target.checked })
+        );
+      });
+    }
+
     app.onChange(({ mode, editorState }) => {
       if (mode !== 'editor' || !editorState) return;
       if (desc) desc.value = editorState.description || '';
@@ -46,6 +56,7 @@
         const v = editorState.scoring && editorState.scoring.time_limit_s;
         tl.value = (typeof v === 'number' && v > 0) ? String(v) : '';
       }
+      if (showLabels) showLabels.checked = !!(editorState && editorState.show_zone_labels);
     });
   }
 

@@ -27,6 +27,7 @@
         walls: [],
       },
       steps: [],
+      show_zone_labels: false,
       scoring: { kind: 'step_sum' },
       modifiers: { available: [], defaults: {} },
       selection: null,
@@ -309,6 +310,7 @@
         next.scoring.time_limit_s = carriedLimit;
       }
     }
+    if (patch.show_zone_labels !== undefined) next.show_zone_labels = !!patch.show_zone_labels;
     if (patch.time_limit_s !== undefined) {
       next.scoring = { ...next.scoring };
       if (patch.time_limit_s === null || patch.time_limit_s === 0 || patch.time_limit_s === '') {
@@ -351,6 +353,7 @@
         ...(s.requires && s.requires.length ? { requires: s.requires.slice() } : {}),
         condition: deepClone(s.condition),
       })),
+      show_zone_labels: !!state.show_zone_labels,
       scoring: { ...state.scoring },
       modifiers: { available: state.modifiers.available.slice(), defaults: { ...state.modifiers.defaults } },
     };
@@ -391,6 +394,7 @@
     state.modifiers = mission.modifiers
       ? { available: mission.modifiers.available.slice(), defaults: { ...mission.modifiers.defaults } }
       : { available: [], defaults: {} };
+    state.show_zone_labels = !!mission.show_zone_labels;
     state.selection = null;
     state.dirty     = false;
     return state;
