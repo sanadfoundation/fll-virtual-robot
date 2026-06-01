@@ -64,7 +64,7 @@
 
   // ── Pure converters ──────────────────────────────────────────────────────────
 
-  function zoneToFieldObject(zone) {
+  function zoneToFieldObject(zone, showLabel) {
     return {
       type:        'rect',
       x:           zone.x,
@@ -75,6 +75,7 @@
       stroke:      ZONE_STROKE[zone.color] || '#888',
       lw:          2,
       sensorColor: zone.color,
+      label:       showLabel ? (zone.label || '') : '',
     };
   }
 
@@ -101,16 +102,17 @@
     }
   }
 
-  // applyMissionField(missionField, prev, physics) → { fieldObjects, obstacles, walls }
+  // applyMissionField(missionField, prev, physics, showLabels) → { fieldObjects, obstacles, walls }
   //
   //   missionField — the mission.field object ({zones, obstacles, lines, walls})
   //   prev         — { obstacles, walls } bodies to dispose
   //   physics      — { addObstacleBox, addWallBox, removeBody } or null
-  function applyMissionField(missionField, prev, physics) {
+  //   showLabels   — if truthy, include zone.label in field objects; otherwise labels are empty strings
+  function applyMissionField(missionField, prev, physics, showLabels) {
     // Build visual field objects from zones and lines.
     const fieldObjects = [];
     for (const z of (missionField.zones || [])) {
-      fieldObjects.push(zoneToFieldObject(z));
+      fieldObjects.push(zoneToFieldObject(z, showLabels));
     }
     for (const line of (missionField.lines || [])) {
       fieldObjects.push(lineToFieldObject(line));
