@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "id": "the-60cm-square",
+  "title": "The 60 cm Square",
+  "description": "Build move_forward and rotate custom blocks, then drive your robot in a perfect 60 cm square using the Yaw sensor.",
+  "author": "Sanad Foundation",
+  "type": "mission",
+  "difficulty_tier": "beginner",
+
+  "field": {
+    "robot_start": { "x": 350, "y": 421, "heading": 90 },
+    "zones": [
+      { "id": "start",     "shape": "rect", "x": 300, "y": 371, "w": 100, "h": 100, "color": "green",  "label": "Start" },
+      { "id": "corner-1",  "shape": "rect", "x": 300, "y": 971, "w": 100, "h": 100, "color": "yellow", "label": "1" },
+      { "id": "corner-2",  "shape": "rect", "x": 900, "y": 971, "w": 100, "h": 100, "color": "orange", "label": "2" },
+      { "id": "corner-3",  "shape": "rect", "x": 900, "y": 371, "w": 100, "h": 100, "color": "red",    "label": "3" }
+    ],
+    "obstacles": [],
+    "lines": [
+      { "id": "path-n", "x1": 350, "y1":  421, "x2": 350, "y2": 1021, "color": "black", "thickness": 3 },
+      { "id": "path-e", "x1": 350, "y1": 1021, "x2": 950, "y2": 1021, "color": "black", "thickness": 3 },
+      { "id": "path-s", "x1": 950, "y1": 1021, "x2": 950, "y2":  421, "color": "black", "thickness": 3 },
+      { "id": "path-w", "x1": 950, "y1":  421, "x2": 350, "y2":  421, "color": "black", "thickness": 3 }
+    ],
+    "walls": []
+  },
+
+  "steps": [
+    {
+      "id": "step-1",
+      "title": "Go forward 60 cm",
+      "points": 10,
+      "hint": "Create a move_forward(distance_cm) My Block. The wheel circumference is 17.6 cm, so 1 cm = 0.057 rotations. Call move_forward(60) to reach corner 1.",
+      "condition": { "kind": "zone", "subject": "robot", "zone": "corner-1" }
+    },
+    {
+      "id": "step-2",
+      "title": "Turn right 90°, go forward 60 cm",
+      "points": 10,
+      "hint": "Create a rotate(angle) My Block using the Yaw sensor: reset yaw to 0 → start spinning right → wait until yaw > angle → stop motors. Call rotate(90) then move_forward(60).",
+      "requires": ["step-1"],
+      "condition": { "kind": "zone", "subject": "robot", "zone": "corner-2" }
+    },
+    {
+      "id": "step-3",
+      "title": "Turn right 90°, go forward 60 cm",
+      "points": 10,
+      "hint": "rotate(90) then move_forward(60) again!",
+      "requires": ["step-2"],
+      "condition": { "kind": "zone", "subject": "robot", "zone": "corner-3" }
+    },
+    {
+      "id": "step-4",
+      "title": "Turn right 90°, go forward 60 cm — complete the square!",
+      "points": 10,
+      "hint": "One final rotate(90) and move_forward(60) brings you back to Start.",
+      "requires": ["step-3"],
+      "condition": { "kind": "zone", "subject": "robot", "zone": "start" }
+    }
+  ],
+
+  "scoring": { "kind": "step_sum" },
+
+  "modifiers": { "available": [], "defaults": {} }
+}
