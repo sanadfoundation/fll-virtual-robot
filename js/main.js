@@ -223,11 +223,7 @@ function initSim() {
     forceBtn.addEventListener('pointercancel', () => sim.manualRelease());
   }
 
-  // Boot the missions layer. Gated by ?missions=1 — the feature is in
-  // development and stays hidden in production until the query param is
-  // set. The 🎯 header button is hidden in HTML by default; we only
-  // reveal it (and boot the missions layer) when the gate is open.
-  if (window.MISSIONS && window.MISSIONS.isEnabled && window.MISSIONS.isEnabled(window.location)) {
+  if (window.MISSIONS && window.MISSIONS.isEnabled && window.MISSIONS.isEnabled()) {
     const btn = document.getElementById('btn-missions');
     if (btn) btn.hidden = false;
     if (window.MISSIONS.boot) {

@@ -169,19 +169,8 @@
     return Object.assign(app, { engine, ui, _tickOnce });
   }
 
-  // Feature gate: missions UI is hidden in production until the query string
-  // includes ?missions=1. Lets us ship the feature partially without exposing
-  // an incomplete experience to end users.
-  function isEnabled(location) {
-    if (!location || typeof location.search !== 'string') return false;
-    // URLSearchParams is the right tool but we hand-parse to keep this
-    // dependency-free and identically behaved in Node tests.
-    const s = location.search.replace(/^\?/, '');
-    for (const pair of s.split('&')) {
-      const [k, v] = pair.split('=');
-      if (k === 'missions' && v === '1') return true;
-    }
-    return false;
+  function isEnabled() {
+    return true;
   }
 
   MISSIONS.app       = { create, parseHash };
