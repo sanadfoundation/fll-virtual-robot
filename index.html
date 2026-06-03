@@ -420,6 +420,52 @@
       </div>
     </details>
 
+    <details class="editor-modifiers-section" id="editor-modifiers-section">
+      <summary><h4>⚡ Difficulty Modifiers</h4></summary>
+      <div class="editor-section-body">
+        <div class="editor-modifier-group">
+          <label class="editor-modifier-toggle">
+            <input type="checkbox" id="editor-mod-poke-enabled">
+            <span>Poke</span>
+            <span class="editor-modifier-desc">random impulse during run</span>
+          </label>
+          <div class="editor-modifier-fields" id="editor-mod-poke-fields">
+            <label class="editor-field">
+              <span>Interval min (s)</span>
+              <input type="number" id="editor-mod-poke-interval-min" min="1" max="60" value="8">
+            </label>
+            <label class="editor-field">
+              <span>Interval max (s)</span>
+              <input type="number" id="editor-mod-poke-interval-max" min="1" max="60" value="15">
+            </label>
+            <label class="editor-field">
+              <span>Severity</span>
+              <input type="range" id="editor-mod-poke-severity" min="0" max="1" step="0.1" value="0.4">
+              <div class="editor-modifier-range-labels">
+                <span>Barely noticeable</span><span>Clearly off-course</span>
+              </div>
+            </label>
+          </div>
+        </div>
+        <div class="editor-modifier-group">
+          <label class="editor-modifier-toggle">
+            <input type="checkbox" id="editor-mod-friction-enabled">
+            <span>Friction</span>
+            <span class="editor-modifier-desc">global speed multiplier</span>
+          </label>
+          <div class="editor-modifier-fields" id="editor-mod-friction-fields">
+            <label class="editor-field">
+              <span>Multiplier</span>
+              <input type="range" id="editor-mod-friction-multiplier" min="0.3" max="1.5" step="0.05" value="1.0">
+              <div class="editor-modifier-range-labels">
+                <span>Sticky (0.3)</span><span>Slippery (1.5)</span>
+              </div>
+            </label>
+          </div>
+        </div>
+      </div>
+    </details>
+
     <details class="editor-steps-section" id="editor-steps-section" open>
       <summary>
         <h4>
@@ -447,6 +493,7 @@
       <div class="mm-tag" id="mm-tag">▶ MISSION</div>
       <div class="mm-title" id="mm-title">—</div>
       <div class="mm-meta"  id="mm-meta">—</div>
+      <div class="mm-modifiers" id="mm-modifiers"></div>
     </div>
     <div class="mm-score">
       <div>
@@ -525,6 +572,7 @@
 <script src="js/mission_editor_app.js"></script>
   <script src="js/mission_editor_field.js"></script>
   <script src="js/mission_editor_meta.js"></script>
+  <script src="js/mission_editor_modifiers.js"></script>
   <script src="js/mission_editor_steps.js"></script>
   <script src="js/mission_editor_inspector.js"></script>
   <script src="js/mission_editor_conditions.js"></script>

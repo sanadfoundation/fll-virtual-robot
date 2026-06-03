@@ -10,6 +10,7 @@
     const tag         = $('mm-tag');
     const titleEl     = $('mm-title');
     const metaEl      = $('mm-meta');
+    const modsEl      = $('mm-modifiers');
     const scoreCur    = $('mm-score-current');
     const scoreMax    = $('mm-score-max');
     const starsEl     = $('mm-stars');
@@ -32,6 +33,25 @@
 
       titleEl.textContent = mission.title;
       metaEl.textContent  = `${cap(mission.difficulty_tier)} · ${mission.steps.length} ${mission.steps.length === 1 ? 'step' : 'steps'}`;
+
+      // Render modifier badges
+      if (modsEl) {
+        modsEl.innerHTML = '';
+        const mods = mission.modifiers;
+        if (mods && mods.poke && mods.poke.enabled) {
+          const chip = doc.createElement('span');
+          chip.className = 'mm-modifier-badge mm-modifier-poke';
+          chip.textContent = `⚡ Poke · ${mods.poke.severity}`;
+          modsEl.appendChild(chip);
+        }
+        if (mods && mods.friction && mods.friction.enabled) {
+          const chip = doc.createElement('span');
+          chip.className = 'mm-modifier-badge mm-modifier-friction';
+          chip.textContent = `≈ Friction · ${mods.friction.multiplier}×`;
+          modsEl.appendChild(chip);
+        }
+      }
+
       // Timer is visible only when the mission has a time_limit_s; the
       // elapsed counter is meaningful with or without a limit, but the
       // "Left" column is hidden when there's no limit configured.

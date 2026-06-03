@@ -102,10 +102,21 @@ test('load: validates nested conditions inside all_of / not', () => {
   assert.throws(() => ctx.MISSIONS.loader.load(bad), /unknown zone "orange"/);
 });
 
-test('load: defaults modifiers to {available: [], defaults: {}} when omitted', () => {
+test('load: normalises modifiers to new shape with defaults when omitted', () => {
   const ctx = env();
   const mission = ctx.MISSIONS.loader.load(MINIMAL_MISSION);
-  assert.deepStrictEqual(mission.modifiers, { available: [], defaults: {} });
+  assert.deepStrictEqual(mission.modifiers, {
+    poke: {
+      enabled: false,
+      interval_min_s: 8,
+      interval_max_s: 15,
+      severity: 0.4,
+    },
+    friction: {
+      enabled: false,
+      multiplier: 1.0,
+    },
+  });
 });
 
 test('load: obstacle_course type requires scoring.kind = objective_minus_penalties', () => {

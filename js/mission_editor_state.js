@@ -28,7 +28,10 @@
       },
       steps: [],
       scoring: { kind: 'step_sum' },
-      modifiers: { available: [], defaults: {} },
+      modifiers: {
+        poke:     { enabled: false, interval_min_s: 8, interval_max_s: 15, severity: 0.4 },
+        friction: { enabled: false, multiplier: 1.0 },
+      },
       selection: null,
       dirty: false,
     };
@@ -55,7 +58,10 @@
       },
       steps:    state.steps.map(s => ({ ...s, condition: deepClone(s.condition), requires: s.requires ? s.requires.slice() : undefined })),
       scoring:  { ...state.scoring },
-      modifiers: { available: state.modifiers.available.slice(), defaults: { ...state.modifiers.defaults } },
+      modifiers: {
+        poke:     { ...state.modifiers.poke },
+        friction: { ...state.modifiers.friction },
+      },
       selection: state.selection ? { ...state.selection } : null,
     };
   }
@@ -320,6 +326,15 @@
     return next;
   }
 
+  function setModifiers(state, patch) {
+    const next = dirty(state);
+    next.modifiers = {
+      poke:     { ...next.modifiers.poke,     ...(patch.poke     || {}) },
+      friction: { ...next.modifiers.friction, ...(patch.friction || {}) },
+    };
+    return next;
+  }
+
   function setSelection(state, sel) {
     const next = clone(state);
     next.selection = sel ? { ...sel } : null;
@@ -352,7 +367,10 @@
         condition: deepClone(s.condition),
       })),
       scoring: { ...state.scoring },
-      modifiers: { available: state.modifiers.available.slice(), defaults: { ...state.modifiers.defaults } },
+      modifiers: {
+        poke:     { ...state.modifiers.poke },
+        friction: { ...state.modifiers.friction },
+      },
     };
   }
 
@@ -389,8 +407,14 @@
     }));
     state.scoring   = { ...mission.scoring };
     state.modifiers = mission.modifiers
-      ? { available: mission.modifiers.available.slice(), defaults: { ...mission.modifiers.defaults } }
-      : { available: [], defaults: {} };
+      ? {
+          poke:     { ...mission.modifiers.poke },
+          friction: { ...mission.modifiers.friction },
+        }
+      : {
+          poke:     { enabled: false, interval_min_s: 8, interval_max_s: 15, severity: 0.4 },
+          friction: { enabled: false, multiplier: 1.0 },
+        };
     state.selection = null;
     state.dirty     = false;
     return state;
@@ -402,7 +426,7 @@
     addZone, moveZone, resizeZone, deleteZone,
     addLine, moveLineEndpoint, setLineProps, deleteLine,
     addWall, moveWall, resizeWall, deleteWall,
-    setRobotStart, setSelection, setMeta,
+    setRobotStart, setSelection, setMeta, setModifiers,
     setObstacleLabel, setZoneLabel, setZoneColor, setObstacleColor, setWallColor,
     addStep, editStep, deleteStep, reorderStep,
     serializeToMission, loadFromMission, validate,

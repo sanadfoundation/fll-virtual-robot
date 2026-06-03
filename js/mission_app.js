@@ -69,6 +69,9 @@
     if (MISSIONS.editor && MISSIONS.editor.meta && MISSIONS.editor.meta.attach) {
       MISSIONS.editor.meta.attach(app, doc);
     }
+    if (MISSIONS.editor && MISSIONS.editor.modifiers && MISSIONS.editor.modifiers.attach) {
+      MISSIONS.editor.modifiers.attach(app, doc);
+    }
     if (MISSIONS.editor && MISSIONS.editor.steps && MISSIONS.editor.steps.attach) {
       MISSIONS.editor.steps.attach(app, doc);
     }
@@ -123,18 +126,28 @@
                          mission.field.robot_start.heading);
         }
         engine.load(mission);
+        if (sim && typeof sim.setFrictionMultiplier === 'function') {
+          const mods = mission.modifiers;
+          sim.setFrictionMultiplier(mods && mods.friction && mods.friction.enabled ? mods.friction.multiplier : 1.0);
+        }
         ui.render(mission, engine);
       } else if (mode === 'sandbox') {
         if (sim && typeof sim.restoreDefaultField === 'function') {
           sim.restoreDefaultField();
         }
         engine.reset();
+        if (sim && typeof sim.setFrictionMultiplier === 'function') {
+          sim.setFrictionMultiplier(1.0);
+        }
         ui.render(null, null);
       } else if (mode === 'editor') {
         // Editor mode hides the sim field via CSS-driven suppression
         // (body[data-mode="editor"] in _drawField). Sim state stays as-is;
         // any pending engine progress is cleared.
         engine.reset();
+        if (sim && typeof sim.setFrictionMultiplier === 'function') {
+          sim.setFrictionMultiplier(1.0);
+        }
         ui.render(null, null);
       }
     });
@@ -161,7 +174,7 @@
       if (app.mode !== 'play') return;
       const snap = sim.getStateSnapshot();
       const now = Date.now();
-      engine.tick(snap, now);
+      engine.tick(snap, now, sim);
       ui.updateProgress(engine);
       if (typeof ui.updateTimer === 'function') ui.updateTimer(engine, now);
     }

@@ -193,6 +193,25 @@
       authorEl.textContent = `${mission.author || '—'} · ${stepCount} step${stepCount === 1 ? '' : 's'} · ${totalPts} pts`;
       meta.appendChild(authorEl);
 
+      const mods = mission.modifiers;
+      if (mods && (mods.poke && mods.poke.enabled || mods.friction && mods.friction.enabled)) {
+        const modsRow = doc.createElement('div');
+        modsRow.classList.add('library-card-modifiers');
+        if (mods.poke && mods.poke.enabled) {
+          const chip = doc.createElement('span');
+          chip.classList.add('library-card-mod-badge', 'mod-poke');
+          chip.textContent = `⚡ Poke · ${mods.poke.severity}`;
+          modsRow.appendChild(chip);
+        }
+        if (mods.friction && mods.friction.enabled) {
+          const chip = doc.createElement('span');
+          chip.classList.add('library-card-mod-badge', 'mod-friction');
+          chip.textContent = `≈ Friction · ${mods.friction.multiplier}×`;
+          modsRow.appendChild(chip);
+        }
+        meta.appendChild(modsRow);
+      }
+
       // Stars
       const stars = doc.createElement('div');
       stars.classList.add('library-card-stars');

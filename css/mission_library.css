@@ -264,6 +264,23 @@
   color: var(--amber);
   text-shadow: 0 0 6px rgba(251,191,36,0.4);
 }
+.library-card-modifiers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.library-card-mod-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+  letter-spacing: 0.03em;
+}
+.library-card-mod-badge.mod-poke    { background: rgba(203,166,247,0.12); border: 1px solid #cba6f7; color: #cba6f7; }
+.library-card-mod-badge.mod-friction { background: rgba(137,180,250,0.12); border: 1px solid #89b4fa; color: #89b4fa; }
+
 .library-card-actions {
   display: flex;
   gap: 5px;

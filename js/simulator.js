@@ -308,6 +308,8 @@ class RobotSimulator {
     // is loaded. restoreDefaultField() resets it.
     this._fieldObjects = FIELD_OBJECTS;
     this._walls = [];  // mission-specific static walls (Box2D bodies)
+    this._frictionMultiplier = 1.0;
+    this._pokeFlashUntilMs   = 0;
     this._physicsReady = this._initPhysics();
 
     this._scale = 1;
@@ -460,6 +462,9 @@ class RobotSimulator {
     if (this._manualStartMs !== null || this._emaN > 0.001) {
       this._dirty = true;
     }
+    if (this._pokeFlashUntilMs && Date.now() < this._pokeFlashUntilMs) {
+      this._dirty = true;
+    }
     if (this._dirty) {
       this._draw();
       this._dirty = false;
@@ -469,7 +474,7 @@ class RobotSimulator {
         window.missionApp.engine.startTimeMs != null) {
       const snap = this.getStateSnapshot();
       const now  = Date.now();
-      window.missionApp.engine.tick(snap, now);
+      window.missionApp.engine.tick(snap, now, this);
       window.missionApp.ui.updateProgress(window.missionApp.engine);
       if (typeof window.missionApp.ui.updateTimer === 'function') {
         window.missionApp.ui.updateTimer(window.missionApp.engine, now);
@@ -491,6 +496,19 @@ class RobotSimulator {
     this._drawObstacles(ctx, s);
     this._drawWalls(ctx, s);
     this._drawRobot(ctx, s);
+    if (Date.now() < this._pokeFlashUntilMs) {
+      const cx = this.robot.x * s;
+      const cy = (FIELD_H_MM - this.robot.y) * s;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(203, 166, 247, 0.85)';
+      ctx.lineWidth   = 4;
+      ctx.shadowColor = '#cba6f7';
+      ctx.shadowBlur  = 12;
+      ctx.beginPath();
+      ctx.arc(cx, cy, (ROBOT_BODY_H / 2 + 8) * s, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
     this._drawDistanceSensorRay(ctx, s);
     this._updateSensorPanel();
   }
@@ -1170,6 +1188,8 @@ class RobotSimulator {
   async reset() {
     this.stop();
     this.robot   = makeRobotState();
+    this._frictionMultiplier = 1.0;
+    this._pokeFlashUntilMs   = 0;
     this.trail   = [{ x: this.robot.x, y: this.robot.y }];
     this.pairMap = {};
     this._stopRequested = false;
@@ -1582,7 +1602,8 @@ class RobotSimulator {
         leftV, rightV, angle, SPEED_MM_S, TRACK_W_MM,
       );
 
-      this.physics.setKinematicVelocity(this.robotBody, v.vx, v.vy, v.angVel);
+      const f = this._frictionMultiplier;
+      this.physics.setKinematicVelocity(this.robotBody, v.vx * f, v.vy * f, v.angVel * f);
       const stepResult = this.physics.step(physDt_s);
       const impulseJ   = (stepResult && stepResult.force_impulses && stepResult.force_impulses.C) || 0;
       this._applyForceImpulse(impulseJ, physDt_s, impulseJ > 0);
@@ -2182,6 +2203,32 @@ class RobotSimulator {
 
   _sleep(ms) {
     return new Promise(r => setTimeout(r, Math.max(0, ms)));
+  }
+
+  setFrictionMultiplier(f) {
+    this._frictionMultiplier = (typeof f === 'number' && Number.isFinite(f)) ? f : 1.0;
+  }
+
+  applyPoke(dx, dy, dHeading) {
+    if (!this.isRunning) return;
+    const newX          = this.robot.x + dx;
+    const newY          = this.robot.y + dy;
+    const newHeadingDeg = this.robot.heading + dHeading;
+    const newAngleRad   = newHeadingDeg * Math.PI / 180;
+    const clamped = window.kinematics.clampRobotPose(
+      { x: newX, y: newY, angle: newAngleRad },
+      { bodyW: ROBOT_BODY_W, bodyH: ROBOT_BODY_H, bumperDepth: BUMPER_DEPTH_MM,
+        fieldW: FIELD_W_MM, fieldH: FIELD_H_MM,
+        walls: (this._walls || []).map(w => w.cfg) },
+    );
+    this.robot.x       = clamped.x;
+    this.robot.y       = clamped.y;
+    this.robot.heading = newHeadingDeg;
+    if (this.physics && this.robotBody) {
+      this.physics.setKinematicPose(this.robotBody, clamped.x, clamped.y, newAngleRad);
+    }
+    this._pokeFlashUntilMs = Date.now() + 300;
+    this._dirty = true;
   }
 
   _setStatus(state) {

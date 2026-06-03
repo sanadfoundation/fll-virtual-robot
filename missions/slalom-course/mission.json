@@ -32,5 +32,8 @@
     "per_second_over": 2
   },
 
-  "modifiers": { "available": [], "defaults": {} }
+  "modifiers": {
+    "poke":     { "enabled": false, "interval_min_s": 8, "interval_max_s": 15, "severity": 0.4 },
+    "friction": { "enabled": false, "multiplier": 1.0 }
+  }
 }
