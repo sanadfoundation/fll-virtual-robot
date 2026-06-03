@@ -173,6 +173,12 @@ function makeEditorDoc(idsExtra = []) {
     // metadata
     'editor-meta-section', 'editor-meta-desc', 'editor-meta-difficulty', 'editor-meta-type',
     'editor-meta-time-limit',
+    // modifiers
+    'editor-mod-poke-enabled', 'editor-mod-poke-interval-min',
+    'editor-mod-poke-interval-max', 'editor-mod-poke-severity',
+    'editor-mod-friction-enabled', 'editor-mod-friction-multiplier',
+    // mission map
+    'mm-modifiers',
     // steps
     'editor-steps-section', 'editor-steps-list', 'btn-add-step',
     // conditions

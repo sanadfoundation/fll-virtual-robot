@@ -69,6 +69,9 @@
     if (MISSIONS.editor && MISSIONS.editor.meta && MISSIONS.editor.meta.attach) {
       MISSIONS.editor.meta.attach(app, doc);
     }
+    if (MISSIONS.editor && MISSIONS.editor.modifiers && MISSIONS.editor.modifiers.attach) {
+      MISSIONS.editor.modifiers.attach(app, doc);
+    }
     if (MISSIONS.editor && MISSIONS.editor.steps && MISSIONS.editor.steps.attach) {
       MISSIONS.editor.steps.attach(app, doc);
     }
