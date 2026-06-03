@@ -2206,7 +2206,7 @@ class RobotSimulator {
     );
     this.robot.x       = clamped.x;
     this.robot.y       = clamped.y;
-    this.robot.heading = newHeadingDeg % 360;
+    this.robot.heading = newHeadingDeg;
     if (this.physics && this.robotBody) {
       this.physics.setKinematicPose(this.robotBody, clamped.x, clamped.y, newAngleRad);
     }

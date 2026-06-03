@@ -81,10 +81,12 @@ test('simulator: applyPoke syncs Box2D pose', () => {
   assert.strictEqual(poses[0].y, 500);
 });
 
-test('simulator: reset clears _frictionMultiplier to 1.0', () => {
+test('simulator: reset clears _frictionMultiplier to 1.0 and _pokeFlashUntilMs to 0', () => {
   const sim = createSim();
   withStubbedPhysics(sim);
   sim.setFrictionMultiplier(0.5);
+  sim.applyPoke(0, 0, 0);            // sets _pokeFlashUntilMs
   sim.reset();
   assert.strictEqual(sim._frictionMultiplier, 1.0);
+  assert.strictEqual(sim._pokeFlashUntilMs, 0);
 });
