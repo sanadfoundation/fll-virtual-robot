@@ -39,6 +39,23 @@
   font-weight: 500;
   margin-top: 3px;
 }
+.mm-modifiers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+.mm-modifier-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  letter-spacing: 0.03em;
+}
+.mm-modifier-poke    { background: rgba(203,166,247,0.12); border: 1px solid #cba6f7; color: #cba6f7; }
+.mm-modifier-friction { background: rgba(137,180,250,0.12); border: 1px solid #89b4fa; color: #89b4fa; }
 
 .mm-score {
   display: flex;
