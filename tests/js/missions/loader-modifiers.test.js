@@ -1,56 +1,136 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
+'use strict';
 
-// mission_loader.js exports nothing we can import cleanly, so we test
-// the shape produced by the normaliser via a minimal inline reimplementation
-// that mirrors _normaliseModifiers exactly. This is intentional: the test
-// documents the contract, not the implementation file internals.
+const test   = require('node:test');
+const assert = require('node:assert');
+const { makeMissionsEnv } = require('../mocks/missions-env');
 
-function normaliseModifiers(raw) {
-  const m = (raw && typeof raw === 'object' && !Array.isArray(raw)) ? raw : {};
-  const p = (m.poke && typeof m.poke === 'object') ? m.poke : {};
-  const f = (m.friction && typeof m.friction === 'object') ? m.friction : {};
-  return {
-    poke: {
-      enabled:          !!(p.enabled),
-      interval_min_s:   typeof p.interval_min_s === 'number' ? p.interval_min_s : 8,
-      interval_max_s:   typeof p.interval_max_s === 'number' ? p.interval_max_s : 15,
-      severity:         typeof p.severity        === 'number' ? p.severity        : 0.4,
-    },
-    friction: {
-      enabled:    !!(f.enabled),
-      multiplier: typeof f.multiplier === 'number' ? f.multiplier : 1.0,
-    },
-  };
+function env() {
+  return makeMissionsEnv(['mission_schema', 'mission_loader']).ctx;
 }
 
-describe('_normaliseModifiers', () => {
-  it('converts old stub shape to new shape with defaults', () => {
-    const result = normaliseModifiers({ available: [], defaults: {} });
-    assert.deepEqual(result, {
-      poke:     { enabled: false, interval_min_s: 8, interval_max_s: 15, severity: 0.4 },
-      friction: { enabled: false, multiplier: 1.0 },
-    });
+const MINIMAL_MISSION = {
+  schema_version: 1,
+  id: 'm1',
+  title: 'M1',
+  type: 'mission',
+  difficulty_tier: 'beginner',
+  field: {
+    robot_start: { x: 350, y: 163, heading: 90 },
+    zones:     [{ id: 'red', shape: 'rect', x: 100, y: 100, w: 50, h: 50, color: 'red' }],
+    obstacles: [{ id: '1',  shape: 'rect', x: 200, y: 200, w: 50, h: 50, label: '1' }],
+  },
+  steps: [
+    {
+      id: 'reach',
+      title: 'Reach the red zone',
+      points: 10,
+      condition: { kind: 'zone', subject: 'robot', zone: 'red' },
+    },
+  ],
+  scoring: { kind: 'step_sum' },
+};
+
+test('modifiers: old stub shape normalises to defaults', () => {
+  const ctx = env();
+  const mission = ctx.MISSIONS.loader.load({
+    ...MINIMAL_MISSION,
+    modifiers: { available: [], defaults: {} },
+  });
+  assert.deepStrictEqual(mission.modifiers, {
+    poke: {
+      enabled: false,
+      interval_min_s: 8,
+      interval_max_s: 15,
+      severity: 0.4,
+    },
+    friction: {
+      enabled: false,
+      multiplier: 1.0,
+    },
+  });
+});
+
+test('modifiers: full new shape is preserved', () => {
+  const ctx = env();
+  const mission = ctx.MISSIONS.loader.load({
+    ...MINIMAL_MISSION,
+    modifiers: {
+      poke: {
+        enabled: true,
+        interval_min_s: 5,
+        interval_max_s: 12,
+        severity: 0.7,
+      },
+      friction: {
+        enabled: true,
+        multiplier: 0.8,
+      },
+    },
+  });
+  assert.deepStrictEqual(mission.modifiers, {
+    poke: {
+      enabled: true,
+      interval_min_s: 5,
+      interval_max_s: 12,
+      severity: 0.7,
+    },
+    friction: {
+      enabled: true,
+      multiplier: 0.8,
+    },
+  });
+});
+
+test('modifiers: missing/null modifiers normalise to defaults', () => {
+  const ctx = env();
+  // Test 1: modifiers key completely omitted
+  const mission1 = ctx.MISSIONS.loader.load(MINIMAL_MISSION);
+  assert.deepStrictEqual(mission1.modifiers, {
+    poke: {
+      enabled: false,
+      interval_min_s: 8,
+      interval_max_s: 15,
+      severity: 0.4,
+    },
+    friction: {
+      enabled: false,
+      multiplier: 1.0,
+    },
   });
 
-  it('preserves explicit poke and friction values', () => {
-    const result = normaliseModifiers({
-      poke:     { enabled: true, interval_min_s: 5, interval_max_s: 12, severity: 0.7 },
-      friction: { enabled: true, multiplier: 0.8 },
-    });
-    assert.deepEqual(result, {
-      poke:     { enabled: true, interval_min_s: 5, interval_max_s: 12, severity: 0.7 },
-      friction: { enabled: true, multiplier: 0.8 },
-    });
+  // Test 2: modifiers is null
+  const mission2 = ctx.MISSIONS.loader.load({
+    ...MINIMAL_MISSION,
+    modifiers: null,
+  });
+  assert.deepStrictEqual(mission2.modifiers, {
+    poke: {
+      enabled: false,
+      interval_min_s: 8,
+      interval_max_s: 15,
+      severity: 0.4,
+    },
+    friction: {
+      enabled: false,
+      multiplier: 1.0,
+    },
   });
 
-  it('handles null/undefined/missing modifiers', () => {
-    for (const raw of [null, undefined, 'string', 42]) {
-      const result = normaliseModifiers(raw);
-      assert.deepEqual(result, {
-        poke:     { enabled: false, interval_min_s: 8, interval_max_s: 15, severity: 0.4 },
-        friction: { enabled: false, multiplier: 1.0 },
-      });
-    }
+  // Test 3: modifiers is undefined
+  const mission3 = ctx.MISSIONS.loader.load({
+    ...MINIMAL_MISSION,
+    modifiers: undefined,
+  });
+  assert.deepStrictEqual(mission3.modifiers, {
+    poke: {
+      enabled: false,
+      interval_min_s: 8,
+      interval_max_s: 15,
+      severity: 0.4,
+    },
+    friction: {
+      enabled: false,
+      multiplier: 1.0,
+    },
   });
 });
