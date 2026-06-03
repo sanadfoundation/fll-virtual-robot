@@ -308,6 +308,8 @@ class RobotSimulator {
     // is loaded. restoreDefaultField() resets it.
     this._fieldObjects = FIELD_OBJECTS;
     this._walls = [];  // mission-specific static walls (Box2D bodies)
+    this._frictionMultiplier = 1.0;
+    this._pokeFlashUntilMs   = 0;
     this._physicsReady = this._initPhysics();
 
     this._scale = 1;
@@ -1170,6 +1172,8 @@ class RobotSimulator {
   async reset() {
     this.stop();
     this.robot   = makeRobotState();
+    this._frictionMultiplier = 1.0;
+    this._pokeFlashUntilMs   = 0;
     this.trail   = [{ x: this.robot.x, y: this.robot.y }];
     this.pairMap = {};
     this._stopRequested = false;
@@ -2182,6 +2186,32 @@ class RobotSimulator {
 
   _sleep(ms) {
     return new Promise(r => setTimeout(r, Math.max(0, ms)));
+  }
+
+  setFrictionMultiplier(f) {
+    this._frictionMultiplier = (typeof f === 'number' && Number.isFinite(f)) ? f : 1.0;
+  }
+
+  applyPoke(dx, dy, dHeading) {
+    if (!this.isRunning) return;
+    const newX          = this.robot.x + dx;
+    const newY          = this.robot.y + dy;
+    const newHeadingDeg = this.robot.heading + dHeading;
+    const newAngleRad   = newHeadingDeg * Math.PI / 180;
+    const clamped = window.kinematics.clampRobotPose(
+      { x: newX, y: newY, angle: newAngleRad },
+      { bodyW: ROBOT_BODY_W, bodyH: ROBOT_BODY_H, bumperDepth: BUMPER_DEPTH_MM,
+        fieldW: FIELD_W_MM, fieldH: FIELD_H_MM,
+        walls: (this._walls || []).map(w => w.cfg) },
+    );
+    this.robot.x       = clamped.x;
+    this.robot.y       = clamped.y;
+    this.robot.heading = newHeadingDeg % 360;
+    if (this.physics && this.robotBody) {
+      this.physics.setKinematicPose(this.robotBody, clamped.x, clamped.y, newAngleRad);
+    }
+    this._pokeFlashUntilMs = Date.now() + 300;
+    this._dirty = true;
   }
 
   _setStatus(state) {
