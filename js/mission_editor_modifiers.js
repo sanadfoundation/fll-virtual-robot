@@ -6,12 +6,14 @@
   function attach(app, doc) {
     const $ = (id) => doc.getElementById(id);
 
-    const pokeEnabled     = $('editor-mod-poke-enabled');
-    const pokeMin         = $('editor-mod-poke-interval-min');
-    const pokeMax         = $('editor-mod-poke-interval-max');
-    const pokeSeverity    = $('editor-mod-poke-severity');
-    const frictionEnabled = $('editor-mod-friction-enabled');
-    const frictionMult    = $('editor-mod-friction-multiplier');
+    const pokeEnabled      = $('editor-mod-poke-enabled');
+    const pokeMin          = $('editor-mod-poke-interval-min');
+    const pokeMax          = $('editor-mod-poke-interval-max');
+    const pokeSeverity     = $('editor-mod-poke-severity');
+    const pokeSeverityVal  = $('editor-mod-poke-severity-val');
+    const frictionEnabled  = $('editor-mod-friction-enabled');
+    const frictionMult     = $('editor-mod-friction-multiplier');
+    const frictionMultVal  = $('editor-mod-friction-multiplier-val');
 
     function patchPoke(patch) {
       if (app.mode !== 'editor' || !app.editorState) return;
@@ -28,9 +30,9 @@
     if (pokeEnabled)     pokeEnabled    .addEventListener('change', (e) => patchPoke({ enabled: e.target.checked }));
     if (pokeMin)         pokeMin        .addEventListener('input',  (e) => patchPoke({ interval_min_s: parseFloat(e.target.value) || 1 }));
     if (pokeMax)         pokeMax        .addEventListener('input',  (e) => patchPoke({ interval_max_s: parseFloat(e.target.value) || 1 }));
-    if (pokeSeverity)    pokeSeverity   .addEventListener('input',  (e) => patchPoke({ severity: parseFloat(e.target.value) }));
+    if (pokeSeverity)    pokeSeverity   .addEventListener('input',  (e) => { if (pokeSeverityVal) pokeSeverityVal.value = e.target.value; patchPoke({ severity: parseFloat(e.target.value) }); });
     if (frictionEnabled) frictionEnabled.addEventListener('change', (e) => patchFriction({ enabled: e.target.checked }));
-    if (frictionMult)    frictionMult   .addEventListener('input',  (e) => patchFriction({ multiplier: parseFloat(e.target.value) }));
+    if (frictionMult)    frictionMult   .addEventListener('input',  (e) => { if (frictionMultVal) frictionMultVal.value = e.target.value; patchFriction({ multiplier: parseFloat(e.target.value) }); });
 
     app.onChange(({ mode, editorState }) => {
       if (mode !== 'editor' || !editorState) return;
@@ -39,8 +41,10 @@
       if (pokeMin)         pokeMin        .value   = String(mods.poke.interval_min_s);
       if (pokeMax)         pokeMax        .value   = String(mods.poke.interval_max_s);
       if (pokeSeverity)    pokeSeverity   .value   = String(mods.poke.severity);
+      if (pokeSeverityVal) pokeSeverityVal.value   = String(mods.poke.severity);
       if (frictionEnabled) frictionEnabled.checked = mods.friction.enabled;
       if (frictionMult)    frictionMult   .value   = String(mods.friction.multiplier);
+      if (frictionMultVal) frictionMultVal.value   = String(mods.friction.multiplier);
     });
   }
 

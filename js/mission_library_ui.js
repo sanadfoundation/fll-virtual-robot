@@ -200,7 +200,7 @@
         if (mods.poke && mods.poke.enabled) {
           const chip = doc.createElement('span');
           chip.classList.add('library-card-mod-badge', 'mod-poke');
-          chip.textContent = `⚡ Poke · ${mods.poke.severity}`;
+          chip.textContent = `👉 Poke · ${mods.poke.severity}`;
           modsRow.appendChild(chip);
         }
         if (mods.friction && mods.friction.enabled) {
