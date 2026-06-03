@@ -1391,7 +1391,7 @@ function registerGenerators(Blockly) {
 
   js['flippermove_movementSpeed'] = (block) => {
     const speed = val(block, 'SPEED', '50');
-    return `_moveSpeed = ${speed};\n`;
+    return `_moveSpeed = Math.max(-100, Math.min(100, ${speed}));\n`;
   };
 
   js['flippermove_setMovementPair'] = (block) => {
