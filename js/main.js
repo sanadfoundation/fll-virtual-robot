@@ -500,6 +500,13 @@ function handleReset() {
   // Elapsed/Left timers stay frozen at the previous run's stop value.
   if (window.missionApp && window.missionApp.engine && window.missionApp.mode === 'play') {
     window.missionApp.engine.reset();
+    // sim.reset() cleared _frictionMultiplier back to 1.0; restore the
+    // mission's configured value so the modifier still applies on the next run.
+    const activeMission = window.missionApp.mission;
+    if (activeMission && typeof sim.setFrictionMultiplier === 'function') {
+      const mods = activeMission.modifiers;
+      sim.setFrictionMultiplier(mods && mods.friction && mods.friction.enabled ? mods.friction.multiplier : 1.0);
+    }
     if (window.missionApp.ui) {
       window.missionApp.ui.updateProgress(window.missionApp.engine);
       if (typeof window.missionApp.ui.updateTimer === 'function') {

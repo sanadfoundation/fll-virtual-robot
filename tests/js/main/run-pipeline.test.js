@@ -236,3 +236,41 @@ test('handleReset: when idle, does not poison _stopRequested', () => {
 
   assert.strictEqual(window.sim._stopRequested, false);
 });
+
+test('handleReset: re-applies mission friction multiplier to sim after reset (enabled)', () => {
+  const { context, window } = makeMainEnv();
+  context.initSim();
+  window.sim.reset = () => {};
+  const frictionCalls = [];
+  window.sim.setFrictionMultiplier = (v) => { frictionCalls.push(v); };
+
+  window.missionApp = {
+    mode:    'play',
+    mission: { modifiers: { friction: { enabled: true, multiplier: 0.5 }, poke: { enabled: false } } },
+    engine:  { reset: () => {} },
+    ui:      { updateProgress: () => {}, updateTimer: () => {} },
+  };
+
+  context.handleReset();
+
+  assert.deepStrictEqual(frictionCalls, [0.5]);
+});
+
+test('handleReset: restores friction to 1.0 when modifier is disabled', () => {
+  const { context, window } = makeMainEnv();
+  context.initSim();
+  window.sim.reset = () => {};
+  const frictionCalls = [];
+  window.sim.setFrictionMultiplier = (v) => { frictionCalls.push(v); };
+
+  window.missionApp = {
+    mode:    'play',
+    mission: { modifiers: { friction: { enabled: false, multiplier: 0.5 }, poke: { enabled: false } } },
+    engine:  { reset: () => {} },
+    ui:      { updateProgress: () => {}, updateTimer: () => {} },
+  };
+
+  context.handleReset();
+
+  assert.deepStrictEqual(frictionCalls, [1.0]);
+});

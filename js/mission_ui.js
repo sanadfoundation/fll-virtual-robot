@@ -41,7 +41,7 @@
         if (mods && mods.poke && mods.poke.enabled) {
           const chip = doc.createElement('span');
           chip.className = 'mm-modifier-badge mm-modifier-poke';
-          chip.textContent = `⚡ Poke · ${mods.poke.severity}`;
+          chip.textContent = `👉 Poke · ${mods.poke.severity}`;
           modsEl.appendChild(chip);
         }
         if (mods && mods.friction && mods.friction.enabled) {
