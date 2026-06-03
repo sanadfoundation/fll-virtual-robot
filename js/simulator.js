@@ -462,6 +462,9 @@ class RobotSimulator {
     if (this._manualStartMs !== null || this._emaN > 0.001) {
       this._dirty = true;
     }
+    if (this._pokeFlashUntilMs && Date.now() < this._pokeFlashUntilMs) {
+      this._dirty = true;
+    }
     if (this._dirty) {
       this._draw();
       this._dirty = false;
@@ -493,6 +496,19 @@ class RobotSimulator {
     this._drawObstacles(ctx, s);
     this._drawWalls(ctx, s);
     this._drawRobot(ctx, s);
+    if (Date.now() < this._pokeFlashUntilMs) {
+      const cx = this.robot.x * s;
+      const cy = (FIELD_H_MM - this.robot.y) * s;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(203, 166, 247, 0.85)';
+      ctx.lineWidth   = 4;
+      ctx.shadowColor = '#cba6f7';
+      ctx.shadowBlur  = 12;
+      ctx.beginPath();
+      ctx.arc(cx, cy, (ROBOT_BODY_H / 2 + 8) * s, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
     this._drawDistanceSensorRay(ctx, s);
     this._updateSensorPanel();
   }
@@ -1586,7 +1602,8 @@ class RobotSimulator {
         leftV, rightV, angle, SPEED_MM_S, TRACK_W_MM,
       );
 
-      this.physics.setKinematicVelocity(this.robotBody, v.vx, v.vy, v.angVel);
+      const f = this._frictionMultiplier;
+      this.physics.setKinematicVelocity(this.robotBody, v.vx * f, v.vy * f, v.angVel * f);
       const stepResult = this.physics.step(physDt_s);
       const impulseJ   = (stepResult && stepResult.force_impulses && stepResult.force_impulses.C) || 0;
       this._applyForceImpulse(impulseJ, physDt_s, impulseJ > 0);
