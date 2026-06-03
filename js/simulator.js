@@ -474,7 +474,7 @@ class RobotSimulator {
         window.missionApp.engine.startTimeMs != null) {
       const snap = this.getStateSnapshot();
       const now  = Date.now();
-      window.missionApp.engine.tick(snap, now);
+      window.missionApp.engine.tick(snap, now, this);
       window.missionApp.ui.updateProgress(window.missionApp.engine);
       if (typeof window.missionApp.ui.updateTimer === 'function') {
         window.missionApp.ui.updateTimer(window.missionApp.engine, now);

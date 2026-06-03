@@ -161,7 +161,7 @@
       if (app.mode !== 'play') return;
       const snap = sim.getStateSnapshot();
       const now = Date.now();
-      engine.tick(snap, now);
+      engine.tick(snap, now, sim);
       ui.updateProgress(engine);
       if (typeof ui.updateTimer === 'function') ui.updateTimer(engine, now);
     }

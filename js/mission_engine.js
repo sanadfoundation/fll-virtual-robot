@@ -3,6 +3,10 @@
   const MISSIONS = (global.MISSIONS = global.MISSIONS || {});
   if (!MISSIONS.conditions) throw new Error('mission_engine requires mission_conditions');
 
+  function _randomIntervalMs(minS, maxS) {
+    return (minS + Math.random() * (maxS - minS)) * 1000;
+  }
+
   class ChallengeEngine {
     constructor() {
       this.mission       = null;
@@ -10,6 +14,8 @@
       this.startTimeMs   = null;
       this.firstContact  = {};
       this._zonesById    = {};
+      this._nextPokeMs   = null;
+      this._mods         = null;
     }
 
     load(mission) {
@@ -19,15 +25,20 @@
       this.firstContact  = {};
       this._zonesById    = {};
       this._goalReached  = false;
+      this._mods         = mission.modifiers || null;
+      this._nextPokeMs   = null;
       for (const z of (mission.field.zones || [])) { this._zonesById[z.id] = z; }
       return this.progress;
     }
 
     start(nowMs) {
       this.startTimeMs = nowMs;
+      if (this._mods && this._mods.poke.enabled) {
+        this._nextPokeMs = nowMs + _randomIntervalMs(this._mods.poke.interval_min_s, this._mods.poke.interval_max_s);
+      }
     }
 
-    tick(simSnap, nowMs) {
+    tick(simSnap, nowMs, sim) {
       const completed = [];
       if (this.startTimeMs == null || !this.progress || this.progress.finalized) return completed;
 
@@ -43,6 +54,18 @@
       }
 
       const snap = this._snapshotFor(simSnap);
+
+      const mods = this._mods;
+      if (mods && mods.poke.enabled && this._nextPokeMs !== null && nowMs >= this._nextPokeMs && sim) {
+        const perpAngleRad = (snap.robot.heading + 90) * Math.PI / 180;
+        const signPos = Math.random() < 0.5 ? 1 : -1;
+        const signHdg = Math.random() < 0.5 ? 1 : -1;
+        const dx = Math.cos(perpAngleRad) * signPos * mods.poke.severity * 30;
+        const dy = Math.sin(perpAngleRad) * signPos * mods.poke.severity * 30;
+        const dH = signHdg * mods.poke.severity * 20;
+        sim.applyPoke(dx, dy, dH);
+        this._nextPokeMs = nowMs + _randomIntervalMs(mods.poke.interval_min_s, mods.poke.interval_max_s);
+      }
 
       if (this.mission.type === 'obstacle_course' && this.mission.scoring.goal_zone) {
         const cond = { kind: 'zone', subject: 'robot', zone: this.mission.scoring.goal_zone };
