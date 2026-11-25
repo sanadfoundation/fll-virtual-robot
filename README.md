@@ -197,4 +197,4 @@ This means sensor reads (`color_sensor.color()`, `distance_sensor.distance()`) r
 
 ## License
 
-TBD
+[MIT](LICENSE) © 2026 Sanad Foundation
