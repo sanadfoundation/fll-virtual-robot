@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "Test-only dependencies for the FLL Virtual Robot simulator. Production code has no build step and pulls deps from CDN; this package.json exists solely for Node-side test harnesses.",
+  "license": "MIT",
   "scripts": {
     "test:js": "node --test \"tests/js/**/*.test.js\"",
     "test:py": "node tests/py/run-mpy.js",
